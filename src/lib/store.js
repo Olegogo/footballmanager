@@ -88,12 +88,75 @@ function sanitizePosition(position) {
   return POSITION_OPTIONS.includes(position) ? position : 'CM';
 }
 
+function isGameEditableBeforeStart(game, now) {
+  if (!game) {
+    return false;
+  }
+
+  if (game.ratingsOpenedAt) {
+    return false;
+  }
+
+  return new Date(game.scheduledAt) > now;
+}
+
+function isSameAnnouncementSchedule(game, announcement) {
+  return game.date === announcement.date && game.time === announcement.time;
+}
+
+function isSameAnnouncementDay(game, announcement) {
+  return game.date === announcement.date;
+}
+
 function shouldReplaceCurrentGame(currentGame, incomingGame) {
   if (!currentGame) {
     return true;
   }
 
   return new Date(incomingGame.scheduledAt) >= new Date(currentGame.scheduledAt);
+}
+
+function resolveAnnouncementPlayerIds(state, chatId, usernames) {
+  return usernames.map((username) => {
+    let player = findPlayerByUsername(state, username);
+
+    if (!player) {
+      player = createPlayerRecord(state, username);
+    }
+
+    attachPlayerToChat(state, chatId, player.id);
+    return player.id;
+  });
+}
+
+function applyAnnouncementToGame(state, game, {
+  chatId,
+  messageId,
+  rawText,
+  announcement,
+  source,
+  sourceDate,
+  nowIso
+}) {
+  const playerIds = resolveAnnouncementPlayerIds(state, chatId, announcement.playerUsernames);
+
+  game.messageId = messageId;
+  game.rawText = rawText;
+  game.key = announcement.key;
+  game.source = source;
+  game.sourceDate = sourceDate ? toIsoString(sourceDate) : nowIso;
+  game.dateLabel = announcement.dateLabel;
+  game.location = announcement.location;
+  game.time = announcement.time;
+  game.scheduledAt = announcement.scheduledAt;
+  game.date = announcement.date;
+  game.priceLine = announcement.priceLine;
+  game.paymentLines = announcement.paymentLines;
+  game.playerUsernames = announcement.playerUsernames;
+  game.playerIds = playerIds;
+  game.updatedAt = nowIso;
+
+  return game;
 }
 
 function mergeImportedAnnouncements(state, {
@@ -288,17 +351,58 @@ export class AppStore {
     sourceDate = null
   }) {
     return this.mutate((state) => {
+      const effectiveNow = sourceDate ? new Date(sourceDate) : new Date();
+      const now = effectiveNow.toISOString();
       const chat = ensureChatState(state, {
         id: chatId,
         title: chatTitle,
         type: chatType
       });
+      const currentGame = chat.currentGameId ? state.games[chat.currentGameId] : null;
       const existingByMessageId = Object.values(state.games).find(
         (game) => game.chatId === String(chatId) && game.messageId === messageId && messageId !== null
       );
 
       if (existingByMessageId) {
-        return { created: false, game: existingByMessageId };
+        return { created: false, updated: false, game: existingByMessageId };
+      }
+
+      const existingBySchedule = Object.values(state.games).find(
+        (game) => game.chatId === String(chatId) && isSameAnnouncementSchedule(game, announcement)
+      );
+
+      if (existingBySchedule) {
+        if (isGameEditableBeforeStart(existingBySchedule, effectiveNow)) {
+          const game = applyAnnouncementToGame(state, existingBySchedule, {
+            chatId,
+            messageId,
+            rawText,
+            announcement,
+            source,
+            sourceDate,
+            nowIso: now
+          });
+          chat.currentGameId = game.id;
+          chat.updatedAt = now;
+          return { created: false, updated: true, game };
+        }
+
+        return { created: false, updated: false, game: existingBySchedule };
+      }
+
+      if (currentGame && isGameEditableBeforeStart(currentGame, effectiveNow) && isSameAnnouncementDay(currentGame, announcement)) {
+        const game = applyAnnouncementToGame(state, currentGame, {
+          chatId,
+          messageId,
+          rawText,
+          announcement,
+          source,
+          sourceDate,
+          nowIso: now
+        });
+        chat.currentGameId = game.id;
+        chat.updatedAt = now;
+        return { created: false, updated: true, game };
       }
 
       const existingByKey = Object.values(state.games).find(
@@ -306,21 +410,11 @@ export class AppStore {
       );
 
       if (existingByKey) {
-        return { created: false, game: existingByKey };
+        return { created: false, updated: false, game: existingByKey };
       }
 
-      const playerIds = announcement.playerUsernames.map((username) => {
-        let player = findPlayerByUsername(state, username);
-
-        if (!player) {
-          player = createPlayerRecord(state, username);
-        }
-
-        attachPlayerToChat(state, chatId, player.id);
-        return player.id;
-      });
+      const playerIds = resolveAnnouncementPlayerIds(state, chatId, announcement.playerUsernames);
       const gameId = `game_${state.meta.nextGameId++}`;
-      const now = new Date().toISOString();
       const game = {
         id: gameId,
         chatId: String(chatId),
@@ -347,8 +441,6 @@ export class AppStore {
       };
 
       state.games[gameId] = game;
-
-      const currentGame = chat.currentGameId ? state.games[chat.currentGameId] : null;
 
       if (shouldReplaceCurrentGame(currentGame, game)) {
         if (currentGame && currentGame.id !== game.id && !currentGame.closedAt) {
