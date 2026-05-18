@@ -20,7 +20,7 @@ const DATE_REGEX = new RegExp(
   'i'
 );
 const TIME_REGEX = /\b([01]?\d|2[0-3]):([0-5]\d)\b/;
-const PLAYER_LINE_REGEX = /^\s*\d{1,2}\.\s*@([A-Za-z0-9_]{3,32})\b/;
+const PLAYER_LINE_REGEX = /^\s*(?:(?:\d{1,2}\.)|[-•])?\s*@([A-Za-z0-9_]{3,32})\b/;
 
 export function flattenTelegramExportText(text) {
   if (typeof text === 'string') {

@@ -56,3 +56,25 @@ test('parseTelegramExportGames finds only announcement messages', () => {
   assert.equal(games[0].messageId, 2);
   assert.equal(games[0].announcement.location, 'Полежаевская');
 });
+
+test('parseAnnouncementText supports plain username list without numbering', () => {
+  const text = `
+18 мая
+Полежаевская
+19:30
+
+@guttt
+@gutoperchivyi
+@O_legacy
+@username1
+@username2
+@username3
+  `;
+  const parsed = parseAnnouncementText(text, new Date('2026-05-18T10:00:00+04:00'));
+
+  assert.ok(parsed);
+  assert.equal(parsed.location, 'Полежаевская');
+  assert.equal(parsed.time, '19:30');
+  assert.equal(parsed.playerUsernames.length, 6);
+  assert.deepEqual(parsed.playerUsernames.slice(0, 3), ['guttt', 'gutoperchivyi', 'o_legacy']);
+});
