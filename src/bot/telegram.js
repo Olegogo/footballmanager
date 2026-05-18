@@ -15,6 +15,7 @@ export class TelegramBot {
     this.store = store;
     this.offset = 0;
     this.running = false;
+    this.botUsername = '';
   }
 
   get enabled() {
@@ -35,10 +36,38 @@ export class TelegramBot {
     return url.toString();
   }
 
-  buildMiniAppKeyboard(chatId = '') {
-    const url = this.buildMiniAppUrl(chatId);
+  buildMainMiniAppLink() {
+    if (!this.botUsername) {
+      return '';
+    }
 
-    if (!url) {
+    return `https://t.me/${this.botUsername}?startapp`;
+  }
+
+  buildMiniAppKeyboard(chatType = 'private', chatId = '') {
+    const publicUrl = this.buildMiniAppUrl(chatId);
+    const directMiniAppLink = this.buildMainMiniAppLink();
+
+    if (chatType !== 'private') {
+      const url = directMiniAppLink || publicUrl;
+
+      if (!url) {
+        return undefined;
+      }
+
+      return {
+        inline_keyboard: [
+          [
+            {
+              text: 'Открыть миниапп',
+              url
+            }
+          ]
+        ]
+      };
+    }
+
+    if (!publicUrl) {
       return undefined;
     }
 
@@ -48,12 +77,21 @@ export class TelegramBot {
           {
             text: 'Открыть миниапп',
             web_app: {
-              url
+              url: publicUrl
             }
           }
         ]
       ]
     };
+  }
+
+  async ensureBotProfile() {
+    if (!this.enabled || this.botUsername) {
+      return;
+    }
+
+    const me = await this.callApi('getMe');
+    this.botUsername = me?.username ?? '';
   }
 
   async callApi(method, payload = {}) {
@@ -129,21 +167,27 @@ export class TelegramBot {
         'Важно: отключите Privacy Mode у бота через BotFather, чтобы он видел сообщения с анонсами игр.'
       ];
       await this.sendText(chatId, lines.join('\n'), {
-        replyMarkup: this.buildMiniAppKeyboard(targetChatId)
+        replyMarkup: this.buildMiniAppKeyboard(message.chat.type, targetChatId)
       });
       return;
     }
 
     if (command === '/open') {
       const url = this.buildMiniAppUrl(targetChatId);
+      const directMiniAppLink = this.buildMainMiniAppLink();
 
-      if (!url) {
+      if (!url && !directMiniAppLink) {
         await this.sendText(chatId, 'Сначала укажите PUBLIC_BASE_URL, чтобы miniapp можно было открыть из Telegram.');
         return;
       }
 
-      await this.sendText(chatId, 'Miniapp готов. Открывайте по кнопке ниже.', {
-        replyMarkup: this.buildMiniAppKeyboard(targetChatId)
+      const helpLine =
+        message.chat.type === 'private'
+          ? 'Miniapp готов. Открывайте по кнопке ниже.'
+          : 'Miniapp готов. В группе Telegram откроет его по безопасной ссылке ниже.';
+
+      await this.sendText(chatId, helpLine, {
+        replyMarkup: this.buildMiniAppKeyboard(message.chat.type, targetChatId)
       });
       return;
     }
@@ -243,6 +287,7 @@ export class TelegramBot {
     this.running = true;
 
     try {
+      await this.ensureBotProfile();
       await this.callApi('deleteWebhook', { drop_pending_updates: false });
     } catch (error) {
       console.error('Unable to delete webhook before polling:', error.message);
@@ -284,7 +329,7 @@ export class TelegramBot {
           game.chatId,
           'Оцените игроков. В этом сообщении можно открыть miniapp и выставить позицию, рейтинг, голы и ассисты за текущую игру.',
           {
-            replyMarkup: this.buildMiniAppKeyboard(game.chatId)
+            replyMarkup: this.buildMiniAppKeyboard('supergroup', game.chatId)
           }
         );
         await this.store.markRatingsPromptSent(game.id, message.message_id);
