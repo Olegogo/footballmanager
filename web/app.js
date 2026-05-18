@@ -7,8 +7,23 @@ const STAT_META = [
   ['physical', 'Физика']
 ];
 
+function readChatIdFromStartParam() {
+  const urlChatId = new URLSearchParams(window.location.search).get('chatId') || '';
+  const startParam =
+    new URLSearchParams(window.location.search).get('tgWebAppStartParam') ||
+    window.Telegram?.WebApp?.initDataUnsafe?.start_param ||
+    '';
+
+  if (urlChatId) {
+    return urlChatId;
+  }
+
+  const match = String(startParam).match(/^chat_(-?\d+)$/);
+  return match ? match[1] : '';
+}
+
 const state = {
-  chatId: new URLSearchParams(window.location.search).get('chatId') || '',
+  chatId: readChatIdFromStartParam(),
   token: '',
   snapshot: null,
   allowDevLogin: false,
@@ -636,6 +651,7 @@ async function init() {
     tg.expand();
     document.body.style.setProperty('--tg-bg', tg.themeParams.bg_color || '#07140f');
     document.body.style.setProperty('--tg-text', tg.themeParams.text_color || '#f4f3ea');
+    state.chatId = state.chatId || readChatIdFromStartParam();
   }
 
   state.token = localStorage.getItem(storageKey()) || '';

@@ -36,17 +36,25 @@ export class TelegramBot {
     return url.toString();
   }
 
-  buildMainMiniAppLink() {
+  buildMainMiniAppLink(chatId = '') {
     if (!this.botUsername) {
       return '';
     }
 
-    return `https://t.me/${this.botUsername}?startapp`;
+    const url = new URL(`https://t.me/${this.botUsername}`);
+
+    if (chatId) {
+      url.searchParams.set('startapp', `chat_${chatId}`);
+      return url.toString();
+    }
+
+    url.search = 'startapp';
+    return url.toString();
   }
 
   buildMiniAppKeyboard(chatType = 'private', chatId = '') {
     const publicUrl = this.buildMiniAppUrl(chatId);
-    const directMiniAppLink = this.buildMainMiniAppLink();
+    const directMiniAppLink = this.buildMainMiniAppLink(chatId);
 
     if (chatType !== 'private') {
       const url = directMiniAppLink || publicUrl;
@@ -174,7 +182,7 @@ export class TelegramBot {
 
     if (command === '/open') {
       const url = this.buildMiniAppUrl(targetChatId);
-      const directMiniAppLink = this.buildMainMiniAppLink();
+      const directMiniAppLink = this.buildMainMiniAppLink(targetChatId);
 
       if (!url && !directMiniAppLink) {
         await this.sendText(chatId, 'Сначала укажите PUBLIC_BASE_URL, чтобы miniapp можно было открыть из Telegram.');
