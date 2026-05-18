@@ -282,6 +282,8 @@ export class TelegramBot {
   async handleUpdate(update) {
     if (update.message) {
       await this.handleMessage(update.message);
+    } else if (update.edited_message) {
+      await this.handleMessage(update.edited_message);
     } else if (update.my_chat_member) {
       await this.handleChatMember(update.my_chat_member);
     }
@@ -306,7 +308,7 @@ export class TelegramBot {
         const updates = await this.callApi('getUpdates', {
           offset: this.offset,
           timeout: 25,
-          allowed_updates: ['message', 'my_chat_member']
+          allowed_updates: ['message', 'edited_message', 'my_chat_member']
         });
 
         for (const update of updates) {

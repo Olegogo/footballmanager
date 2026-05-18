@@ -104,16 +104,15 @@ function isSameAnnouncementSchedule(game, announcement) {
   return game.date === announcement.date && game.time === announcement.time;
 }
 
-function isSameAnnouncementDay(game, announcement) {
-  return game.date === announcement.date;
-}
-
-function shouldReplaceCurrentGame(currentGame, incomingGame) {
-  if (!currentGame) {
-    return true;
+function setCurrentGame(chat, game, nowIso, previousGame = null) {
+  if (previousGame && previousGame.id !== game.id && !previousGame.closedAt) {
+    previousGame.closedAt = nowIso;
+    previousGame.ratingsClosedByGameId = game.id;
+    previousGame.updatedAt = nowIso;
   }
 
-  return new Date(incomingGame.scheduledAt) >= new Date(currentGame.scheduledAt);
+  chat.currentGameId = game.id;
+  chat.updatedAt = nowIso;
 }
 
 function resolveAnnouncementPlayerIds(state, chatId, usernames) {
@@ -364,6 +363,20 @@ export class AppStore {
       );
 
       if (existingByMessageId) {
+        if (isGameEditableBeforeStart(existingByMessageId, effectiveNow)) {
+          const game = applyAnnouncementToGame(state, existingByMessageId, {
+            chatId,
+            messageId,
+            rawText,
+            announcement,
+            source,
+            sourceDate,
+            nowIso: now
+          });
+          setCurrentGame(chat, game, now, currentGame);
+          return { created: false, updated: true, game };
+        }
+
         return { created: false, updated: false, game: existingByMessageId };
       }
 
@@ -382,26 +395,24 @@ export class AppStore {
             sourceDate,
             nowIso: now
           });
-          chat.currentGameId = game.id;
-          chat.updatedAt = now;
+          setCurrentGame(chat, game, now, currentGame);
           return { created: false, updated: true, game };
         }
 
         return { created: false, updated: false, game: existingBySchedule };
       }
 
-      if (currentGame && isGameEditableBeforeStart(currentGame, effectiveNow) && isSameAnnouncementDay(currentGame, announcement)) {
+      if (currentGame && isGameEditableBeforeStart(currentGame, effectiveNow)) {
         const game = applyAnnouncementToGame(state, currentGame, {
           chatId,
           messageId,
           rawText,
           announcement,
           source,
-          sourceDate,
-          nowIso: now
+            sourceDate,
+            nowIso: now
         });
-        chat.currentGameId = game.id;
-        chat.updatedAt = now;
+        setCurrentGame(chat, game, now, currentGame);
         return { created: false, updated: true, game };
       }
 
@@ -441,18 +452,7 @@ export class AppStore {
       };
 
       state.games[gameId] = game;
-
-      if (shouldReplaceCurrentGame(currentGame, game)) {
-        if (currentGame && currentGame.id !== game.id && !currentGame.closedAt) {
-          currentGame.closedAt = now;
-          currentGame.ratingsClosedByGameId = game.id;
-          currentGame.updatedAt = now;
-        }
-
-        chat.currentGameId = game.id;
-      }
-
-      chat.updatedAt = now;
+      setCurrentGame(chat, game, now, currentGame);
       return { created: true, game };
     });
   }
