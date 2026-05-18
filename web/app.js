@@ -261,6 +261,18 @@ function renderCardHero(player) {
   `;
 }
 
+function renderPositionSelector(label, value) {
+  return `
+    <div class="position-selector">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6.7 8.8a1 1 0 0 1 1.4 0L12 12.7l3.9-3.9a1 1 0 1 1 1.4 1.4l-4.6 4.6a1 1 0 0 1-1.4 0L6.7 10.2a1 1 0 0 1 0-1.4z"></path>
+      </svg>
+    </div>
+  `;
+}
+
 function renderMetricCell(label, value, options = {}) {
   const classes = ['metric-cell'];
 
@@ -282,43 +294,63 @@ function renderMetricCell(label, value, options = {}) {
 
 function renderFifaCard(player, options = {}) {
   const currentStats = options.currentStats || null;
-  const overall = currentStats?.overall ?? player.overall;
-  const position = currentStats?.position || player.position || 'N/A';
-  const variant = options.variant || 'summary';
+  const variant = options.variant || 'player-list';
   const clickable = options.clickable !== false;
   const actionLabel = options.actionLabel || '';
+  const ratingsCount = currentStats?.ratingsCount ?? 0;
+  const hasRatings = variant === 'player-list' ? true : Boolean(currentStats?.hasRatings);
+  const overall = hasRatings ? (currentStats?.overall ?? player.overall) : null;
+  const position = hasRatings ? (currentStats?.position || player.position || 'N/A') : null;
   const statValues = currentStats?.stats || player.stats;
-  const isRatingCard = variant === 'rating';
+  const isRatingCard = variant === 'game-rating';
+  const isGameCard = variant !== 'player-list';
+  const statusLabel = isGameCard && !hasRatings ? 'Не оценён' : '';
+  const statPlaceholder = '-';
   const overviewCells = [
     { label: 'игр', value: player.games, emphasis: true },
-    { label: 'голов', value: player.goals, outlined: isRatingCard },
-    { label: 'голевых', value: player.assists, outlined: isRatingCard }
+    { label: 'голов', value: hasRatings ? player.goals : statPlaceholder, outlined: isRatingCard },
+    { label: 'голевых', value: hasRatings ? player.assists : statPlaceholder, outlined: isRatingCard }
   ];
   const statCells = [
-    ['скорость', statValues.pace],
-    ['дриблинг', statValues.dribbling],
-    ['удар', statValues.shooting],
-    ['защита', statValues.defense],
-    ['передачи', statValues.passing],
-    ['физика', statValues.physical]
+    ['скорость', hasRatings ? statValues.pace : statPlaceholder],
+    ['дриблинг', hasRatings ? statValues.dribbling : statPlaceholder],
+    ['удар', hasRatings ? statValues.shooting : statPlaceholder],
+    ['защита', hasRatings ? statValues.defense : statPlaceholder],
+    ['передачи', hasRatings ? statValues.passing : statPlaceholder],
+    ['физика', hasRatings ? statValues.physical : statPlaceholder]
   ];
   const openAttribute = clickable ? ` data-open-player="${escapeHtml(player.id)}"` : '';
+  const actionNote =
+    isRatingCard && ratingsCount > 0
+      ? `${ratingsCount} уже оценили`
+      : '';
 
   return `
     <article class="fifa-card fifa-card--${escapeHtml(variant)} ${player.isMvp ? 'is-mvp' : ''} ${clickable ? 'is-clickable' : ''}"${openAttribute}>
       ${player.isMvp ? '<span class="mvp-badge">MVP</span>' : ''}
       <div class="fifa-card-hero">
         ${renderCardHero(player)}
-        <div class="hero-score">
-          <strong>${escapeHtml(overall)}</strong>
-          <span>${escapeHtml(position)}</span>
-        </div>
+        ${
+          statusLabel
+            ? `<div class="status-badge">${escapeHtml(statusLabel)}</div>`
+            : `
+              <div class="hero-score">
+                <strong>${escapeHtml(overall)}</strong>
+                <span>${escapeHtml(position)}</span>
+              </div>
+            `
+        }
       </div>
       <div class="fifa-card-panel">
         <div class="fifa-card-nameblock">
           <div class="card-name">${escapeHtml(player.displayName)}</div>
           <div class="card-nick">@${escapeHtml(player.username || 'unknown')}</div>
         </div>
+        ${
+          isRatingCard
+            ? renderPositionSelector('Позиция', hasRatings ? position : 'Не выбрана')
+            : ''
+        }
         <div class="metric-grid metric-grid--summary">
           ${overviewCells.map((cell) => renderMetricCell(cell.label, cell.value, cell)).join('')}
         </div>
@@ -327,7 +359,12 @@ function renderFifaCard(player, options = {}) {
         </div>
         ${
           actionLabel
-            ? `<button type="button" class="primary-button card-action" data-open-player="${escapeHtml(player.id)}">${escapeHtml(actionLabel)}</button>`
+            ? `
+              <button type="button" class="primary-button card-action" data-open-player="${escapeHtml(player.id)}">
+                ${escapeHtml(actionLabel)}
+                ${actionNote ? `<span class="card-action-note">${escapeHtml(actionNote)}</span>` : ''}
+              </button>
+            `
             : ''
         }
       </div>
@@ -377,14 +414,14 @@ function renderGameHeader(game) {
 }
 
 function renderRatingBanner(game) {
-  let message = 'Оценка игроков откроется после времени начала игры.';
+  let message = 'Оцените игроков после начала игры в течение суток';
 
-  if (game.canViewerRate) {
-    message = 'Можно оценивать игроков текущего матча. Выбирайте карточку ниже.';
+  if (game.canViewerRate && game.isFinished) {
+    message = 'Игра завершена. Оценить игроков можно до следующего игрового дня.';
+  } else if (game.canViewerRate) {
+    message = 'Выберите карточку игрока и выставьте ему оценку.';
   } else if (game.hasStarted && !game.viewerIsParticipant) {
     message = 'Оценивать могут только участники текущего матча.';
-  } else if (game.isFinished) {
-    message = 'Игра завершена. Статистика обновится, когда появятся новые оценки.';
   }
 
   return `
@@ -445,7 +482,7 @@ function renderGameTab() {
       ${game.participants
         .map((player) =>
           renderFifaCard(player, {
-            variant: player.canRateTarget ? 'rating' : 'summary',
+            variant: player.canRateTarget ? 'game-rating' : 'game-summary',
             actionLabel: player.canRateTarget ? 'Оценить' : '',
             currentStats: player.currentGameStats
           })
@@ -475,7 +512,7 @@ function renderPlayersTab() {
   return `
     ${renderFilterBar()}
     <section class="stack cards-stack">
-      ${players.map((player) => renderFifaCard(player, { variant: 'summary' })).join('')}
+      ${players.map((player) => renderFifaCard(player, { variant: 'player-list' })).join('')}
     </section>
   `;
 }
@@ -524,7 +561,7 @@ function renderModal() {
         <button class="modal-close" type="button" data-close-modal="true">×</button>
         ${renderFifaCard(player, {
           currentStats: gamePlayer?.currentGameStats ?? null,
-          variant: editable ? 'rating' : 'summary',
+          variant: editable ? 'game-rating' : 'game-summary',
           clickable: false
         })}
         ${
