@@ -114,3 +114,32 @@ test('parseAnnouncementTextLog extracts multiple announcements from plain text h
   assert.equal(items[1].announcement.location, 'Сокол');
   assert.equal(items[1].announcement.playerUsernames[0], 'alpha');
 });
+
+test('parseAnnouncementText respects CHAT_TIMEZONE_OFFSET for scheduledAt', () => {
+  const previousOffset = process.env.CHAT_TIMEZONE_OFFSET;
+  process.env.CHAT_TIMEZONE_OFFSET = '+03:00';
+
+  const text = `
+18 мая
+Полежаевская
+19:30
+
+@guttt
+@gutoperchivyi
+@O_legacy
+@username1
+@username2
+@username3
+  `;
+
+  const parsed = parseAnnouncementText(text, new Date('2026-05-18T10:00:00.000Z'));
+
+  if (previousOffset === undefined) {
+    delete process.env.CHAT_TIMEZONE_OFFSET;
+  } else {
+    process.env.CHAT_TIMEZONE_OFFSET = previousOffset;
+  }
+
+  assert.ok(parsed);
+  assert.equal(parsed.scheduledAt, '2026-05-18T16:30:00.000Z');
+});

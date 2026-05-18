@@ -50,19 +50,35 @@ function buildScheduledDate(day, monthIndex, timeMatch, referenceDate) {
   const refDate = new Date(referenceDate);
   const hours = Number(timeMatch[1]);
   const minutes = Number(timeMatch[2]);
+  const timezoneOffset = process.env.CHAT_TIMEZONE_OFFSET || '+03:00';
   let year = refDate.getFullYear();
-  let candidate = new Date(year, monthIndex, day, hours, minutes, 0, 0);
+  let candidate = createDateWithOffset(year, monthIndex, day, hours, minutes, timezoneOffset);
   const diffDays = (candidate.getTime() - refDate.getTime()) / (1000 * 60 * 60 * 24);
 
   if (diffDays < -180) {
     year += 1;
-    candidate = new Date(year, monthIndex, day, hours, minutes, 0, 0);
+    candidate = createDateWithOffset(year, monthIndex, day, hours, minutes, timezoneOffset);
   } else if (diffDays > 180) {
     year -= 1;
-    candidate = new Date(year, monthIndex, day, hours, minutes, 0, 0);
+    candidate = createDateWithOffset(year, monthIndex, day, hours, minutes, timezoneOffset);
   }
 
   return candidate;
+}
+
+function createDateWithOffset(year, monthIndex, day, hours, minutes, offset) {
+  const match = String(offset).trim().match(/^([+-])(\d{2}):(\d{2})$/);
+
+  if (!match) {
+    return new Date(year, monthIndex, day, hours, minutes, 0, 0);
+  }
+
+  const sign = match[1] === '-' ? -1 : 1;
+  const offsetHours = Number(match[2]);
+  const offsetMinutes = Number(match[3]);
+  const totalOffsetMinutes = sign * (offsetHours * 60 + offsetMinutes);
+  const utcTimestamp = Date.UTC(year, monthIndex, day, hours, minutes, 0, 0) - totalOffsetMinutes * 60 * 1000;
+  return new Date(utcTimestamp);
 }
 
 function normalizeLines(rawText) {

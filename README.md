@@ -92,6 +92,7 @@ TELEGRAM_BOT_TOKEN=123456:replace_me
 DEFAULT_CHAT_ID=
 ALLOW_DEV_LOGIN=true
 ADMIN_IMPORT_TOKEN=replace_with_long_secret
+CHAT_TIMEZONE_OFFSET=+03:00
 SCHEDULER_INTERVAL_MS=60000
 AUTH_MAX_AGE_SECONDS=86400
 ```
@@ -100,6 +101,7 @@ AUTH_MAX_AGE_SECONDS=86400
 
 - `PUBLIC_BASE_URL` — это будущий адрес Cloudflare Pages
 - `CORS_ALLOWED_ORIGINS` — домены, которым разрешено ходить в API
+- `CHAT_TIMEZONE_OFFSET` — часовой пояс анонсов игр, например `+03:00` для Москвы
 
 ### Локальный запуск backend
 

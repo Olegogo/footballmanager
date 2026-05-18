@@ -8,10 +8,24 @@ const STAT_META = [
 ];
 
 const POSITION_ORDER = ['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST', 'N/A'];
+const POSITION_META = {
+  GK: { short: 'ВРТ', card: 'врт', title: 'Вратарь' },
+  CB: { short: 'ЦЗ', card: 'цз', title: 'Центральный защитник' },
+  LB: { short: 'ЛЗ', card: 'лз', title: 'Левый защитник' },
+  RB: { short: 'ПЗ', card: 'пз', title: 'Правый защитник' },
+  CDM: { short: 'ЦОП', card: 'цоп', title: 'Опорный полузащитник' },
+  CM: { short: 'ЦП', card: 'цп', title: 'Центральный полузащитник' },
+  CAM: { short: 'ЦАП', card: 'цап', title: 'Атакующий полузащитник' },
+  LM: { short: 'ЛП', card: 'лп', title: 'Левый полузащитник' },
+  RM: { short: 'ПП', card: 'пп', title: 'Правый полузащитник' },
+  LW: { short: 'ЛВ', card: 'лв', title: 'Левый вингер' },
+  RW: { short: 'ПВ', card: 'пв', title: 'Правый вингер' },
+  ST: { short: 'НП', card: 'нап', title: 'Нападающий' },
+  'N/A': { short: '—', card: '—', title: 'Не выбрана' }
+};
 
 const FILTER_CHIPS = [
   { key: 'overall', label: 'Рейтинг' },
-  { key: 'position', label: 'Позиция' },
   { key: 'games', label: 'Игры' },
   { key: 'goals', label: 'Голы' },
   { key: 'assists', label: 'Передачи' },
@@ -45,6 +59,7 @@ const state = {
   allowDevLogin: false,
   activeTab: 'game',
   activeSort: 'overall',
+  positionFilter: '',
   selectedPlayerId: null
 };
 
@@ -54,6 +69,7 @@ const contentNode = document.getElementById('content');
 const chatTitleNode = document.getElementById('chatTitle');
 const modalRoot = document.getElementById('modalRoot');
 const toastNode = document.getElementById('toast');
+let refreshTimer = null;
 
 function storageKey() {
   return `fifa-miniapp-token:${state.chatId || 'default'}`;
@@ -78,9 +94,17 @@ function getScreenTitle() {
   return state.activeTab === 'game' ? 'Игровой день' : 'Игроки';
 }
 
+function getPositionMeta(position) {
+  return POSITION_META[position] || POSITION_META['N/A'];
+}
+
 function getSortPosition(position) {
   const index = POSITION_ORDER.indexOf(position || 'N/A');
   return index === -1 ? POSITION_ORDER.length : index;
+}
+
+function getEffectiveOverall(player) {
+  return player.currentGameStats?.hasRatings ? player.currentGameStats.overall : player.overall;
 }
 
 function showToast(message) {
@@ -213,27 +237,28 @@ function sortPlayers(players) {
   });
 }
 
-function fieldSlots(count) {
-  const layouts = {
-    1: [1],
-    2: [1, 1],
-    3: [1, 2],
-    4: [1, 3],
-    5: [1, 2, 2],
-    6: [1, 2, 3],
-    7: [1, 3, 3],
-    8: [1, 3, 4],
-    9: [1, 3, 2, 3],
-    10: [1, 3, 3, 3],
-    11: [1, 4, 3, 3],
-    12: [1, 4, 3, 4]
-  };
-  const rows = layouts[count] || [1, 4, 3, 4];
+function teamFieldSlots(count, zone = 'top') {
+  let rows;
+  if (count <= 3) {
+    rows = [count];
+  } else if (count <= 6) {
+    rows = count % 2 === 0 ? [count / 2, count / 2] : [Math.floor(count / 2), Math.ceil(count / 2)];
+  } else {
+    rows = [0, 0, 0];
+    for (let index = 0; index < count; index += 1) {
+      rows[index % rows.length] += 1;
+    }
+    rows = rows.filter(Boolean);
+  }
   const totalRows = rows.length;
   const slots = [];
+  const yMin = zone === 'top' ? 22 : 58;
+  const yMax = zone === 'top' ? 42 : 78;
 
   rows.forEach((rowCount, rowIndex) => {
-    const y = 84 - (totalRows === 1 ? 0 : rowIndex * (58 / (totalRows - 1)));
+    const y = totalRows === 1
+      ? (yMin + yMax) / 2
+      : yMin + rowIndex * ((yMax - yMin) / (totalRows - 1));
     for (let index = 0; index < rowCount; index += 1) {
       slots.push({
         x: ((index + 1) / (rowCount + 1)) * 100,
@@ -243,6 +268,36 @@ function fieldSlots(count) {
   });
 
   return slots.slice(0, count);
+}
+
+function splitBalancedTeams(players) {
+  const sorted = [...players].sort(
+    (left, right) => getEffectiveOverall(right) - getEffectiveOverall(left)
+  );
+  const maxTopCount = Math.ceil(sorted.length / 2);
+  const maxBottomCount = Math.floor(sorted.length / 2);
+  const top = [];
+  const bottom = [];
+  let topScore = 0;
+  let bottomScore = 0;
+
+  for (const player of sorted) {
+    const rating = getEffectiveOverall(player);
+    const shouldGoTop = (topScore <= bottomScore && top.length < maxTopCount) || bottom.length >= maxBottomCount;
+
+    if (shouldGoTop) {
+      top.push(player);
+      topScore += rating;
+    } else {
+      bottom.push(player);
+      bottomScore += rating;
+    }
+  }
+
+  return [
+    { key: 'top', title: 'Состав A', players: top, total: topScore },
+    { key: 'bottom', title: 'Состав B', players: bottom, total: bottomScore }
+  ];
 }
 
 function renderCardHero(player) {
@@ -259,6 +314,14 @@ function renderCardHero(player) {
       <span>${escapeHtml(getInitials(player))}</span>
     </div>
   `;
+}
+
+function renderMiniAvatar(player) {
+  if (player.photoUrl) {
+    return `<img src="${escapeHtml(player.photoUrl)}" alt="${escapeHtml(player.displayName)}">`;
+  }
+
+  return `<span>${escapeHtml(getInitials(player))}</span>`;
 }
 
 function renderPositionSelector(label, value) {
@@ -336,7 +399,7 @@ function renderFifaCard(player, options = {}) {
             : `
               <div class="hero-score">
                 <strong>${escapeHtml(overall)}</strong>
-                <span>${escapeHtml(position)}</span>
+                <span>${escapeHtml(getPositionMeta(position).card)}</span>
               </div>
             `
         }
@@ -348,7 +411,7 @@ function renderFifaCard(player, options = {}) {
         </div>
         ${
           isRatingCard
-            ? renderPositionSelector('Позиция', hasRatings ? position : 'Не выбрана')
+            ? renderPositionSelector('Позиция', hasRatings ? getPositionMeta(position).title : 'Не выбрана')
             : ''
         }
         <div class="metric-grid metric-grid--summary">
@@ -418,8 +481,6 @@ function renderRatingBanner(game) {
 
   if (game.canViewerRate && game.isFinished) {
     message = 'Игра завершена. Оценить игроков можно до следующего игрового дня.';
-  } else if (game.canViewerRate) {
-    message = 'Выберите карточку игрока и выставьте ему оценку.';
   } else if (game.hasStarted && !game.viewerIsParticipant) {
     message = 'Оценивать могут только участники текущего матча.';
   }
@@ -432,7 +493,7 @@ function renderRatingBanner(game) {
 }
 
 function renderField(game) {
-  const slots = fieldSlots(game.participants.length);
+  const teams = splitBalancedTeams(game.participants);
 
   return `
     <section class="panel field-panel">
@@ -441,19 +502,35 @@ function renderField(game) {
         <div class="field-circle"></div>
         <div class="field-box top"></div>
         <div class="field-box bottom"></div>
-        ${game.participants
-          .map((player, index) => {
-            const slot = slots[index] || { x: 50, y: 50 };
+        ${teams
+          .map((team) => {
+            const slots = teamFieldSlots(team.players.length, team.key);
             return `
-              <button
-                type="button"
-                class="field-player"
-                data-open-player="${escapeHtml(player.id)}"
-                style="left:${slot.x}%; top:${slot.y}%"
-              >
-                <span class="field-player-overall">${player.currentGameStats?.overall ?? player.overall}</span>
-                <span class="field-player-name">${escapeHtml(player.displayName.split(' ')[0])}</span>
-              </button>
+              <div class="field-team field-team--${escapeHtml(team.key)}">
+                <div class="field-team-badge field-team-badge--${escapeHtml(team.key)}">
+                  <span>${escapeHtml(team.title)}</span>
+                  <strong>${escapeHtml(team.total)}</strong>
+                </div>
+                ${team.players
+                  .map((player, index) => {
+                    const slot = slots[index] || { x: 50, y: 50 };
+                    return `
+                      <button
+                        type="button"
+                        class="field-player-card"
+                        data-open-player="${escapeHtml(player.id)}"
+                        style="left:${slot.x}%; top:${slot.y}%"
+                      >
+                        <div class="field-player-photo">${renderMiniAvatar(player)}</div>
+                        <div class="field-player-info">
+                          <strong>${escapeHtml(getEffectiveOverall(player))}</strong>
+                          <span>${escapeHtml(player.displayName.split(' ')[0])}</span>
+                        </div>
+                      </button>
+                    `;
+                  })
+                  .join('')}
+              </div>
             `;
           })
           .join('')}
@@ -502,12 +579,23 @@ function renderFilterBar() {
           </button>
         `
       ).join('')}
+      <label class="chip chip-select ${state.positionFilter ? 'active' : ''}">
+        <select id="positionFilter">
+          <option value="">Позиция</option>
+          ${['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'ST', 'LW', 'RW']
+            .map((position) => `<option value="${position}" ${state.positionFilter === position ? 'selected' : ''}>${escapeHtml(getPositionMeta(position).short)}</option>`)
+            .join('')}
+        </select>
+      </label>
     </div>
   `;
 }
 
 function renderPlayersTab() {
-  const players = sortPlayers(getPlayers());
+  const filteredPlayers = state.positionFilter
+    ? getPlayers().filter((player) => player.position === state.positionFilter)
+    : getPlayers();
+  const players = sortPlayers(filteredPlayers);
 
   return `
     ${renderFilterBar()}
@@ -572,7 +660,7 @@ function renderModal() {
                   <span>Позиция</span>
                   <select name="position">
                     ${['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST']
-                      .map((position) => `<option value="${position}" ${defaults.position === position ? 'selected' : ''}>${position}</option>`)
+                      .map((position) => `<option value="${position}" ${defaults.position === position ? 'selected' : ''}>${escapeHtml(getPositionMeta(position).title)}</option>`)
                       .join('')}
                   </select>
                 </label>
@@ -675,10 +763,36 @@ async function submitRating(form) {
   showToast('Оценка сохранена');
 }
 
+async function refreshSnapshot({ silent = false } = {}) {
+  if (!state.chatId) {
+    return;
+  }
+
+  try {
+    await loadSnapshot();
+    render();
+    if (!silent) {
+      showToast('Обновлено');
+    }
+  } catch (error) {
+    if (!silent) {
+      showToast(error.message);
+    }
+  }
+}
+
+function setupAutoRefresh() {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+  }
+
+  refreshTimer = setInterval(() => {
+    void refreshSnapshot({ silent: true });
+  }, 30000);
+}
+
 document.getElementById('refreshButton').addEventListener('click', async () => {
-  await loadSnapshot();
-  render();
-  showToast('Обновлено');
+  await refreshSnapshot();
 });
 
 document.querySelector('.tabbar').addEventListener('click', (event) => {
@@ -715,6 +829,12 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('change', (event) => {
+  if (event.target.id === 'positionFilter') {
+    state.positionFilter = event.target.value;
+    render();
+    return;
+  }
+
   if (event.target.matches('input[type="range"]')) {
     const valueNode = event.target.parentElement.querySelector('.range-value');
     if (valueNode) {
@@ -730,6 +850,16 @@ document.addEventListener('input', (event) => {
       valueNode.textContent = event.target.value;
     }
   }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    void refreshSnapshot({ silent: true });
+  }
+});
+
+window.addEventListener('focus', () => {
+  void refreshSnapshot({ silent: true });
 });
 
 document.addEventListener('submit', async (event) => {
@@ -776,6 +906,7 @@ async function init() {
   }
 
   render();
+  setupAutoRefresh();
 }
 
 void init();

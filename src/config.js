@@ -58,6 +58,7 @@ export const config = {
   defaultChatId: env('DEFAULT_CHAT_ID', ''),
   allowDevLogin: ['1', 'true', 'yes'].includes(env('ALLOW_DEV_LOGIN', 'false').toLowerCase()),
   adminImportToken: env('ADMIN_IMPORT_TOKEN', ''),
+  chatTimezoneOffset: env('CHAT_TIMEZONE_OFFSET', '+03:00'),
   schedulerIntervalMs: Number(env('SCHEDULER_INTERVAL_MS', '60000')),
   authMaxAgeSeconds: Number(env('AUTH_MAX_AGE_SECONDS', '86400'))
 };
