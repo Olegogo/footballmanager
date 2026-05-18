@@ -1,16 +1,14 @@
 :root {
   color-scheme: dark;
-  --bg: radial-gradient(circle at top, #1b3d26 0%, #08130f 45%, #040807 100%);
-  --card: rgba(10, 25, 18, 0.82);
-  --card-border: rgba(219, 196, 126, 0.28);
+  --bg: radial-gradient(circle at top, #173624 0%, #08140f 45%, #030805 100%);
+  --card: rgba(8, 20, 14, 0.9);
+  --card-border: rgba(219, 196, 126, 0.32);
   --text: var(--tg-text, #f3eed6);
   --muted: rgba(243, 238, 214, 0.66);
-  --gold-1: #f6d77a;
-  --gold-2: #b5882a;
-  --gold-3: #6d4a07;
-  --green-1: #1f7141;
-  --green-2: #0d2f1c;
-  --shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+  --gold-1: #f1cf72;
+  --gold-2: #a57720;
+  --gold-3: #3d2a08;
+  --shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
 }
 
 * {
@@ -36,37 +34,31 @@ select {
   font: inherit;
 }
 
-.app-shell {
-  width: min(100%, 880px);
-  margin: 0 auto;
-  padding: 20px 16px calc(98px + env(safe-area-inset-bottom));
-}
-
-.topbar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-
-.eyebrow {
-  margin: 0 0 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 11px;
-  color: var(--muted);
-}
-
 h1,
 h2,
 p {
   margin: 0;
 }
 
-h1 {
-  font-size: clamp(28px, 6vw, 36px);
-  line-height: 1;
+.app-shell {
+  width: min(100%, 880px);
+  margin: 0 auto;
+  padding: 18px 14px calc(110px + env(safe-area-inset-bottom));
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.topbar h1 {
+  font-size: clamp(32px, 7vw, 42px);
+  line-height: 0.95;
+  font-weight: 900;
+  letter-spacing: -0.03em;
 }
 
 .ghost-button,
@@ -78,9 +70,9 @@ h1 {
 }
 
 .ghost-button {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.08);
   display: grid;
   place-items: center;
@@ -89,8 +81,8 @@ h1 {
 
 .ghost-button svg,
 .tab-button svg {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   fill: currentColor;
 }
 
@@ -105,14 +97,14 @@ h1 {
 .subtle-panel {
   background: var(--card);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
+  border-radius: 28px;
   padding: 18px;
   box-shadow: var(--shadow);
   backdrop-filter: blur(14px);
 }
 
 .empty-state {
-  padding: 30px 18px;
+  padding: 32px 18px;
   text-align: center;
 }
 
@@ -121,7 +113,6 @@ h1 {
 }
 
 .empty-state p,
-.hint,
 .dev-panel p,
 .subtle-panel p {
   color: var(--muted);
@@ -137,7 +128,12 @@ h1 {
 }
 
 .game-summary h2 {
-  font-size: 24px;
+  font-size: 25px;
+}
+
+.game-location {
+  margin-top: 6px;
+  color: var(--muted);
 }
 
 .status-pill {
@@ -168,7 +164,6 @@ h1 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  margin-bottom: 14px;
 }
 
 .game-facts div,
@@ -185,14 +180,37 @@ h1 {
   margin-bottom: 4px;
 }
 
+.game-payment {
+  margin-top: 12px;
+  display: grid;
+  gap: 4px;
+}
+
 .ended-banner {
   margin-top: 14px;
-  margin-bottom: 10px;
   padding: 14px 16px;
   border-radius: 18px;
   background: linear-gradient(135deg, rgba(255, 211, 103, 0.28), rgba(166, 110, 0, 0.28));
   border: 1px solid rgba(255, 217, 120, 0.28);
   font-weight: 700;
+}
+
+.notice-banner {
+  padding: 18px 22px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #f1cf72, #e1ba5e);
+  color: #140d02;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+}
+
+.notice-banner p {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.field-panel {
+  padding: 14px;
 }
 
 .field {
@@ -201,10 +219,10 @@ h1 {
   overflow: hidden;
   border-radius: 28px;
   background:
-    radial-gradient(circle at center, rgba(255, 255, 255, 0.1) 0 1px, transparent 1px 100%),
-    linear-gradient(180deg, rgba(47, 127, 69, 0.95), rgba(12, 54, 28, 0.96));
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 100%),
+    linear-gradient(180deg, rgba(40, 116, 63, 0.95), rgba(12, 54, 28, 0.98));
   background-size: 18px 18px, auto;
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .field::before {
@@ -217,12 +235,12 @@ h1 {
 
 .field-line.mid {
   position: absolute;
-  left: 50%;
-  top: 16px;
-  bottom: 16px;
-  width: 2px;
+  left: 16px;
+  right: 16px;
+  top: 50%;
+  height: 2px;
   background: rgba(255, 255, 255, 0.55);
-  transform: translateX(-50%);
+  transform: translateY(-50%);
 }
 
 .field-circle {
@@ -261,13 +279,13 @@ h1 {
 
 .field-player {
   position: absolute;
-  width: 82px;
-  margin-left: -41px;
-  margin-top: -22px;
+  width: 84px;
+  margin-left: -42px;
+  margin-top: -24px;
   padding: 10px 8px;
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(13, 33, 22, 0.94), rgba(7, 19, 13, 0.94));
-  border: 1px solid rgba(255, 235, 170, 0.28);
+  background: linear-gradient(180deg, rgba(13, 33, 22, 0.96), rgba(7, 19, 13, 0.94));
+  border: 1px solid rgba(255, 235, 170, 0.26);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
   color: var(--text);
 }
@@ -313,52 +331,32 @@ h1 {
   font-weight: 800;
 }
 
-.select-chip {
-  padding: 0;
-}
-
-.select-chip select {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  padding: 12px 16px;
+.cards-stack {
+  gap: 20px;
 }
 
 .fifa-card {
   position: relative;
-  display: grid;
-  grid-template-columns: 76px 1fr;
-  gap: 16px;
-  padding: 16px;
-  border-radius: 28px;
   overflow: hidden;
-  border: 1px solid var(--card-border);
-  background:
-    radial-gradient(circle at top left, rgba(255, 221, 136, 0.34), transparent 34%),
-    linear-gradient(160deg, rgba(113, 81, 17, 0.96), rgba(38, 27, 6, 0.98) 34%, rgba(15, 13, 8, 0.98));
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+  border-radius: 34px;
+  border: 1px solid rgba(227, 194, 116, 0.32);
+  background: linear-gradient(180deg, rgba(3, 17, 11, 0.98), rgba(3, 17, 11, 0.98));
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.38);
 }
 
-.fifa-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(150deg, transparent 0 45%, rgba(255, 230, 154, 0.09) 45% 48%, transparent 48%),
-    linear-gradient(330deg, transparent 0 58%, rgba(255, 230, 154, 0.05) 58% 60%, transparent 60%);
-  pointer-events: none;
+.fifa-card.is-clickable {
+  cursor: pointer;
 }
 
 .fifa-card.is-mvp {
-  border-color: rgba(255, 230, 154, 0.64);
+  border-color: rgba(255, 230, 154, 0.7);
 }
 
 .mvp-badge {
   position: absolute;
-  right: 14px;
-  top: 12px;
-  z-index: 1;
+  right: 16px;
+  top: 14px;
+  z-index: 2;
   padding: 6px 10px;
   border-radius: 999px;
   background: linear-gradient(135deg, #f8e9a7, #d99f22);
@@ -368,96 +366,140 @@ h1 {
   letter-spacing: 0.08em;
 }
 
-.card-score {
-  position: absolute;
-  left: 16px;
-  top: 12px;
-  z-index: 1;
-  text-align: center;
-}
-
-.card-score strong {
-  display: block;
-  font-size: 32px;
-  line-height: 1;
-  color: #ffe59a;
-}
-
-.card-score span {
-  font-size: 13px;
-  font-weight: 700;
-  color: rgba(255, 233, 176, 0.88);
-}
-
-.card-photo {
+.fifa-card-hero {
   position: relative;
-  z-index: 1;
-  width: 76px;
-  height: 104px;
-  margin-top: 22px;
-  border-radius: 18px;
-  overflow: hidden;
-  background: linear-gradient(180deg, rgba(255, 230, 169, 0.16), rgba(18, 17, 10, 0.4));
-  display: grid;
-  place-items: center;
-  font-size: 28px;
-  font-weight: 800;
-  color: #f6deb5;
+  min-height: 230px;
 }
 
-.card-photo img {
+.fifa-card-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.22));
+}
+
+.fifa-card-hero-media {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.fifa-card-hero-media img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.card-body {
+.fifa-card-hero-media--fallback {
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255, 230, 154, 0.18), transparent 26%),
+    linear-gradient(140deg, rgba(18, 34, 25, 0.98), rgba(7, 16, 11, 0.98));
+  color: rgba(255, 240, 209, 0.85);
+  font-size: 68px;
+  font-weight: 900;
+}
+
+.hero-score {
+  position: absolute;
+  left: 20px;
+  top: 16px;
+  z-index: 1;
+  color: #fff;
+}
+
+.hero-score strong,
+.hero-score span {
+  display: block;
+}
+
+.hero-score strong {
+  font-size: 66px;
+  line-height: 0.92;
+  font-weight: 900;
+}
+
+.hero-score span {
+  margin-top: 4px;
+  font-size: 28px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.fifa-card-panel {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 10px;
-  padding-top: 14px;
+  gap: 14px;
+  padding: 18px 18px 20px;
+  background:
+    linear-gradient(90deg, rgba(154, 118, 44, 0.9), rgba(41, 30, 11, 0.96) 74%),
+    linear-gradient(180deg, rgba(17, 13, 7, 0.82), rgba(17, 13, 7, 0.82));
+}
+
+.fifa-card-nameblock {
+  text-align: center;
 }
 
 .card-name {
-  font-size: 20px;
-  font-weight: 800;
+  font-size: clamp(22px, 5vw, 28px);
+  font-weight: 900;
   line-height: 1.05;
-  max-width: 92%;
 }
 
-.card-nick,
-.card-meta {
+.card-nick {
+  margin-top: 6px;
+  font-size: 16px;
   color: rgba(255, 236, 194, 0.72);
 }
 
-.card-meta {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  font-size: 13px;
-}
-
-.stat-grid {
+.metric-grid {
   display: grid;
+  gap: 10px;
+}
+
+.metric-grid--summary,
+.metric-grid--stats {
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
 }
 
-.stat-cell {
-  padding: 8px 10px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.06);
+.metric-cell {
+  min-height: 68px;
+  padding: 10px 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid transparent;
 }
 
-.stat-cell span {
+.metric-cell--outlined {
+  background: transparent;
+  border-color: rgba(241, 207, 114, 0.62);
+}
+
+.metric-cell--emphasis {
+  background: rgba(255, 237, 186, 0.18);
+}
+
+.metric-cell span {
   display: block;
-  font-size: 11px;
-  color: rgba(255, 240, 209, 0.7);
+  color: rgba(255, 240, 209, 0.68);
+  font-size: 12px;
+  text-transform: lowercase;
 }
 
-.stat-cell strong {
-  font-size: 17px;
+.metric-cell strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.card-action {
+  width: 100%;
+  margin-top: 4px;
+  padding: 16px 18px;
+  border-radius: 24px;
 }
 
 .primary-button {
@@ -466,10 +508,6 @@ h1 {
   background: linear-gradient(135deg, #ffe495, #d89d18);
   color: #281800;
   font-weight: 900;
-}
-
-.primary-button.small {
-  padding: 12px 14px;
 }
 
 .dev-form,
@@ -610,18 +648,16 @@ input[type="range"] {
     grid-template-columns: 1fr;
   }
 
-  .fifa-card {
-    grid-template-columns: 64px 1fr;
-    gap: 12px;
+  .fifa-card-hero {
+    min-height: 208px;
   }
 
-  .card-photo {
-    width: 64px;
-    height: 92px;
+  .hero-score strong {
+    font-size: 58px;
   }
 
-  .card-name {
-    font-size: 18px;
+  .hero-score span {
+    font-size: 26px;
   }
 
   .field {

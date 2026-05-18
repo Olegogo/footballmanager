@@ -7,6 +7,22 @@ const STAT_META = [
   ['physical', 'Физика']
 ];
 
+const POSITION_ORDER = ['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST', 'N/A'];
+
+const FILTER_CHIPS = [
+  { key: 'overall', label: 'Рейтинг' },
+  { key: 'position', label: 'Позиция' },
+  { key: 'games', label: 'Игры' },
+  { key: 'goals', label: 'Голы' },
+  { key: 'assists', label: 'Передачи' },
+  { key: 'pace', label: 'Скорость' },
+  { key: 'dribbling', label: 'Дриблинг' },
+  { key: 'shooting', label: 'Удар' },
+  { key: 'defense', label: 'Защита' },
+  { key: 'passing', label: 'Передачи' },
+  { key: 'physical', label: 'Физика' }
+];
+
 function readChatIdFromStartParam() {
   const urlChatId = new URLSearchParams(window.location.search).get('chatId') || '';
   const startParam =
@@ -29,7 +45,6 @@ const state = {
   allowDevLogin: false,
   activeTab: 'game',
   activeSort: 'overall',
-  selectedStat: '',
   selectedPlayerId: null
 };
 
@@ -57,6 +72,15 @@ function getInitials(player) {
   const name = player.displayName || player.username || 'Игрок';
   const parts = name.replace('@', '').split(/\s+/).filter(Boolean);
   return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('') || 'FC';
+}
+
+function getScreenTitle() {
+  return state.activeTab === 'game' ? 'Игровой день' : 'Игроки';
+}
+
+function getSortPosition(position) {
+  const index = POSITION_ORDER.indexOf(position || 'N/A');
+  return index === -1 ? POSITION_ORDER.length : index;
 }
 
 function showToast(message) {
@@ -156,21 +180,22 @@ function sortPlayers(players) {
       return left.isMvp ? -1 : 1;
     }
 
-    if (state.activeSort === 'games') {
-      if (right.games !== left.games) {
-        return right.games - left.games;
+    if (state.activeSort === 'position') {
+      const leftOrder = getSortPosition(left.position);
+      const rightOrder = getSortPosition(right.position);
+
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
       }
-    } else if (state.activeSort === 'goals') {
-      if (right.goals !== left.goals) {
-        return right.goals - left.goals;
-      }
-    } else if (state.activeSort === 'assists') {
-      if (right.assists !== left.assists) {
-        return right.assists - left.assists;
-      }
-    } else if (state.activeSort === 'stat' && state.selectedStat) {
-      if (right.stats[state.selectedStat] !== left.stats[state.selectedStat]) {
-        return right.stats[state.selectedStat] - left.stats[state.selectedStat];
+    } else if (state.activeSort === 'games' && right.games !== left.games) {
+      return right.games - left.games;
+    } else if (state.activeSort === 'goals' && right.goals !== left.goals) {
+      return right.goals - left.goals;
+    } else if (state.activeSort === 'assists' && right.assists !== left.assists) {
+      return right.assists - left.assists;
+    } else if (STAT_META.some(([key]) => key === state.activeSort)) {
+      if (right.stats[state.activeSort] !== left.stats[state.activeSort]) {
+        return right.stats[state.activeSort] - left.stats[state.activeSort];
       }
     } else if (right.overall !== left.overall) {
       return right.overall - left.overall;
@@ -220,48 +245,89 @@ function fieldSlots(count) {
   return slots.slice(0, count);
 }
 
-function renderAvatar(player) {
+function renderCardHero(player) {
   if (player.photoUrl) {
-    return `<div class="card-photo"><img src="${escapeHtml(player.photoUrl)}" alt="${escapeHtml(player.displayName)}"></div>`;
+    return `
+      <div class="fifa-card-hero-media">
+        <img src="${escapeHtml(player.photoUrl)}" alt="${escapeHtml(player.displayName)}">
+      </div>
+    `;
   }
 
-  return `<div class="card-photo fallback">${escapeHtml(getInitials(player))}</div>`;
+  return `
+    <div class="fifa-card-hero-media fifa-card-hero-media--fallback">
+      <span>${escapeHtml(getInitials(player))}</span>
+    </div>
+  `;
+}
+
+function renderMetricCell(label, value, options = {}) {
+  const classes = ['metric-cell'];
+
+  if (options.outlined) {
+    classes.push('metric-cell--outlined');
+  }
+
+  if (options.emphasis) {
+    classes.push('metric-cell--emphasis');
+  }
+
+  return `
+    <div class="${classes.join(' ')}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `;
 }
 
 function renderFifaCard(player, options = {}) {
-  const actionLabel = options.actionLabel || '';
-  const showAction = Boolean(actionLabel);
   const currentStats = options.currentStats || null;
+  const overall = currentStats?.overall ?? player.overall;
+  const position = currentStats?.position || player.position || 'N/A';
+  const variant = options.variant || 'summary';
+  const clickable = options.clickable !== false;
+  const actionLabel = options.actionLabel || '';
+  const statValues = currentStats?.stats || player.stats;
+  const isRatingCard = variant === 'rating';
+  const overviewCells = [
+    { label: 'игр', value: player.games, emphasis: true },
+    { label: 'голов', value: player.goals, outlined: isRatingCard },
+    { label: 'голевых', value: player.assists, outlined: isRatingCard }
+  ];
+  const statCells = [
+    ['скорость', statValues.pace],
+    ['дриблинг', statValues.dribbling],
+    ['удар', statValues.shooting],
+    ['защита', statValues.defense],
+    ['передачи', statValues.passing],
+    ['физика', statValues.physical]
+  ];
+  const openAttribute = clickable ? ` data-open-player="${escapeHtml(player.id)}"` : '';
 
   return `
-    <article class="fifa-card ${player.isMvp ? 'is-mvp' : ''}" data-player-card="${escapeHtml(player.id)}">
+    <article class="fifa-card fifa-card--${escapeHtml(variant)} ${player.isMvp ? 'is-mvp' : ''} ${clickable ? 'is-clickable' : ''}"${openAttribute}>
       ${player.isMvp ? '<span class="mvp-badge">MVP</span>' : ''}
-      <div class="card-score">
-        <strong>${player.overall}</strong>
-        <span>${escapeHtml(currentStats?.position || player.position || 'N/A')}</span>
-      </div>
-      ${renderAvatar(player)}
-      <div class="card-body">
-        <div class="card-name">${escapeHtml(player.displayName)}</div>
-        <div class="card-nick">@${escapeHtml(player.username || 'unknown')}</div>
-        <div class="card-meta">
-          <span>Игр ${player.games}</span>
-          <span>Г ${player.goals}</span>
-          <span>А ${player.assists}</span>
+      <div class="fifa-card-hero">
+        ${renderCardHero(player)}
+        <div class="hero-score">
+          <strong>${escapeHtml(overall)}</strong>
+          <span>${escapeHtml(position)}</span>
         </div>
-        <div class="stat-grid">
-          ${STAT_META.map(
-            ([key, label]) => `
-              <div class="stat-cell">
-                <span>${escapeHtml(label.slice(0, 3).toUpperCase())}</span>
-                <strong>${currentStats?.stats?.[key] ?? player.stats[key]}</strong>
-              </div>
-            `
-          ).join('')}
+      </div>
+      <div class="fifa-card-panel">
+        <div class="fifa-card-nameblock">
+          <div class="card-name">${escapeHtml(player.displayName)}</div>
+          <div class="card-nick">@${escapeHtml(player.username || 'unknown')}</div>
+        </div>
+        <div class="metric-grid metric-grid--summary">
+          ${overviewCells.map((cell) => renderMetricCell(cell.label, cell.value, cell)).join('')}
+        </div>
+        <div class="metric-grid metric-grid--stats">
+          ${statCells.map(([label, value]) => renderMetricCell(label, value, { outlined: isRatingCard })).join('')}
         </div>
         ${
-          showAction
-            ? `<button type="button" class="primary-button small" data-open-player="${escapeHtml(player.id)}">${escapeHtml(actionLabel)}</button>`
+          actionLabel
+            ? `<button type="button" class="primary-button card-action" data-open-player="${escapeHtml(player.id)}">${escapeHtml(actionLabel)}</button>`
             : ''
         }
       </div>
@@ -276,8 +342,8 @@ function renderGameHeader(game) {
     <section class="panel">
       <div class="game-summary">
         <div>
-          <p class="eyebrow">Текущая игра</p>
           <h2>${escapeHtml(game.dateLabel)}</h2>
+          <p class="game-location">${escapeHtml(game.location || 'Не указано')}</p>
         </div>
         <span class="status-pill ${escapeHtml(game.status)}">${escapeHtml(statusText)}</span>
       </div>
@@ -287,12 +353,12 @@ function renderGameHeader(game) {
           <strong>${escapeHtml(game.time)}</strong>
         </div>
         <div>
-          <span>Место</span>
-          <strong>${escapeHtml(game.location || 'Не указано')}</strong>
-        </div>
-        <div>
           <span>Игроков</span>
           <strong>${game.participants.length}</strong>
+        </div>
+        <div>
+          <span>Чат</span>
+          <strong>${escapeHtml(state.snapshot?.chat?.title || 'Чат')}</strong>
         </div>
       </div>
       ${
@@ -306,13 +372,24 @@ function renderGameHeader(game) {
           : ''
       }
       ${game.isFinished ? '<div class="ended-banner">Игра закончена</div>' : ''}
-      ${
-        !game.hasStarted
-          ? '<p class="hint">Оценка откроется после времени начала игры.</p>'
-          : game.canViewerRate
-            ? '<p class="hint">Можно оценивать всех участников, кроме себя. Окно оценок закроется, когда в чате появится новая игра.</p>'
-            : '<p class="hint">Оценивать могут только участники текущей игры, которые открыли miniapp.</p>'
-      }
+    </section>
+  `;
+}
+
+function renderRatingBanner(game) {
+  let message = 'Оценка игроков откроется после времени начала игры.';
+
+  if (game.canViewerRate) {
+    message = 'Можно оценивать игроков текущего матча. Выбирайте карточку ниже.';
+  } else if (game.hasStarted && !game.viewerIsParticipant) {
+    message = 'Оценивать могут только участники текущего матча.';
+  } else if (game.isFinished) {
+    message = 'Игра завершена. Статистика обновится, когда появятся новые оценки.';
+  }
+
+  return `
+    <section class="notice-banner">
+      <p>${escapeHtml(message)}</p>
     </section>
   `;
 }
@@ -321,7 +398,7 @@ function renderField(game) {
   const slots = fieldSlots(game.participants.length);
 
   return `
-    <section class="panel">
+    <section class="panel field-panel">
       <div class="field">
         <div class="field-line mid"></div>
         <div class="field-circle"></div>
@@ -363,11 +440,13 @@ function renderGameTab() {
   return `
     ${renderGameHeader(game)}
     ${renderField(game)}
-    <section class="stack">
+    ${renderRatingBanner(game)}
+    <section class="stack cards-stack">
       ${game.participants
         .map((player) =>
           renderFifaCard(player, {
-            actionLabel: player.canRateTarget ? 'Оценить' : 'Открыть',
+            variant: player.canRateTarget ? 'rating' : 'summary',
+            actionLabel: player.canRateTarget ? 'Оценить' : '',
             currentStats: player.currentGameStats
           })
         )
@@ -379,16 +458,13 @@ function renderGameTab() {
 function renderFilterBar() {
   return `
     <div class="filter-row">
-      <button type="button" class="chip ${state.activeSort === 'overall' ? 'active' : ''}" data-sort="overall">По рейтингу</button>
-      <button type="button" class="chip ${state.activeSort === 'games' ? 'active' : ''}" data-sort="games">Количество игр</button>
-      <label class="chip select-chip ${state.activeSort === 'stat' ? 'active' : ''}">
-        <select id="statSelect">
-          <option value="">Не выбрано</option>
-          ${STAT_META.map(([key, label]) => `<option value="${escapeHtml(key)}" ${state.selectedStat === key ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
-        </select>
-      </label>
-      <button type="button" class="chip ${state.activeSort === 'goals' ? 'active' : ''}" data-sort="goals">Голы</button>
-      <button type="button" class="chip ${state.activeSort === 'assists' ? 'active' : ''}" data-sort="assists">Голевые</button>
+      ${FILTER_CHIPS.map(
+        (filter) => `
+          <button type="button" class="chip ${state.activeSort === filter.key ? 'active' : ''}" data-sort="${escapeHtml(filter.key)}">
+            ${escapeHtml(filter.label)}
+          </button>
+        `
+      ).join('')}
     </div>
   `;
 }
@@ -398,8 +474,8 @@ function renderPlayersTab() {
 
   return `
     ${renderFilterBar()}
-    <section class="stack">
-      ${players.map((player) => renderFifaCard(player, { actionLabel: 'Открыть' })).join('')}
+    <section class="stack cards-stack">
+      ${players.map((player) => renderFifaCard(player, { variant: 'summary' })).join('')}
     </section>
   `;
 }
@@ -444,9 +520,13 @@ function renderModal() {
 
   modalRoot.innerHTML = `
     <div class="modal-backdrop" data-modal-backdrop="true">
-      <div class="modal-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(player.displayName)}" data-stop-close="true">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(player.displayName)}">
         <button class="modal-close" type="button" data-close-modal="true">×</button>
-        ${renderFifaCard(player, { currentStats: gamePlayer?.currentGameStats ?? null })}
+        ${renderFifaCard(player, {
+          currentStats: gamePlayer?.currentGameStats ?? null,
+          variant: editable ? 'rating' : 'summary',
+          clickable: false
+        })}
         ${
           editable
             ? `
@@ -495,8 +575,7 @@ function renderModal() {
 }
 
 function render() {
-  const title = state.snapshot?.chat?.title || 'FIFA Cards';
-  chatTitleNode.textContent = title;
+  chatTitleNode.textContent = getScreenTitle();
 
   if (!state.chatId) {
     contentNode.innerHTML = `
@@ -599,13 +678,6 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('change', (event) => {
-  if (event.target.id === 'statSelect') {
-    state.selectedStat = event.target.value;
-    state.activeSort = state.selectedStat ? 'stat' : 'overall';
-    render();
-    return;
-  }
-
   if (event.target.matches('input[type="range"]')) {
     const valueNode = event.target.parentElement.querySelector('.range-value');
     if (valueNode) {
