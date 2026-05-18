@@ -183,3 +183,60 @@ export function parseTelegramExportGames(payload, referenceDate = new Date()) {
     .filter(Boolean)
     .sort((left, right) => new Date(left.announcement.scheduledAt) - new Date(right.announcement.scheduledAt));
 }
+
+export function parseAnnouncementTextLog(rawText, referenceDate = new Date()) {
+  const lines = String(rawText ?? '')
+    .replaceAll('\r\n', '\n')
+    .replaceAll('\r', '\n')
+    .split('\n');
+  const items = [];
+
+  for (let start = 0; start < lines.length; start += 1) {
+    const trimmedLine = lines[start].trim();
+
+    if (!trimmedLine || !DATE_REGEX.test(trimmedLine)) {
+      continue;
+    }
+
+    let nextDateIndex = lines.length;
+
+    for (let cursor = start + 1; cursor < lines.length; cursor += 1) {
+      if (DATE_REGEX.test(lines[cursor].trim())) {
+        nextDateIndex = cursor;
+        break;
+      }
+    }
+
+    const maxEnd = Math.min(nextDateIndex, start + 32);
+    let bestAnnouncement = null;
+    let bestEnd = start + 1;
+
+    for (let end = start + 5; end <= maxEnd; end += 1) {
+      const chunk = lines.slice(start, end).join('\n');
+      const announcement = parseAnnouncementText(chunk, referenceDate);
+
+      if (!announcement) {
+        continue;
+      }
+
+      bestAnnouncement = announcement;
+      bestEnd = end;
+    }
+
+    if (!bestAnnouncement) {
+      continue;
+    }
+
+    items.push({
+      messageId: null,
+      rawText: bestAnnouncement.rawText,
+      sourceDate: new Date(referenceDate).toISOString(),
+      announcement: bestAnnouncement
+    });
+    start = bestEnd - 1;
+  }
+
+  return items
+    .filter((item, index, collection) => collection.findIndex((candidate) => candidate.announcement.key === item.announcement.key) === index)
+    .sort((left, right) => new Date(left.announcement.scheduledAt) - new Date(right.announcement.scheduledAt));
+}

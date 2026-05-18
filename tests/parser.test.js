@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseAnnouncementText, parseTelegramExportGames } from '../src/lib/parser.js';
+import { parseAnnouncementText, parseAnnouncementTextLog, parseTelegramExportGames } from '../src/lib/parser.js';
 
 test('parseAnnouncementText extracts date, location, time and players', () => {
   const text = `
@@ -77,4 +77,40 @@ test('parseAnnouncementText supports plain username list without numbering', () 
   assert.equal(parsed.time, '19:30');
   assert.equal(parsed.playerUsernames.length, 6);
   assert.deepEqual(parsed.playerUsernames.slice(0, 3), ['guttt', 'gutoperchivyi', 'o_legacy']);
+});
+
+test('parseAnnouncementTextLog extracts multiple announcements from plain text history', () => {
+  const text = `
+что по игре?
+
+18 мая
+Полежаевская
+19:30
+
+@guttt
+@gutoperchivyi
+@O_legacy
+@username1
+@username2
+@username3
+
+да
+
+25 мая
+Сокол
+20:00
+
+1. @alpha
+2. @beta
+3. @gamma
+4. @delta
+5. @epsilon
+6. @zeta
+  `;
+  const items = parseAnnouncementTextLog(text, new Date('2026-05-18T10:00:00+04:00'));
+
+  assert.equal(items.length, 2);
+  assert.equal(items[0].announcement.location, 'Полежаевская');
+  assert.equal(items[1].announcement.location, 'Сокол');
+  assert.equal(items[1].announcement.playerUsernames[0], 'alpha');
 });

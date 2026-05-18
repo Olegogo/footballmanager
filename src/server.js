@@ -161,6 +161,35 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'POST' && url.pathname === '/api/admin/import-history-text') {
+      if (!config.adminImportToken) {
+        sendJson(res, 403, { error: 'Admin import is disabled' });
+        return;
+      }
+
+      if (req.headers['x-admin-token'] !== config.adminImportToken) {
+        sendJson(res, 401, { error: 'Invalid admin token' });
+        return;
+      }
+
+      const body = await readJsonBody(req);
+      const chatId = String(body.chatId || config.defaultChatId || '');
+
+      if (!chatId || !body.text) {
+        sendJson(res, 400, { error: 'chatId and text are required' });
+        return;
+      }
+
+      const result = await store.importAnnouncementTextLog({
+        chatId,
+        chatTitle: body.chatTitle || 'Football Chat',
+        chatType: body.chatType || 'supergroup',
+        text: body.text
+      });
+      sendJson(res, 200, result);
+      return;
+    }
+
     if (req.method === 'POST' && /^\/api\/games\/[^/]+\/ratings$/.test(url.pathname)) {
       const session = getViewerSession(req);
 

@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { createSessionToken } from './auth.js';
-import { parseTelegramExportGames } from './parser.js';
+import { parseAnnouncementTextLog, parseTelegramExportGames } from './parser.js';
 import { POSITION_OPTIONS, STAT_KEYS, buildChatSnapshot } from './stats.js';
 import { clamp, formatDisplayName, normalizeUsername, toIsoString, unique } from './utils.js';
 
@@ -94,6 +94,85 @@ function shouldReplaceCurrentGame(currentGame, incomingGame) {
   }
 
   return new Date(incomingGame.scheduledAt) >= new Date(currentGame.scheduledAt);
+}
+
+function mergeImportedAnnouncements(state, {
+  chatId,
+  chatTitle,
+  chatType,
+  items,
+  source
+}) {
+  ensureChatState(state, {
+    id: chatId,
+    title: chatTitle,
+    type: chatType
+  });
+
+  let importedGames = 0;
+
+  for (const item of items) {
+    const existingByMessageId = Object.values(state.games).find(
+      (game) =>
+        game.chatId === String(chatId) &&
+        game.messageId === item.messageId &&
+        item.messageId !== null
+    );
+
+    if (existingByMessageId) {
+      continue;
+    }
+
+    const existingByKey = Object.values(state.games).find(
+      (game) =>
+        game.chatId === String(chatId) && game.key === item.announcement.key
+    );
+
+    if (existingByKey) {
+      continue;
+    }
+
+    const playerIds = item.announcement.playerUsernames.map((username) => {
+      let player = findPlayerByUsername(state, username);
+
+      if (!player) {
+        player = createPlayerRecord(state, username);
+      }
+
+      attachPlayerToChat(state, chatId, player.id);
+      return player.id;
+    });
+
+    const gameId = `game_${state.meta.nextGameId++}`;
+    const now = new Date().toISOString();
+    state.games[gameId] = {
+      id: gameId,
+      chatId: String(chatId),
+      messageId: item.messageId,
+      rawText: item.rawText,
+      key: item.announcement.key,
+      source,
+      sourceDate: item.sourceDate,
+      dateLabel: item.announcement.dateLabel,
+      location: item.announcement.location,
+      time: item.announcement.time,
+      scheduledAt: item.announcement.scheduledAt,
+      date: item.announcement.date,
+      priceLine: item.announcement.priceLine,
+      paymentLines: item.announcement.paymentLines,
+      playerUsernames: item.announcement.playerUsernames,
+      playerIds,
+      ratingsOpenedAt: null,
+      ratingsPromptMessageId: null,
+      ratingsClosedByGameId: null,
+      closedAt: null,
+      createdAt: now,
+      updatedAt: now
+    };
+    importedGames += 1;
+  }
+
+  return importedGames;
 }
 
 export class AppStore {
@@ -302,78 +381,47 @@ export class AppStore {
     }
 
     return this.mutate((state) => {
-      ensureChatState(state, {
-        id: chatId,
-        title: chatTitle,
-        type: chatType
+      const importedGames = mergeImportedAnnouncements(state, {
+        chatId,
+        chatTitle,
+        chatType,
+        items: games,
+        source: 'history-import'
       });
-
-      let importedGames = 0;
-
-      for (const item of games) {
-        const existingByMessageId = Object.values(state.games).find(
-          (game) =>
-            game.chatId === String(chatId) &&
-            game.messageId === item.messageId &&
-            item.messageId !== null
-        );
-
-        if (existingByMessageId) {
-          continue;
-        }
-
-        const existingByKey = Object.values(state.games).find(
-          (game) =>
-            game.chatId === String(chatId) && game.key === item.announcement.key
-        );
-
-        if (existingByKey) {
-          continue;
-        }
-
-        const playerIds = item.announcement.playerUsernames.map((username) => {
-          let player = findPlayerByUsername(state, username);
-
-          if (!player) {
-            player = createPlayerRecord(state, username);
-          }
-
-          attachPlayerToChat(state, chatId, player.id);
-          return player.id;
-        });
-
-        const gameId = `game_${state.meta.nextGameId++}`;
-        const now = new Date().toISOString();
-        state.games[gameId] = {
-          id: gameId,
-          chatId: String(chatId),
-          messageId: item.messageId,
-          rawText: item.rawText,
-          key: item.announcement.key,
-          source: 'history-import',
-          sourceDate: item.sourceDate,
-          dateLabel: item.announcement.dateLabel,
-          location: item.announcement.location,
-          time: item.announcement.time,
-          scheduledAt: item.announcement.scheduledAt,
-          date: item.announcement.date,
-          priceLine: item.announcement.priceLine,
-          paymentLines: item.announcement.paymentLines,
-          playerUsernames: item.announcement.playerUsernames,
-          playerIds,
-          ratingsOpenedAt: null,
-          ratingsPromptMessageId: null,
-          ratingsClosedByGameId: null,
-          closedAt: null,
-          createdAt: now,
-          updatedAt: now
-        };
-        importedGames += 1;
-      }
-
       return {
         importedGames,
         totalFound: games.length
+      };
+    });
+  }
+
+  async importAnnouncementTextLog({
+    chatId,
+    chatTitle = 'Football Chat',
+    chatType = 'supergroup',
+    text,
+    referenceDate = new Date()
+  }) {
+    const items = parseAnnouncementTextLog(text, referenceDate);
+
+    if (!items.length) {
+      return {
+        importedGames: 0,
+        totalFound: 0
+      };
+    }
+
+    return this.mutate((state) => {
+      const importedGames = mergeImportedAnnouncements(state, {
+        chatId,
+        chatTitle,
+        chatType,
+        items,
+        source: 'text-import'
+      });
+      return {
+        importedGames,
+        totalFound: items.length
       };
     });
   }
