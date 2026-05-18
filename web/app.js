@@ -23,6 +23,21 @@ const POSITION_META = {
   ST: { short: 'НП', card: 'нап', title: 'Нападающий' },
   'N/A': { short: '—', card: '—', title: 'Не выбрана' }
 };
+const FIELD_POSITION_LAYOUT_TOP = {
+  GK: { x: 50, y: 20 },
+  CB: { x: 50, y: 29 },
+  LB: { x: 24, y: 33 },
+  RB: { x: 76, y: 33 },
+  CDM: { x: 50, y: 39 },
+  CM: { x: 50, y: 44 },
+  CAM: { x: 50, y: 48 },
+  LM: { x: 26, y: 45 },
+  RM: { x: 74, y: 45 },
+  LW: { x: 24, y: 50 },
+  RW: { x: 76, y: 50 },
+  ST: { x: 50, y: 52 },
+  'N/A': { x: 50, y: 35 }
+};
 
 const FILTER_CHIPS = [
   { key: 'overall', label: 'Рейтинг' },
@@ -105,6 +120,14 @@ function getSortPosition(position) {
 
 function getEffectiveOverall(player) {
   return player.currentGameStats?.hasRatings ? player.currentGameStats.overall : player.overall;
+}
+
+function getEffectivePosition(player) {
+  if (player.currentGameStats?.hasRatings && player.currentGameStats.position) {
+    return POSITION_META[player.currentGameStats.position] ? player.currentGameStats.position : 'N/A';
+  }
+
+  return POSITION_META[player.position] ? player.position : 'N/A';
 }
 
 function showToast(message) {
@@ -237,37 +260,88 @@ function sortPlayers(players) {
   });
 }
 
-function teamFieldSlots(count, zone = 'top') {
-  let rows;
-  if (count <= 3) {
-    rows = [count];
-  } else if (count <= 6) {
-    rows = count % 2 === 0 ? [count / 2, count / 2] : [Math.floor(count / 2), Math.ceil(count / 2)];
-  } else {
-    rows = [0, 0, 0];
-    for (let index = 0; index < count; index += 1) {
-      rows[index % rows.length] += 1;
-    }
-    rows = rows.filter(Boolean);
+function getFieldZoneBounds(zone) {
+  return zone === 'top'
+    ? { xMin: 12, xMax: 88, yMin: 18, yMax: 48 }
+    : { xMin: 12, xMax: 88, yMin: 52, yMax: 82 };
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function getFieldBaseSlot(position, zone) {
+  const topSlot = FIELD_POSITION_LAYOUT_TOP[position] || FIELD_POSITION_LAYOUT_TOP['N/A'];
+
+  if (zone === 'top') {
+    return topSlot;
   }
-  const totalRows = rows.length;
-  const slots = [];
-  const yMin = zone === 'top' ? 22 : 58;
-  const yMax = zone === 'top' ? 42 : 78;
 
-  rows.forEach((rowCount, rowIndex) => {
-    const y = totalRows === 1
-      ? (yMin + yMax) / 2
-      : yMin + rowIndex * ((yMax - yMin) / (totalRows - 1));
-    for (let index = 0; index < rowCount; index += 1) {
-      slots.push({
-        x: ((index + 1) / (rowCount + 1)) * 100,
-        y
-      });
+  return {
+    x: topSlot.x,
+    y: 100 - topSlot.y
+  };
+}
+
+function buildClusterOffsets(count, position) {
+  if (count <= 1) {
+    return [{ x: 0, y: 0 }];
+  }
+
+  const columns = count <= 2 ? count : count <= 4 ? 2 : 3;
+  const rows = Math.ceil(count / columns);
+  const xGap = position === 'N/A' ? 13 : ['LB', 'RB', 'LM', 'RM', 'LW', 'RW'].includes(position) ? 9 : 11;
+  const yGap = position === 'N/A' ? 10 : 8;
+  const offsets = [];
+
+  for (let index = 0; index < count; index += 1) {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const rowWidth = Math.min(columns, count - row * columns);
+    const x = (column - (rowWidth - 1) / 2) * xGap;
+    const y = rows === 1 ? 0 : (row - (rows - 1) / 2) * yGap;
+    offsets.push({ x, y });
+  }
+
+  return offsets;
+}
+
+function buildTeamFieldAssignments(players, zone) {
+  const bounds = getFieldZoneBounds(zone);
+  const groups = new Map();
+
+  for (const player of [...players].sort((left, right) => {
+    const leftPosition = getSortPosition(getEffectivePosition(left));
+    const rightPosition = getSortPosition(getEffectivePosition(right));
+
+    if (leftPosition !== rightPosition) {
+      return leftPosition - rightPosition;
     }
-  });
 
-  return slots.slice(0, count);
+    if (getEffectiveOverall(right) !== getEffectiveOverall(left)) {
+      return getEffectiveOverall(right) - getEffectiveOverall(left);
+    }
+
+    return left.displayName.localeCompare(right.displayName, 'ru');
+  })) {
+    const position = getEffectivePosition(player);
+    const list = groups.get(position) || [];
+    list.push(player);
+    groups.set(position, list);
+  }
+
+  return [...groups.entries()].flatMap(([position, groupedPlayers]) => {
+    const base = getFieldBaseSlot(position, zone);
+    const offsets = buildClusterOffsets(groupedPlayers.length, position);
+
+    return groupedPlayers.map((player, index) => ({
+      player,
+      slot: {
+        x: clamp(base.x + offsets[index].x, bounds.xMin, bounds.xMax),
+        y: clamp(base.y + offsets[index].y, bounds.yMin, bounds.yMax)
+      }
+    }));
+  });
 }
 
 function splitBalancedTeams(players) {
@@ -504,16 +578,15 @@ function renderField(game) {
         <div class="field-box bottom"></div>
         ${teams
           .map((team) => {
-            const slots = teamFieldSlots(team.players.length, team.key);
+            const assignments = buildTeamFieldAssignments(team.players, team.key);
             return `
               <div class="field-team field-team--${escapeHtml(team.key)}">
                 <div class="field-team-badge field-team-badge--${escapeHtml(team.key)}">
                   <span>${escapeHtml(team.title)}</span>
                   <strong>${escapeHtml(team.total)}</strong>
                 </div>
-                ${team.players
-                  .map((player, index) => {
-                    const slot = slots[index] || { x: 50, y: 50 };
+                ${assignments
+                  .map(({ player, slot }) => {
                     return `
                       <button
                         type="button"
