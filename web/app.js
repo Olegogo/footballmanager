@@ -658,7 +658,6 @@ function renderRatingBanner(game) {
 
 function renderField(game) {
   const teams = splitBalancedTeams(game.participants);
-  const viewerPlayerId = state.snapshot?.viewerPlayerId || null;
 
   return `
     <section class="panel field-panel">
@@ -678,12 +677,12 @@ function renderField(game) {
                 </div>
                 ${assignments
                   .map(({ player, slot }) => {
-                    const isViewerCard = viewerPlayerId && player.id === viewerPlayerId;
-                    const openAttribute = isViewerCard ? '' : `data-open-player="${escapeHtml(player.id)}"`;
+                    const isInteractive = Boolean(player.canRateTarget);
+                    const openAttribute = isInteractive ? `data-open-player="${escapeHtml(player.id)}"` : '';
                     return `
                       <button
                         type="button"
-                        class="field-player-card ${isViewerCard ? 'field-player-card--static' : ''}"
+                        class="field-player-card ${isInteractive ? '' : 'field-player-card--static'}"
                         ${openAttribute}
                         style="left:${slot.x}%; top:${slot.y}%"
                       >
@@ -707,7 +706,6 @@ function renderField(game) {
 
 function renderGameTab() {
   const game = getCurrentGame();
-  const viewerPlayerId = state.snapshot?.viewerPlayerId || null;
 
   if (!game) {
     return `
@@ -729,7 +727,7 @@ function renderGameTab() {
             variant: player.canRateTarget ? 'game-rating' : 'game-summary',
             actionLabel: player.canRateTarget ? 'Оценить' : '',
             currentStats: player.currentGameStats,
-            clickable: player.id !== viewerPlayerId
+            clickable: Boolean(player.canRateTarget)
           })
         )
         .join('')}
