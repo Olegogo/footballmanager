@@ -162,7 +162,7 @@ p {
 
 .game-facts {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1008,36 +1008,40 @@ input[type="range"] {
 }
 
 .editor-range input[type="range"] {
+  appearance: none;
   width: calc(100% - 16px);
-  margin: -6px auto 0;
+  height: 34px;
+  margin: -4px auto 0;
+  background: transparent;
   accent-color: #f1cf72;
+  cursor: pointer;
 }
 
 .editor-range input[type="range"]::-webkit-slider-runnable-track {
-  height: 5px;
+  height: 6px;
   border-radius: 999px;
   background: #f1cf72;
 }
 
 .editor-range input[type="range"]::-webkit-slider-thumb {
   appearance: none;
-  width: 22px;
-  height: 22px;
-  margin-top: -8px;
+  width: 30px;
+  height: 30px;
+  margin-top: -12px;
   border-radius: 999px;
   background: #f1cf72;
   border: 0;
 }
 
 .editor-range input[type="range"]::-moz-range-track {
-  height: 5px;
+  height: 6px;
   border-radius: 999px;
   background: #f1cf72;
 }
 
 .editor-range input[type="range"]::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
+  width: 30px;
+  height: 30px;
   border-radius: 999px;
   background: #f1cf72;
   border: 0;

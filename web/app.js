@@ -436,26 +436,28 @@ function renderFifaCard(player, options = {}) {
   const clickable = options.clickable !== false;
   const actionLabel = options.actionLabel || '';
   const ratingsCount = currentStats?.ratingsCount ?? 0;
-  const hasRatings = variant === 'player-list' ? true : Boolean(currentStats?.hasRatings);
-  const overall = hasRatings ? (currentStats?.overall ?? player.overall) : null;
-  const position = hasRatings ? (currentStats?.position || player.position || 'N/A') : null;
-  const statValues = currentStats?.stats || player.stats;
+  const hasCurrentRatings = Boolean(currentStats?.hasRatings);
+  const hasCareerRatings = player.ratedGames > 0;
+  const showKnownStats = variant === 'player-list' || hasCurrentRatings || hasCareerRatings;
+  const overall = hasCurrentRatings ? currentStats.overall : showKnownStats ? player.overall : null;
+  const position = hasCurrentRatings ? (currentStats?.position || player.position || 'N/A') : (showKnownStats ? (player.position || 'N/A') : null);
+  const statValues = hasCurrentRatings ? currentStats?.stats : player.stats;
   const isRatingCard = variant === 'game-rating';
   const isGameCard = variant !== 'player-list';
-  const statusLabel = isGameCard && !hasRatings ? 'Не оценён' : '';
+  const statusLabel = isGameCard && !hasCurrentRatings && !hasCareerRatings ? 'Не оценён' : '';
   const statPlaceholder = '-';
   const overviewCells = [
     { label: 'игр', value: player.games, emphasis: true },
-    { label: 'голов', value: hasRatings ? player.goals : statPlaceholder, outlined: isRatingCard },
-    { label: 'голевых', value: hasRatings ? player.assists : statPlaceholder, outlined: isRatingCard }
+    { label: 'голов', value: showKnownStats ? (hasCurrentRatings ? currentStats.goals : player.goals) : statPlaceholder, outlined: isRatingCard },
+    { label: 'голевых', value: showKnownStats ? (hasCurrentRatings ? currentStats.assists : player.assists) : statPlaceholder, outlined: isRatingCard }
   ];
   const statCells = [
-    ['скорость', hasRatings ? statValues.pace : statPlaceholder],
-    ['дриблинг', hasRatings ? statValues.dribbling : statPlaceholder],
-    ['удар', hasRatings ? statValues.shooting : statPlaceholder],
-    ['защита', hasRatings ? statValues.defense : statPlaceholder],
-    ['передачи', hasRatings ? statValues.passing : statPlaceholder],
-    ['физика', hasRatings ? statValues.physical : statPlaceholder]
+    ['скорость', showKnownStats ? statValues.pace : statPlaceholder],
+    ['дриблинг', showKnownStats ? statValues.dribbling : statPlaceholder],
+    ['удар', showKnownStats ? statValues.shooting : statPlaceholder],
+    ['защита', showKnownStats ? statValues.defense : statPlaceholder],
+    ['передачи', showKnownStats ? statValues.passing : statPlaceholder],
+    ['физика', showKnownStats ? statValues.physical : statPlaceholder]
   ];
   const openAttribute = clickable ? ` data-open-player="${escapeHtml(player.id)}"` : '';
   const actionNote =
@@ -486,7 +488,7 @@ function renderFifaCard(player, options = {}) {
         </div>
         ${
           isRatingCard
-            ? renderPositionSelector('Позиция', hasRatings ? getPositionMeta(position).title : 'Не выбрана')
+            ? renderPositionSelector('Позиция', showKnownStats ? getPositionMeta(position).title : 'Не выбрана')
             : ''
         }
         <div class="metric-grid metric-grid--summary">
@@ -540,11 +542,11 @@ function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
   const currentStats = gamePlayer?.currentGameStats ?? null;
   const hasRatings = Boolean(currentStats?.hasRatings);
   const statusLabel = gamePlayer
-    ? (hasRatings ? `Оценок: ${currentStats?.ratingsCount ?? 0}` : 'Не оценён')
+    ? (hasRatings ? `Оценок: ${currentStats?.ratingsCount ?? 0}` : (player.ratedGames > 0 ? 'Оценка матча' : 'Не оценён'))
     : 'Карточка игрока';
 
   return `
-    <div class="editor-overlay">
+    <div class="editor-overlay" data-modal-backdrop="true">
       <section class="editor-screen" role="dialog" aria-modal="true" aria-label="${escapeHtml(player.displayName)}">
         <div class="editor-hero">
           ${renderCardHero(player)}
@@ -622,10 +624,6 @@ function renderGameHeader(game) {
         <div>
           <span>Игроков</span>
           <strong>${game.participants.length}</strong>
-        </div>
-        <div>
-          <span>Чат</span>
-          <strong>${escapeHtml(state.snapshot?.chat?.title || 'Чат')}</strong>
         </div>
       </div>
       ${
@@ -765,7 +763,7 @@ function renderPlayersTab() {
   return `
     ${renderFilterBar()}
     <section class="stack cards-stack cards-stack--players">
-      ${players.map((player) => renderFifaCard(player, { variant: 'player-list' })).join('')}
+      ${players.map((player) => renderFifaCard(player, { variant: 'player-list', clickable: false })).join('')}
     </section>
   `;
 }

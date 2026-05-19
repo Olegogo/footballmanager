@@ -337,7 +337,7 @@ export class TelegramBot {
       try {
         const message = await this.sendText(
           game.chatId,
-          'Оцените игроков. В этом сообщении можно открыть miniapp и выставить позицию, рейтинг, голы и ассисты за текущую игру.',
+          'Игра началась. Участники матча уже могут оценить игроков в miniapp: выставить позицию, рейтинг, голы и голевые передачи за текущую игру.',
           {
             replyMarkup: this.buildMiniAppKeyboard('supergroup', game.chatId)
           }
