@@ -470,6 +470,10 @@ p {
   gap: 20px;
 }
 
+.cards-stack--players {
+  grid-template-columns: 1fr;
+}
+
 .fifa-card {
   position: relative;
   overflow: hidden;
@@ -809,6 +813,243 @@ input[type="range"] {
   z-index: 2;
 }
 
+.editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  overflow-y: auto;
+  background: rgba(3, 8, 6, 0.78);
+  backdrop-filter: blur(16px);
+}
+
+.editor-screen {
+  width: min(100%, 560px);
+  min-height: 100dvh;
+  margin: 0 auto;
+  background:
+    linear-gradient(90deg, rgba(154, 118, 44, 0.9), rgba(41, 30, 11, 0.96) 74%),
+    linear-gradient(180deg, rgba(17, 13, 7, 0.82), rgba(17, 13, 7, 0.82));
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
+}
+
+.editor-hero {
+  position: relative;
+  min-height: 292px;
+  background: #08140f;
+  overflow: hidden;
+}
+
+.editor-hero .fifa-card-hero-media,
+.editor-hero .fifa-card-hero-media img {
+  width: 100%;
+  height: 100%;
+}
+
+.editor-hero .fifa-card-hero-media {
+  position: absolute;
+  inset: 0;
+}
+
+.editor-hero .fifa-card-hero-media img {
+  object-fit: cover;
+}
+
+.editor-status {
+  position: absolute;
+  left: 20px;
+  top: 18px;
+  z-index: 1;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1d160a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.editor-close {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  z-index: 1;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #221707;
+  font-size: 34px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.editor-body {
+  display: grid;
+  gap: 18px;
+  padding: 18px 20px 28px;
+}
+
+.editor-nameblock {
+  text-align: center;
+}
+
+.editor-name {
+  font-size: clamp(28px, 6vw, 34px);
+  line-height: 1.04;
+  font-weight: 900;
+}
+
+.editor-nick {
+  margin-top: 8px;
+  font-size: 18px;
+  color: rgba(255, 236, 194, 0.6);
+}
+
+.editor-form {
+  display: grid;
+  gap: 12px;
+}
+
+.editor-select,
+.editor-stat-block,
+.editor-stepper,
+.editor-range-box {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(241, 207, 114, 0.62);
+}
+
+.editor-select span,
+.editor-stat-block span,
+.editor-stepper span,
+.editor-range-box span {
+  color: rgba(255, 240, 209, 0.68);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.editor-select strong,
+.editor-stat-block strong,
+.editor-stepper strong,
+.editor-range-value {
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.editor-select {
+  padding-right: 52px;
+}
+
+.editor-select select {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 0;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.editor-select svg {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  fill: rgba(255, 240, 209, 0.92);
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+
+.editor-stat-block--filled {
+  background: rgba(255, 245, 208, 0.14);
+  border-color: transparent;
+}
+
+.editor-stepper {
+  grid-template-columns: 1fr auto;
+  padding-right: 110px;
+}
+
+.editor-stepper strong {
+  grid-column: 1 / 2;
+}
+
+.editor-stepper input[type="hidden"] {
+  display: none;
+}
+
+.editor-stepper-actions {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  display: flex;
+  gap: 8px;
+  transform: translateY(-50%);
+}
+
+.editor-stepper-button {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(255, 245, 208, 0.18);
+  color: #fff4d0;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.editor-range {
+  display: grid;
+  gap: 0;
+}
+
+.editor-range input[type="range"] {
+  width: calc(100% - 16px);
+  margin: -6px auto 0;
+  accent-color: #f1cf72;
+}
+
+.editor-range input[type="range"]::-webkit-slider-runnable-track {
+  height: 5px;
+  border-radius: 999px;
+  background: #f1cf72;
+}
+
+.editor-range input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
+  border-radius: 999px;
+  background: #f1cf72;
+  border: 0;
+}
+
+.editor-range input[type="range"]::-moz-range-track {
+  height: 5px;
+  border-radius: 999px;
+  background: #f1cf72;
+}
+
+.editor-range input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #f1cf72;
+  border: 0;
+}
+
+.editor-submit {
+  margin-top: 8px;
+  min-height: 76px;
+  border-radius: 30px;
+  font-size: 24px;
+}
+
 .toast {
   position: fixed;
   left: 50%;
@@ -860,5 +1101,16 @@ input[type="range"] {
 
   .field-player-info strong {
     font-size: 22px;
+  }
+
+  .editor-body {
+    padding-inline: 16px;
+  }
+}
+
+@media (min-width: 421px) {
+  .cards-stack--players {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
   }
 }

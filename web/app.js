@@ -51,6 +51,7 @@ const FILTER_CHIPS = [
   { key: 'passing', label: 'Передачи' },
   { key: 'physical', label: 'Физика' }
 ];
+const POSITION_CHOICES = ['N/A', 'GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST'];
 
 function readChatIdFromStartParam() {
   const urlChatId = new URLSearchParams(window.location.search).get('chatId') || '';
@@ -509,6 +510,98 @@ function renderFifaCard(player, options = {}) {
   `;
 }
 
+function renderEditorStepper(name, label, value, max = 20) {
+  return `
+    <div class="editor-stepper" data-stepper-name="${escapeHtml(name)}">
+      <span>${escapeHtml(label)}</span>
+      <strong data-stepper-value>${escapeHtml(value)}</strong>
+      <input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(value)}" min="0" max="${escapeHtml(max)}">
+      <div class="editor-stepper-actions">
+        <button type="button" class="editor-stepper-button" data-stepper-action="decrement" data-stepper-name="${escapeHtml(name)}">−</button>
+        <button type="button" class="editor-stepper-button" data-stepper-action="increment" data-stepper-name="${escapeHtml(name)}">+</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderEditorRange(name, label, value) {
+  return `
+    <label class="editor-range">
+      <div class="editor-range-box">
+        <span>${escapeHtml(label)}</span>
+        <strong class="editor-range-value">${escapeHtml(value)}</strong>
+      </div>
+      <input type="range" min="1" max="99" name="${escapeHtml(name)}" value="${escapeHtml(value)}">
+    </label>
+  `;
+}
+
+function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
+  const currentStats = gamePlayer?.currentGameStats ?? null;
+  const hasRatings = Boolean(currentStats?.hasRatings);
+  const statusLabel = gamePlayer
+    ? (hasRatings ? `Оценок: ${currentStats?.ratingsCount ?? 0}` : 'Не оценён')
+    : 'Карточка игрока';
+
+  return `
+    <div class="editor-overlay">
+      <section class="editor-screen" role="dialog" aria-modal="true" aria-label="${escapeHtml(player.displayName)}">
+        <div class="editor-hero">
+          ${renderCardHero(player)}
+          <span class="editor-status">${escapeHtml(statusLabel)}</span>
+          <button class="editor-close" type="button" data-close-modal="true">×</button>
+        </div>
+        <div class="editor-body">
+          <div class="editor-nameblock">
+            <div class="editor-name">${escapeHtml(player.displayName)}</div>
+            <div class="editor-nick">@${escapeHtml(player.username || 'unknown')}</div>
+          </div>
+          ${
+            editable
+              ? `
+                <form id="ratingForm" class="editor-form" data-game-id="${escapeHtml(game.id)}" data-player-id="${escapeHtml(player.id)}">
+                  <label class="editor-select">
+                    <span>Позиция</span>
+                    <select name="position">
+                      ${POSITION_CHOICES
+                        .map((position) => `
+                          <option value="${position}" ${defaults.position === position ? 'selected' : ''}>
+                            ${escapeHtml(getPositionMeta(position).title)}
+                          </option>
+                        `)
+                        .join('')}
+                    </select>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M6.7 8.8a1 1 0 0 1 1.4 0L12 12.7l3.9-3.9a1 1 0 1 1 1.4 1.4l-4.6 4.6a1 1 0 0 1-1.4 0L6.7 10.2a1 1 0 0 1 0-1.4z"></path>
+                    </svg>
+                  </label>
+                  <div class="editor-stat-block editor-stat-block--filled">
+                    <span>игр</span>
+                    <strong>${escapeHtml(player.games)}</strong>
+                  </div>
+                  ${renderEditorStepper('goals', 'голов', defaults.goals)}
+                  ${renderEditorStepper('assists', 'голевых передач', defaults.assists)}
+                  ${STAT_META.map(([key, label]) => renderEditorRange(key, label.toLowerCase(), defaults[key])).join('')}
+                  <button type="submit" class="primary-button editor-submit">Сохранить</button>
+                </form>
+              `
+              : `
+                ${renderFifaCard(player, {
+                  currentStats,
+                  variant: gamePlayer ? 'game-summary' : 'player-list',
+                  clickable: false
+                })}
+                <div class="panel subtle-panel">
+                  <p>Этого игрока сейчас можно только посмотреть. Оценка доступна после старта матча и только для других участников текущей игры.</p>
+                </div>
+              `
+          }
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function renderGameHeader(game) {
   const statusText = game.status === 'upcoming' ? 'Игра впереди' : game.status === 'live' ? 'Идет игра' : 'Игра закончена';
 
@@ -545,7 +638,6 @@ function renderGameHeader(game) {
           `
           : ''
       }
-      ${game.isFinished ? '<div class="ended-banner">Игра закончена</div>' : ''}
     </section>
   `;
 }
@@ -672,7 +764,7 @@ function renderPlayersTab() {
 
   return `
     ${renderFilterBar()}
-    <section class="stack cards-stack">
+    <section class="stack cards-stack cards-stack--players">
       ${players.map((player) => renderFifaCard(player, { variant: 'player-list' })).join('')}
     </section>
   `;
@@ -708,7 +800,7 @@ function renderModal() {
 
   const editable = Boolean(gamePlayer?.canRateTarget && game);
   const defaults = {
-    position: gamePlayer?.currentGameStats?.position || player.position || 'CM',
+    position: gamePlayer?.currentGameStats?.position || player.position || 'N/A',
     goals: gamePlayer?.currentGameStats?.goals ?? 0,
     assists: gamePlayer?.currentGameStats?.assists ?? 0,
     ...Object.fromEntries(
@@ -716,60 +808,7 @@ function renderModal() {
     )
   };
 
-  modalRoot.innerHTML = `
-    <div class="modal-backdrop" data-modal-backdrop="true">
-      <div class="modal-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(player.displayName)}">
-        <button class="modal-close" type="button" data-close-modal="true">×</button>
-        ${renderFifaCard(player, {
-          currentStats: gamePlayer?.currentGameStats ?? null,
-          variant: editable ? 'game-rating' : 'game-summary',
-          clickable: false
-        })}
-        ${
-          editable
-            ? `
-              <form id="ratingForm" class="rating-form" data-game-id="${escapeHtml(game.id)}" data-player-id="${escapeHtml(player.id)}">
-                <label>
-                  <span>Позиция</span>
-                  <select name="position">
-                    ${['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST']
-                      .map((position) => `<option value="${position}" ${defaults.position === position ? 'selected' : ''}>${escapeHtml(getPositionMeta(position).title)}</option>`)
-                      .join('')}
-                  </select>
-                </label>
-                ${STAT_META.map(
-                  ([key, label]) => `
-                    <label class="range-row">
-                      <span>${escapeHtml(label)}</span>
-                      <div>
-                        <input type="range" min="1" max="99" name="${escapeHtml(key)}" value="${defaults[key]}">
-                        <strong class="range-value">${defaults[key]}</strong>
-                      </div>
-                    </label>
-                  `
-                ).join('')}
-                <div class="two-columns">
-                  <label>
-                    <span>Голы</span>
-                    <input type="number" name="goals" min="0" max="20" value="${defaults.goals}">
-                  </label>
-                  <label>
-                    <span>Голевые</span>
-                    <input type="number" name="assists" min="0" max="20" value="${defaults.assists}">
-                  </label>
-                </div>
-                <button type="submit" class="primary-button">Сохранить оценку</button>
-              </form>
-            `
-            : `
-              <div class="panel subtle-panel">
-                <p>Этого игрока можно только посмотреть. Оценка доступна после старта матча и только для других участников текущей игры.</p>
-              </div>
-            `
-        }
-      </div>
-    </div>
-  `;
+  modalRoot.innerHTML = renderEditorScreen(player, gamePlayer, editable, defaults, game);
 }
 
 function render() {
@@ -864,6 +903,26 @@ function setupAutoRefresh() {
   }, 30000);
 }
 
+function updateStepper(form, name, delta) {
+  const input = form.querySelector(`input[name="${name}"]`);
+  const container = form.querySelector(`[data-stepper-name="${name}"]`);
+
+  if (!input || !container) {
+    return;
+  }
+
+  const min = Number(input.getAttribute('min') || 0);
+  const max = Number(input.getAttribute('max') || 20);
+  const currentValue = Number(input.value || 0);
+  const nextValue = clamp(currentValue + delta, min, max);
+  input.value = String(nextValue);
+  const valueNode = container.querySelector('[data-stepper-value]');
+
+  if (valueNode) {
+    valueNode.textContent = String(nextValue);
+  }
+}
+
 document.getElementById('refreshButton').addEventListener('click', async () => {
   await refreshSnapshot();
 });
@@ -880,6 +939,23 @@ document.querySelector('.tabbar').addEventListener('click', (event) => {
 });
 
 document.addEventListener('click', (event) => {
+  const stepperButton = event.target.closest('[data-stepper-action]');
+
+  if (stepperButton) {
+    const form = stepperButton.closest('form');
+
+    if (!form) {
+      return;
+    }
+
+    updateStepper(
+      form,
+      stepperButton.dataset.stepperName,
+      stepperButton.dataset.stepperAction === 'increment' ? 1 : -1
+    );
+    return;
+  }
+
   const openButton = event.target.closest('[data-open-player]');
 
   if (openButton) {
@@ -909,7 +985,9 @@ document.addEventListener('change', (event) => {
   }
 
   if (event.target.matches('input[type="range"]')) {
-    const valueNode = event.target.parentElement.querySelector('.range-value');
+    const valueNode =
+      event.target.closest('.editor-range')?.querySelector('.editor-range-value') ||
+      event.target.parentElement.querySelector('.range-value');
     if (valueNode) {
       valueNode.textContent = event.target.value;
     }
@@ -918,7 +996,9 @@ document.addEventListener('change', (event) => {
 
 document.addEventListener('input', (event) => {
   if (event.target.matches('input[type="range"]')) {
-    const valueNode = event.target.parentElement.querySelector('.range-value');
+    const valueNode =
+      event.target.closest('.editor-range')?.querySelector('.editor-range-value') ||
+      event.target.parentElement.querySelector('.range-value');
     if (valueNode) {
       valueNode.textContent = event.target.value;
     }
