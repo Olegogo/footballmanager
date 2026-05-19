@@ -445,13 +445,13 @@ function renderFifaCard(player, options = {}) {
   const ratingsCount = currentStats?.ratingsCount ?? 0;
   const hasCurrentRatings = Boolean(currentStats?.hasRatings);
   const hasCareerRatings = player.ratedGames > 0;
-  const showKnownStats = variant === 'player-list' || hasCurrentRatings || hasCareerRatings;
+  const isUnrated = !hasCurrentRatings && !hasCareerRatings;
+  const showKnownStats = hasCurrentRatings || hasCareerRatings;
   const overall = hasCurrentRatings ? currentStats.overall : showKnownStats ? player.overall : null;
   const position = hasCurrentRatings ? (currentStats?.position || player.position || 'N/A') : (showKnownStats ? (player.position || 'N/A') : null);
   const statValues = hasCurrentRatings ? currentStats?.stats : player.stats;
   const isRatingCard = variant === 'game-rating';
-  const isGameCard = variant !== 'player-list';
-  const statusLabel = isGameCard && !hasCurrentRatings && !hasCareerRatings ? 'Не оценён' : '';
+  const statusLabel = isUnrated ? 'Не оценён' : '';
   const statPlaceholder = '-';
   const overviewCells = [
     { label: 'игр', value: player.games, emphasis: true },
