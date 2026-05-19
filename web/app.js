@@ -658,6 +658,7 @@ function renderRatingBanner(game) {
 
 function renderField(game) {
   const teams = splitBalancedTeams(game.participants);
+  const viewerPlayerId = state.snapshot?.viewerPlayerId || null;
 
   return `
     <section class="panel field-panel">
@@ -677,11 +678,13 @@ function renderField(game) {
                 </div>
                 ${assignments
                   .map(({ player, slot }) => {
+                    const isViewerCard = viewerPlayerId && player.id === viewerPlayerId;
+                    const openAttribute = isViewerCard ? '' : `data-open-player="${escapeHtml(player.id)}"`;
                     return `
                       <button
                         type="button"
-                        class="field-player-card"
-                        data-open-player="${escapeHtml(player.id)}"
+                        class="field-player-card ${isViewerCard ? 'field-player-card--static' : ''}"
+                        ${openAttribute}
                         style="left:${slot.x}%; top:${slot.y}%"
                       >
                         <div class="field-player-photo">${renderMiniAvatar(player)}</div>
@@ -704,6 +707,7 @@ function renderField(game) {
 
 function renderGameTab() {
   const game = getCurrentGame();
+  const viewerPlayerId = state.snapshot?.viewerPlayerId || null;
 
   if (!game) {
     return `
@@ -724,7 +728,8 @@ function renderGameTab() {
           renderFifaCard(player, {
             variant: player.canRateTarget ? 'game-rating' : 'game-summary',
             actionLabel: player.canRateTarget ? 'Оценить' : '',
-            currentStats: player.currentGameStats
+            currentStats: player.currentGameStats,
+            clickable: player.id !== viewerPlayerId
           })
         )
         .join('')}

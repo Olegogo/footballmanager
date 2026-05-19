@@ -340,6 +340,10 @@ p {
   cursor: pointer;
 }
 
+.field-player-card--static {
+  cursor: default;
+}
+
 .field-player-card::before {
   content: "";
   position: absolute;
