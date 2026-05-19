@@ -119,3 +119,45 @@ test('/open falls back to plain link when Telegram rejects keyboard', async () =
   assert.equal(sent[1].chatId, -1003);
   assert.match(sent[1].text, /https:\/\/t\.me\/football_test_bot\?startapp=chat_-1003/);
 });
+
+test('/open tolerates PUBLIC_BASE_URL without scheme in group chats', async () => {
+  const { store } = createBotStore([]);
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'footballmanager-production.up.railway.app'
+  }, store);
+  const sent = [];
+
+  bot.botUsername = 'football_test_bot';
+  bot.sendText = async (chatId, text, options = {}) => {
+    sent.push({ chatId, text, options });
+    return { message_id: 101 };
+  };
+
+  await bot.handleCommand({
+    text: '/open',
+    chat: {
+      id: -1004,
+      type: 'supergroup'
+    }
+  });
+
+  assert.equal(sent.length, 1);
+  assert.equal(
+    sent[0].options.replyMarkup.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=chat_-1004'
+  );
+});
+
+test('buildMiniAppUrl normalizes PUBLIC_BASE_URL without scheme for private chat usage', async () => {
+  const { store } = createBotStore([]);
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'footballmanager-production.up.railway.app'
+  }, store);
+
+  assert.equal(
+    bot.buildMiniAppUrl('-1005'),
+    'https://footballmanager-production.up.railway.app/?chatId=-1005'
+  );
+});

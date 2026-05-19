@@ -9,6 +9,22 @@ function normalizeCommand(text) {
   return command.split('@')[0].toLowerCase();
 }
 
+function normalizeHttpUrl(value) {
+  const raw = String(value ?? '').trim();
+
+  if (!raw) {
+    return '';
+  }
+
+  const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+
+  try {
+    return new URL(candidate).toString();
+  } catch {
+    return '';
+  }
+}
+
 export class TelegramBot {
   constructor(config, store) {
     this.config = config;
@@ -24,11 +40,13 @@ export class TelegramBot {
   }
 
   buildMiniAppUrl(chatId = '') {
-    if (!this.config.publicBaseUrl) {
+    const baseUrl = normalizeHttpUrl(this.config.publicBaseUrl);
+
+    if (!baseUrl) {
       return '';
     }
 
-    const url = new URL(this.config.publicBaseUrl);
+    const url = new URL(baseUrl);
 
     if (chatId) {
       url.searchParams.set('chatId', String(chatId));
