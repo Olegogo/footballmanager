@@ -25,18 +25,33 @@ const POSITION_META = {
 };
 const FIELD_POSITION_LAYOUT_TOP = {
   GK: { x: 50, y: 20 },
-  CB: { x: 50, y: 29 },
-  LB: { x: 24, y: 33 },
-  RB: { x: 76, y: 33 },
-  CDM: { x: 50, y: 39 },
-  CM: { x: 50, y: 44 },
-  CAM: { x: 50, y: 48 },
-  LM: { x: 26, y: 45 },
-  RM: { x: 74, y: 45 },
-  LW: { x: 24, y: 50 },
-  RW: { x: 76, y: 50 },
+  CB: { x: 50, y: 28 },
+  LB: { x: 75, y: 33 },
+  RB: { x: 25, y: 33 },
+  CDM: { x: 50, y: 38 },
+  CM: { x: 50, y: 43 },
+  CAM: { x: 50, y: 46 },
+  LM: { x: 75, y: 42 },
+  RM: { x: 25, y: 42 },
+  LW: { x: 75, y: 48 },
+  RW: { x: 25, y: 48 },
+  ST: { x: 50, y: 48 },
+  'N/A': { x: 50, y: 34 }
+};
+const FIELD_POSITION_LAYOUT_BOTTOM = {
+  GK: { x: 50, y: 80 },
+  CB: { x: 50, y: 72 },
+  LB: { x: 25, y: 67 },
+  RB: { x: 75, y: 67 },
+  CDM: { x: 50, y: 62 },
+  CM: { x: 50, y: 57 },
+  CAM: { x: 50, y: 54 },
+  LM: { x: 25, y: 58 },
+  RM: { x: 75, y: 58 },
+  LW: { x: 25, y: 52 },
+  RW: { x: 75, y: 52 },
   ST: { x: 50, y: 52 },
-  'N/A': { x: 50, y: 35 }
+  'N/A': { x: 50, y: 66 }
 };
 
 const FILTER_CHIPS = [
@@ -272,16 +287,8 @@ function clamp(value, min, max) {
 }
 
 function getFieldBaseSlot(position, zone) {
-  const topSlot = FIELD_POSITION_LAYOUT_TOP[position] || FIELD_POSITION_LAYOUT_TOP['N/A'];
-
-  if (zone === 'top') {
-    return topSlot;
-  }
-
-  return {
-    x: topSlot.x,
-    y: 100 - topSlot.y
-  };
+  const layout = zone === 'top' ? FIELD_POSITION_LAYOUT_TOP : FIELD_POSITION_LAYOUT_BOTTOM;
+  return layout[position] || layout['N/A'];
 }
 
 function buildClusterOffsets(count, position) {
@@ -370,8 +377,8 @@ function splitBalancedTeams(players) {
   }
 
   return [
-    { key: 'top', title: 'Состав A', players: top, total: topScore },
-    { key: 'bottom', title: 'Состав B', players: bottom, total: bottomScore }
+    { key: 'top', players: top, total: topScore },
+    { key: 'bottom', players: bottom, total: bottomScore }
   ];
 }
 
@@ -671,10 +678,6 @@ function renderField(game) {
             const assignments = buildTeamFieldAssignments(team.players, team.key);
             return `
               <div class="field-team field-team--${escapeHtml(team.key)}">
-                <div class="field-team-badge field-team-badge--${escapeHtml(team.key)}">
-                  <span>${escapeHtml(team.title)}</span>
-                  <strong>${escapeHtml(team.total)}</strong>
-                </div>
                 ${assignments
                   .map(({ player, slot }) => {
                     const isInteractive = Boolean(player.canRateTarget);

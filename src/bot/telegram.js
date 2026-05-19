@@ -16,6 +16,7 @@ export class TelegramBot {
     this.offset = 0;
     this.running = false;
     this.botUsername = '';
+    this.promptTimers = new Map();
   }
 
   get enabled() {
@@ -127,6 +128,58 @@ export class TelegramBot {
     });
   }
 
+  clearPromptTimer(gameId) {
+    const timer = this.promptTimers.get(gameId);
+
+    if (!timer) {
+      return;
+    }
+
+    clearTimeout(timer);
+    this.promptTimers.delete(gameId);
+  }
+
+  schedulePromptForGame(game) {
+    if (!game?.id || game.ratingsOpenedAt) {
+      return;
+    }
+
+    const dueAt = new Date(game.scheduledAt).getTime();
+
+    if (!Number.isFinite(dueAt)) {
+      return;
+    }
+
+    this.clearPromptTimer(game.id);
+
+    const delayMs = dueAt - Date.now();
+
+    if (delayMs <= 0) {
+      queueMicrotask(() => {
+        void this.processPendingRatingPrompts();
+      });
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      this.promptTimers.delete(game.id);
+      void this.processPendingRatingPrompts();
+    }, delayMs + 250);
+
+    timer.unref?.();
+    this.promptTimers.set(game.id, timer);
+  }
+
+  scheduleCurrentGamePrompts() {
+    for (const chat of Object.values(this.store.state.chats ?? {})) {
+      const game = chat.currentGameId ? this.store.state.games?.[chat.currentGameId] : null;
+
+      if (game && !game.ratingsOpenedAt) {
+        this.schedulePromptForGame(game);
+      }
+    }
+  }
+
   async maybeRefreshPlayerPhoto(chatId, player) {
     if (!player?.telegramUserId || player.photoUrl) {
       return;
@@ -220,7 +273,7 @@ export class TelegramBot {
       return;
     }
 
-    await this.store.recordGameFromAnnouncement({
+    const result = await this.store.recordGameFromAnnouncement({
       chatId: message.chat.id,
       chatTitle: message.chat.title ?? '',
       chatType: message.chat.type,
@@ -230,6 +283,10 @@ export class TelegramBot {
       source: 'telegram-message',
       sourceDate: new Date((message.date ?? Math.floor(Date.now() / 1000)) * 1000)
     });
+
+    if (result?.game) {
+      this.schedulePromptForGame(result.game);
+    }
   }
 
   async handleMessage(message) {
@@ -303,6 +360,9 @@ export class TelegramBot {
       console.error('Unable to delete webhook before polling:', error.message);
     }
 
+    this.scheduleCurrentGamePrompts();
+    await this.processPendingRatingPrompts();
+
     while (this.running) {
       try {
         const updates = await this.callApi('getUpdates', {
@@ -324,6 +384,10 @@ export class TelegramBot {
 
   stop() {
     this.running = false;
+
+    for (const gameId of this.promptTimers.keys()) {
+      this.clearPromptTimer(gameId);
+    }
   }
 
   async processPendingRatingPrompts() {
@@ -332,17 +396,32 @@ export class TelegramBot {
     }
 
     const games = this.store.listGamesRequiringPrompt(new Date());
+    const promptText = 'Игра началась. Участники матча уже могут оценить игроков в miniapp: выставить позицию, рейтинг, голы и голевые передачи за текущую игру.';
 
     for (const game of games) {
       try {
-        const message = await this.sendText(
-          game.chatId,
-          'Игра началась. Участники матча уже могут оценить игроков в miniapp: выставить позицию, рейтинг, голы и голевые передачи за текущую игру.',
-          {
-            replyMarkup: this.buildMiniAppKeyboard('supergroup', game.chatId)
+        const replyMarkup = this.buildMiniAppKeyboard('supergroup', game.chatId);
+        let message;
+
+        try {
+          message = await this.sendText(game.chatId, promptText, {
+            replyMarkup
+          });
+        } catch (error) {
+          const fallbackUrl = this.buildMainMiniAppLink(game.chatId) || this.buildMiniAppUrl(game.chatId);
+
+          if (!fallbackUrl) {
+            throw error;
           }
-        );
+
+          message = await this.sendText(
+            game.chatId,
+            `${promptText}\n\n${fallbackUrl}`
+          );
+        }
+
         await this.store.markRatingsPromptSent(game.id, message.message_id);
+        this.clearPromptTimer(game.id);
       } catch (error) {
         console.error(`Unable to send rating prompt for ${game.id}:`, error.message);
       }
