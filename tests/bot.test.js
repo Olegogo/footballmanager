@@ -86,3 +86,36 @@ test('processPendingRatingPrompts falls back to plain link when keyboard send fa
   assert.match(sent[1].text, /https:\/\/t\.me\/football_test_bot\?startapp=chat_-1002/);
   assert.deepEqual(marked, [{ gameId: 'game_2', messageId: 88 }]);
 });
+
+test('/open falls back to plain link when Telegram rejects keyboard', async () => {
+  const { store } = createBotStore([]);
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+  const sent = [];
+
+  bot.botUsername = 'football_test_bot';
+  bot.sendText = async (chatId, text, options = {}) => {
+    sent.push({ chatId, text, options });
+
+    if (options.replyMarkup) {
+      throw new Error('Telegram rejected keyboard');
+    }
+
+    return { message_id: 99 };
+  };
+
+  await bot.handleCommand({
+    text: '/open',
+    chat: {
+      id: -1003,
+      type: 'supergroup'
+    }
+  });
+
+  assert.equal(sent.length, 2);
+  assert.equal(sent[0].chatId, -1003);
+  assert.equal(sent[1].chatId, -1003);
+  assert.match(sent[1].text, /https:\/\/t\.me\/football_test_bot\?startapp=chat_-1003/);
+});

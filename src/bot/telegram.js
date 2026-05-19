@@ -94,6 +94,37 @@ export class TelegramBot {
     };
   }
 
+  getMiniAppFallbackUrl(chatId = '') {
+    return this.buildMainMiniAppLink(chatId) || this.buildMiniAppUrl(chatId) || '';
+  }
+
+  async sendMiniAppEntry(chatId, chatType, targetChatId, primaryText) {
+    const replyMarkup = this.buildMiniAppKeyboard(chatType, targetChatId);
+    const fallbackUrl = this.getMiniAppFallbackUrl(targetChatId);
+
+    if (!replyMarkup) {
+      if (!fallbackUrl) {
+        await this.sendText(chatId, 'Сначала укажите PUBLIC_BASE_URL, чтобы miniapp можно было открыть из Telegram.');
+        return;
+      }
+
+      await this.sendText(chatId, `${primaryText}\n\n${fallbackUrl}`);
+      return;
+    }
+
+    try {
+      await this.sendText(chatId, primaryText, {
+        replyMarkup
+      });
+    } catch (error) {
+      if (!fallbackUrl) {
+        throw error;
+      }
+
+      await this.sendText(chatId, `${primaryText}\n\n${fallbackUrl}`);
+    }
+  }
+
   async ensureBotProfile() {
     if (!this.enabled || this.botUsername) {
       return;
@@ -227,29 +258,17 @@ export class TelegramBot {
         '',
         'Важно: отключите Privacy Mode у бота через BotFather, чтобы он видел сообщения с анонсами игр.'
       ];
-      await this.sendText(chatId, lines.join('\n'), {
-        replyMarkup: this.buildMiniAppKeyboard(message.chat.type, targetChatId)
-      });
+      await this.sendMiniAppEntry(chatId, message.chat.type, targetChatId, lines.join('\n'));
       return;
     }
 
     if (command === '/open') {
-      const url = this.buildMiniAppUrl(targetChatId);
-      const directMiniAppLink = this.buildMainMiniAppLink(targetChatId);
-
-      if (!url && !directMiniAppLink) {
-        await this.sendText(chatId, 'Сначала укажите PUBLIC_BASE_URL, чтобы miniapp можно было открыть из Telegram.');
-        return;
-      }
-
       const helpLine =
         message.chat.type === 'private'
           ? 'Miniapp готов. Открывайте по кнопке ниже.'
           : 'Miniapp готов. В группе Telegram откроет его по безопасной ссылке ниже.';
 
-      await this.sendText(chatId, helpLine, {
-        replyMarkup: this.buildMiniAppKeyboard(message.chat.type, targetChatId)
-      });
+      await this.sendMiniAppEntry(chatId, message.chat.type, targetChatId, helpLine);
       return;
     }
 
