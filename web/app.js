@@ -584,7 +584,7 @@ function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
                   ${renderEditorStepper('goals', 'голов', defaults.goals)}
                   ${renderEditorStepper('assists', 'голевых передач', defaults.assists)}
                   ${STAT_META.map(([key, label]) => renderEditorRange(key, label.toLowerCase(), defaults[key])).join('')}
-                  <button type="submit" class="primary-button editor-submit">Сохранить</button>
+                  <button type="submit" class="primary-button card-action editor-submit">Сохранить</button>
                 </form>
               `
               : `
