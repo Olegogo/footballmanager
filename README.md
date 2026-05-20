@@ -24,6 +24,36 @@
 - текущий бот работает как Node.js процесс с long polling
 - такой backend нельзя целиком запускать на обычном статическом Pages-хостинге
 
+## Самый простой перенос на Yandex Cloud
+
+Если хочешь перенести проект в `Yandex Cloud` без большой переделки, лучший путь сейчас:
+
+- одна `Compute Cloud VM`
+- `Docker Compose`
+- `Caddy` для HTTPS
+- bot и miniapp на одном домене
+
+Готовые файлы для этого лежат здесь:
+
+- [deploy/yandex-cloud/README.md](/Users/alfa/Documents/Codex/2026-05-17-fifa-fifa-17-19-30-1/deploy/yandex-cloud/README.md)
+- [deploy/yandex-cloud/docker-compose.yml](/Users/alfa/Documents/Codex/2026-05-17-fifa-fifa-17-19-30-1/deploy/yandex-cloud/docker-compose.yml)
+- [deploy/yandex-cloud/Caddyfile](/Users/alfa/Documents/Codex/2026-05-17-fifa-fifa-17-19-30-1/deploy/yandex-cloud/Caddyfile)
+
+Почему это проще всего:
+
+- не надо переписывать бота под `webhook`
+- не надо сразу мигрировать в `serverless`
+- можно оставить текущий `long polling`
+- miniapp и backend будут жить на одном HTTPS-домене
+
+Если нужна почти бесплатная схема в `Yandex Cloud`, тогда уже лучше отдельно переделывать проект под:
+
+- `API Gateway`
+- `Cloud Functions` или `Serverless Containers`
+- `YDB serverless`
+
+Но это уже не “простой перенос”, а новая архитектура.
+
 ## Что внутри
 
 - `src/server.js` — HTTP-сервер, API miniapp и запуск long polling бота
