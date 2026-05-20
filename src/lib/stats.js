@@ -216,7 +216,7 @@ export function buildCareerIndex(state, chatId) {
           assists: entry.assists,
           overall,
           stats,
-          position: pickDominantPosition(entry.positionCounts)
+          position: entry.ratedGames ? pickDominantPosition(entry.positionCounts) : 'N/A'
         }
       ];
     })
@@ -336,7 +336,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
         lastName: player.lastName,
         photoUrl: player.photoUrl,
         overall: playerCareer.overall,
-        position: playerCareer.position,
+        position: playerCareer.ratedGames ? playerCareer.position : (player.defaultPosition || 'N/A'),
         stats: playerCareer.stats,
         games: playerCareer.games,
         ratedGames: playerCareer.ratedGames,

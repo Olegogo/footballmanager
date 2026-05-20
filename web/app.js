@@ -9,7 +9,7 @@ const STAT_META = [
 
 const POSITION_ORDER = ['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST', 'N/A'];
 const POSITION_META = {
-  GK: { short: 'ВРТ', card: 'врт', title: 'Вратарь' },
+  GK: { short: 'ВР', card: 'вр', title: 'Вратарь' },
   CB: { short: 'ЦЗ', card: 'цз', title: 'Центральный защитник' },
   LB: { short: 'ЛЗ', card: 'лз', title: 'Левый защитник' },
   RB: { short: 'ПЗ', card: 'пз', title: 'Правый защитник' },
@@ -20,9 +20,23 @@ const POSITION_META = {
   RM: { short: 'ПП', card: 'пп', title: 'Правый полузащитник' },
   LW: { short: 'ЛВ', card: 'лв', title: 'Левый вингер' },
   RW: { short: 'ПВ', card: 'пв', title: 'Правый вингер' },
-  ST: { short: 'НП', card: 'нап', title: 'Нападающий' },
+  ST: { short: 'ЦН', card: 'цн', title: 'Центральный нападающий' },
   'N/A': { short: '—', card: '—', title: 'Не выбрана' }
 };
+const VENUE_DIRECTORY = [
+  {
+    match: /сокольник/i,
+    venue: 'CityFootball',
+    address: 'ул. Короленко, 1А, Москва',
+    mapUrl: 'https://yandex.ru/maps/org/cityfootball/1809670236?si=yb6d72pvrvgnt63tbw8y23w900'
+  },
+  {
+    match: /полежаевск/i,
+    venue: 'Академия Будущего',
+    address: 'Москва, Северный административный округ, Хорошёвский район',
+    mapUrl: 'https://yandex.ru/maps/org/akademiya_budushchego/85913064858?si=yb6d72pvrvgnt63tbw8y23w900'
+  }
+];
 const FIELD_POSITION_LAYOUT_TOP = {
   GK: { x: 50, y: 20 },
   CB: { x: 50, y: 28 },
@@ -30,12 +44,12 @@ const FIELD_POSITION_LAYOUT_TOP = {
   RB: { x: 25, y: 33 },
   CDM: { x: 50, y: 38 },
   CM: { x: 50, y: 43 },
-  CAM: { x: 50, y: 46 },
+  CAM: { x: 50, y: 45 },
   LM: { x: 75, y: 42 },
   RM: { x: 25, y: 42 },
-  LW: { x: 75, y: 48 },
-  RW: { x: 25, y: 48 },
-  ST: { x: 50, y: 48 },
+  LW: { x: 75, y: 46 },
+  RW: { x: 25, y: 46 },
+  ST: { x: 50, y: 49 },
   'N/A': { x: 50, y: 34 }
 };
 const FIELD_POSITION_LAYOUT_BOTTOM = {
@@ -45,12 +59,12 @@ const FIELD_POSITION_LAYOUT_BOTTOM = {
   RB: { x: 75, y: 67 },
   CDM: { x: 50, y: 62 },
   CM: { x: 50, y: 57 },
-  CAM: { x: 50, y: 54 },
+  CAM: { x: 50, y: 55 },
   LM: { x: 25, y: 58 },
   RM: { x: 75, y: 58 },
-  LW: { x: 25, y: 52 },
-  RW: { x: 75, y: 52 },
-  ST: { x: 50, y: 52 },
+  LW: { x: 25, y: 54 },
+  RW: { x: 75, y: 54 },
+  ST: { x: 50, y: 51 },
   'N/A': { x: 50, y: 66 }
 };
 
@@ -127,6 +141,10 @@ function getScreenTitle() {
 
 function getPositionMeta(position) {
   return POSITION_META[position] || POSITION_META['N/A'];
+}
+
+function getVenueInfo(location = '') {
+  return VENUE_DIRECTORY.find((entry) => entry.match.test(String(location))) || null;
 }
 
 function getSortPosition(position) {
@@ -363,8 +381,21 @@ function splitBalancedTeams(players) {
   let topScore = 0;
   let bottomScore = 0;
 
-  for (const player of sorted) {
+  const assignToTeam = (player, preferred = '') => {
     const rating = getEffectiveOverall(player);
+
+    if (preferred === 'top' && top.length < maxTopCount) {
+      top.push(player);
+      topScore += rating;
+      return true;
+    }
+
+    if (preferred === 'bottom' && bottom.length < maxBottomCount) {
+      bottom.push(player);
+      bottomScore += rating;
+      return true;
+    }
+
     const shouldGoTop = (topScore <= bottomScore && top.length < maxTopCount) || bottom.length >= maxBottomCount;
 
     if (shouldGoTop) {
@@ -374,6 +405,19 @@ function splitBalancedTeams(players) {
       bottom.push(player);
       bottomScore += rating;
     }
+
+    return true;
+  };
+
+  const goalkeepers = sorted.filter((player) => getEffectivePosition(player) === 'GK');
+  const rest = sorted.filter((player) => getEffectivePosition(player) !== 'GK');
+
+  goalkeepers.forEach((player, index) => {
+    assignToTeam(player, index % 2 === 0 ? 'top' : 'bottom');
+  });
+
+  for (const player of rest) {
+    assignToTeam(player);
   }
 
   return [
@@ -613,6 +657,7 @@ function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
 
 function renderGameHeader(game) {
   const statusText = game.status === 'upcoming' ? 'Игра впереди' : game.status === 'live' ? 'Идет игра' : 'Игра закончена';
+  const venue = getVenueInfo(game.location);
 
   return `
     <section class="panel">
@@ -633,16 +678,18 @@ function renderGameHeader(game) {
           <strong>${game.participants.length}</strong>
         </div>
       </div>
-      ${
-        game.priceLine || game.paymentLines?.length
-          ? `
-            <div class="game-payment">
-              ${game.priceLine ? `<div>${escapeHtml(game.priceLine)}</div>` : ''}
-              ${game.paymentLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}
-            </div>
-          `
-          : ''
-      }
+      <div class="game-venue">
+        <div class="game-venue-copy">
+          <span>Адрес</span>
+          <strong>${escapeHtml(venue?.venue || game.location || 'Не указано')}</strong>
+          <p>${escapeHtml(venue?.address || game.location || 'Не указано')}</p>
+        </div>
+        ${
+          venue?.mapUrl
+            ? `<button type="button" class="primary-button map-button" data-map-link="${escapeHtml(venue.mapUrl)}">На карте</button>`
+            : ''
+        }
+      </div>
     </section>
   `;
 }
@@ -965,6 +1012,21 @@ document.addEventListener('click', (event) => {
   if (openButton) {
     state.selectedPlayerId = openButton.dataset.openPlayer;
     renderModal();
+    return;
+  }
+
+  const mapButton = event.target.closest('[data-map-link]');
+
+  if (mapButton) {
+    const url = mapButton.dataset.mapLink;
+
+    if (url) {
+      if (tg?.openLink) {
+        tg.openLink(url);
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    }
     return;
   }
 

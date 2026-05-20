@@ -6,6 +6,11 @@ import { parseAnnouncementTextLog, parseTelegramExportGames } from './parser.js'
 import { POSITION_OPTIONS, STAT_KEYS, buildChatSnapshot } from './stats.js';
 import { clamp, formatDisplayName, normalizeUsername, toIsoString, unique } from './utils.js';
 
+const DEFAULT_POSITION_BY_USERNAME = {
+  dbabanin: 'GK',
+  satwerz: 'GK'
+};
+
 function defaultState() {
   return {
     version: 1,
@@ -71,6 +76,22 @@ function createPlayerRecord(state, username = '') {
   return player;
 }
 
+function getDefaultPosition(username) {
+  return DEFAULT_POSITION_BY_USERNAME[normalizeUsername(username)] || 'N/A';
+}
+
+function applyPlayerDefaults(player, username = '') {
+  const defaultPosition = getDefaultPosition(username || player.username);
+
+  if (defaultPosition !== 'N/A') {
+    player.defaultPosition = defaultPosition;
+  } else if (!player.defaultPosition) {
+    player.defaultPosition = 'N/A';
+  }
+
+  return player;
+}
+
 function attachPlayerToChat(state, chatId, playerId) {
   const chat = state.chats[String(chatId)];
 
@@ -122,6 +143,8 @@ function resolveAnnouncementPlayerIds(state, chatId, usernames) {
     if (!player) {
       player = createPlayerRecord(state, username);
     }
+
+    applyPlayerDefaults(player, username);
 
     attachPlayerToChat(state, chatId, player.id);
     return player.id;
@@ -315,6 +338,7 @@ export class AppStore {
       player.displayName = extra.displayName || formatDisplayName(user) || player.displayName;
       player.photoUrl = extra.photoUrl || user?.photo_url || player.photoUrl;
       player.updatedAt = new Date().toISOString();
+      applyPlayerDefaults(player, normalizedUsername);
 
       attachPlayerToChat(state, chat.id, player.id);
       return player;
@@ -333,6 +357,8 @@ export class AppStore {
       if (!player.displayName || player.displayName === 'Игрок') {
         player.displayName = `@${normalizeUsername(username)}`;
       }
+
+      applyPlayerDefaults(player, username);
 
       attachPlayerToChat(state, chatId, player.id);
       return player;

@@ -26,6 +26,7 @@ test('buildChatSnapshot aggregates ratings, games and MVP', () => {
         firstName: 'Teterko',
         lastName: '',
         photoUrl: '',
+        defaultPosition: 'N/A',
         chatIds: ['-1001']
       },
       player_2: {
@@ -36,6 +37,7 @@ test('buildChatSnapshot aggregates ratings, games and MVP', () => {
         firstName: 'Babanin',
         lastName: '',
         photoUrl: '',
+        defaultPosition: 'GK',
         chatIds: ['-1001']
       },
       player_3: {
@@ -46,6 +48,7 @@ test('buildChatSnapshot aggregates ratings, games and MVP', () => {
         firstName: 'Satwerz',
         lastName: '',
         photoUrl: '',
+        defaultPosition: 'GK',
         chatIds: ['-1001']
       }
     },
@@ -126,4 +129,5 @@ test('buildChatSnapshot aggregates ratings, games and MVP', () => {
     false
   );
   assert.equal(snapshot.currentGame.isFinished, true);
+  assert.equal(snapshot.players.find((player) => player.id === 'player_3').position, 'GK');
 });

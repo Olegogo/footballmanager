@@ -25,6 +25,9 @@ function normalizeHttpUrl(value) {
   }
 }
 
+const BUTTON_ONLY_TEXT = '\u2060';
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+
 export class TelegramBot {
   constructor(config, store) {
     this.config = config;
@@ -71,7 +74,7 @@ export class TelegramBot {
     return url.toString();
   }
 
-  buildMiniAppKeyboard(chatType = 'private', chatId = '') {
+  buildMiniAppKeyboard(chatType = 'private', chatId = '', buttonText = 'Открыть миниапп') {
     const publicUrl = this.buildMiniAppUrl(chatId);
     const directMiniAppLink = this.buildMainMiniAppLink(chatId);
 
@@ -86,7 +89,7 @@ export class TelegramBot {
         inline_keyboard: [
           [
             {
-              text: 'Открыть миниапп',
+              text: buttonText,
               url
             }
           ]
@@ -99,14 +102,14 @@ export class TelegramBot {
     }
 
     return {
-      inline_keyboard: [
-        [
-          {
-            text: 'Открыть миниапп',
-            web_app: {
-              url: publicUrl
+        inline_keyboard: [
+          [
+            {
+              text: buttonText,
+              web_app: {
+                url: publicUrl
+              }
             }
-          }
         ]
       ]
     };
@@ -116,9 +119,13 @@ export class TelegramBot {
     return this.buildMainMiniAppLink(chatId) || this.buildMiniAppUrl(chatId) || '';
   }
 
-  async sendMiniAppEntry(chatId, chatType, targetChatId, primaryText) {
-    const replyMarkup = this.buildMiniAppKeyboard(chatType, targetChatId);
+  async sendMiniAppEntry(chatId, chatType, targetChatId, options = {}) {
+    const primaryText = options.primaryText ?? BUTTON_ONLY_TEXT;
+    const buttonText = options.buttonText ?? 'Открыть миниапп';
+    const replyMarkup = this.buildMiniAppKeyboard(chatType, targetChatId, buttonText);
     const fallbackUrl = this.getMiniAppFallbackUrl(targetChatId);
+    const buttonOnly = options.buttonOnly ?? false;
+    const fallbackText = buttonOnly ? fallbackUrl : `${primaryText}\n\n${fallbackUrl}`;
 
     if (!replyMarkup) {
       if (!fallbackUrl) {
@@ -126,12 +133,12 @@ export class TelegramBot {
         return;
       }
 
-      await this.sendText(chatId, `${primaryText}\n\n${fallbackUrl}`);
+      await this.sendText(chatId, fallbackText);
       return;
     }
 
     try {
-      await this.sendText(chatId, primaryText, {
+      return await this.sendText(chatId, primaryText, {
         replyMarkup
       });
     } catch (error) {
@@ -139,7 +146,7 @@ export class TelegramBot {
         throw error;
       }
 
-      await this.sendText(chatId, `${primaryText}\n\n${fallbackUrl}`);
+      return await this.sendText(chatId, fallbackText);
     }
   }
 
@@ -212,8 +219,14 @@ export class TelegramBot {
 
     const timer = setTimeout(() => {
       this.promptTimers.delete(game.id);
+
+      if (Date.now() < dueAt) {
+        this.schedulePromptForGame(game);
+        return;
+      }
+
       void this.processPendingRatingPrompts();
-    }, delayMs + 250);
+    }, Math.min(delayMs + 250, MAX_TIMER_DELAY_MS));
 
     timer.unref?.();
     this.promptTimers.set(game.id, timer);
@@ -276,17 +289,19 @@ export class TelegramBot {
         '',
         'Важно: отключите Privacy Mode у бота через BotFather, чтобы он видел сообщения с анонсами игр.'
       ];
-      await this.sendMiniAppEntry(chatId, message.chat.type, targetChatId, lines.join('\n'));
+      await this.sendMiniAppEntry(chatId, message.chat.type, targetChatId, {
+        primaryText: lines.join('\n'),
+        buttonText: 'Открыть миниапп'
+      });
       return;
     }
 
     if (command === '/open') {
-      const helpLine =
-        message.chat.type === 'private'
-          ? 'Miniapp готов. Открывайте по кнопке ниже.'
-          : 'Miniapp готов. В группе Telegram откроет его по безопасной ссылке ниже.';
-
-      await this.sendMiniAppEntry(chatId, message.chat.type, targetChatId, helpLine);
+      await this.sendMiniAppEntry(chatId, message.chat.type, targetChatId, {
+        primaryText: BUTTON_ONLY_TEXT,
+        buttonText: 'Открыть футбольчик',
+        buttonOnly: true
+      });
       return;
     }
 
@@ -299,7 +314,7 @@ export class TelegramBot {
     }
   }
 
-  async handleAnnouncement(message) {
+  async handleAnnouncement(message, options = {}) {
     if (!message.text || message.chat.type === 'private') {
       return;
     }
@@ -324,9 +339,17 @@ export class TelegramBot {
     if (result?.game) {
       this.schedulePromptForGame(result.game);
     }
+
+    if (!options.isEdited && result && (result.created || result.updated)) {
+      await this.sendMiniAppEntry(message.chat.id, message.chat.type, message.chat.id, {
+        primaryText: BUTTON_ONLY_TEXT,
+        buttonText: 'Детали игры',
+        buttonOnly: true
+      });
+    }
   }
 
-  async handleMessage(message) {
+  async handleMessage(message, options = {}) {
     await this.store.ensureChat({
       id: message.chat.id,
       title: message.chat.title ?? `${message.chat.first_name ?? ''} ${message.chat.last_name ?? ''}`.trim(),
@@ -347,7 +370,7 @@ export class TelegramBot {
       return;
     }
 
-    await this.handleAnnouncement(message);
+    await this.handleAnnouncement(message, options);
   }
 
   async handleChatMember(update) {
@@ -375,9 +398,9 @@ export class TelegramBot {
 
   async handleUpdate(update) {
     if (update.message) {
-      await this.handleMessage(update.message);
+      await this.handleMessage(update.message, { isEdited: false });
     } else if (update.edited_message) {
-      await this.handleMessage(update.edited_message);
+      await this.handleMessage(update.edited_message, { isEdited: true });
     } else if (update.my_chat_member) {
       await this.handleChatMember(update.my_chat_member);
     }
@@ -433,29 +456,14 @@ export class TelegramBot {
     }
 
     const games = this.store.listGamesRequiringPrompt(new Date());
-    const promptText = 'Игра началась. Участники матча уже могут оценить игроков в miniapp: выставить позицию, рейтинг, голы и голевые передачи за текущую игру.';
+    const promptText = 'Не забудьте оценить игру тиммейтов';
 
     for (const game of games) {
       try {
-        const replyMarkup = this.buildMiniAppKeyboard('supergroup', game.chatId);
-        let message;
-
-        try {
-          message = await this.sendText(game.chatId, promptText, {
-            replyMarkup
-          });
-        } catch (error) {
-          const fallbackUrl = this.buildMainMiniAppLink(game.chatId) || this.buildMiniAppUrl(game.chatId);
-
-          if (!fallbackUrl) {
-            throw error;
-          }
-
-          message = await this.sendText(
-            game.chatId,
-            `${promptText}\n\n${fallbackUrl}`
-          );
-        }
+        const message = await this.sendMiniAppEntry(game.chatId, 'supergroup', game.chatId, {
+          primaryText: promptText,
+          buttonText: 'Оценить'
+        });
 
         await this.store.markRatingsPromptSent(game.id, message.message_id);
         this.clearPromptTimer(game.id);
