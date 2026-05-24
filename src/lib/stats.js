@@ -113,9 +113,12 @@ export function buildGameAggregation(state, gameId) {
 
     const summary = byPlayer.get(rating.targetPlayerId);
     summary.count += 1;
-    summary.goalsTotal += rating.goals;
-    summary.assistsTotal += rating.assists;
     summary.positionCounts[rating.position] = (summary.positionCounts[rating.position] ?? 0) + 1;
+
+    if (rating.position !== 'GK') {
+      summary.goalsTotal += rating.goals;
+      summary.assistsTotal += rating.assists;
+    }
 
     for (const key of STAT_KEYS) {
       summary.sums[key] += rating[key];

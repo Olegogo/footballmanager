@@ -673,6 +673,10 @@ p {
   grid-template-columns: repeat(3, 1fr);
 }
 
+.metric-grid--single {
+  grid-template-columns: 1fr;
+}
+
 .metric-cell {
   min-height: 68px;
   padding: 10px 10px 12px;

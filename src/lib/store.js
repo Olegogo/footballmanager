@@ -621,8 +621,8 @@ export class AppStore {
         rating[key] = clamp(Number(payload[key] ?? 50), 1, 99);
       }
 
-      rating.goals = clamp(Number(payload.goals ?? 0), 0, 20);
-      rating.assists = clamp(Number(payload.assists ?? 0), 0, 20);
+      rating.goals = rating.position === 'GK' ? 0 : clamp(Number(payload.goals ?? 0), 0, 20);
+      rating.assists = rating.position === 'GK' ? 0 : clamp(Number(payload.assists ?? 0), 0, 20);
       rating.updatedAt = new Date().toISOString();
       state.ratings[rating.id] = rating;
       return rating;
