@@ -2,6 +2,7 @@ import { round } from './utils.js';
 
 export const STAT_KEYS = ['pace', 'dribbling', 'shooting', 'defense', 'passing', 'physical'];
 export const POSITION_OPTIONS = ['N/A', 'GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST'];
+export const RATING_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const FALLBACK_STATS = {
   pace: 50,
@@ -303,6 +304,13 @@ function getGameStatus(game, now) {
   return 'live';
 }
 
+function isRatingWindowOpenForGame(game, now) {
+  const scheduledAt = new Date(game.scheduledAt);
+  const closedAt = new Date(scheduledAt.getTime() + RATING_WINDOW_MS);
+
+  return now >= scheduledAt && now < closedAt;
+}
+
 export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = new Date()) {
   const chat = state.chats[String(chatId)];
 
@@ -358,7 +366,9 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     const status = getGameStatus(currentGame, now);
     const hasStarted = now >= new Date(currentGame.scheduledAt);
     const viewerIsParticipant = viewerPlayerId ? currentGame.playerIds.includes(viewerPlayerId) : false;
-    const ratingWindowOpen = chat.currentGameId === currentGame.id && hasStarted;
+    const ratingWindowOpen =
+      chat.currentGameId === currentGame.id &&
+      isRatingWindowOpenForGame(currentGame, now);
 
     currentGameView = {
       id: currentGame.id,

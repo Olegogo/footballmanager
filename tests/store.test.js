@@ -290,6 +290,7 @@ test('recordGameFromAnnouncement updates edited announcement with same message i
 
 test('submitRating stores goalkeeper goals and assists as zero', async () => {
   const { directory, store } = await createStore();
+  const startedAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
   try {
     await store.mutate((state) => {
@@ -335,12 +336,12 @@ test('submitRating stores goalkeeper goals and assists as zero', async () => {
         rawText: '',
         key: 'game_1',
         source: 'test',
-        sourceDate: '2026-05-01T10:00:00.000Z',
+        sourceDate: startedAt,
         dateLabel: '1 мая',
         location: 'Поле',
         time: '10:00',
-        scheduledAt: '2026-05-01T10:00:00.000Z',
-        date: '2026-05-01',
+        scheduledAt: startedAt,
+        date: startedAt.slice(0, 10),
         priceLine: '',
         paymentLines: [],
         playerUsernames: ['teterko', 'dbabanin'],
@@ -375,6 +376,95 @@ test('submitRating stores goalkeeper goals and assists as zero', async () => {
     assert.equal(rating.position, 'GK');
     assert.equal(rating.goals, 0);
     assert.equal(rating.assists, 0);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('submitRating rejects ratings after 24 hours', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    await store.mutate((state) => {
+      state.chats['-1001'] = {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        username: '',
+        currentGameId: 'game_1',
+        playerIds: ['player_1', 'player_2'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      state.players.player_1 = {
+        id: 'player_1',
+        telegramUserId: 1,
+        username: 'teterko',
+        displayName: 'Teterko',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        chatIds: ['-1001'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      state.players.player_2 = {
+        id: 'player_2',
+        telegramUserId: 2,
+        username: 'dbabanin',
+        displayName: 'Babanin',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        chatIds: ['-1001'],
+        defaultPosition: 'GK',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      state.games.game_1 = {
+        id: 'game_1',
+        chatId: '-1001',
+        messageId: 1,
+        rawText: '',
+        key: 'game_1',
+        source: 'test',
+        sourceDate: '2000-05-01T10:00:00.000Z',
+        dateLabel: '1 мая',
+        location: 'Поле',
+        time: '10:00',
+        scheduledAt: '2000-05-01T10:00:00.000Z',
+        date: '2000-05-01',
+        priceLine: '',
+        paymentLines: [],
+        playerUsernames: ['teterko', 'dbabanin'],
+        playerIds: ['player_1', 'player_2'],
+        ratingsOpenedAt: null,
+        ratingsPromptMessageId: null,
+        ratingsClosedByGameId: null,
+        closedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    });
+
+    await assert.rejects(
+      () => store.submitRating({
+        chatId: '-1001',
+        gameId: 'game_1',
+        raterPlayerId: 'player_1',
+        targetPlayerId: 'player_2',
+        payload: {
+          position: 'GK',
+          pace: 75,
+          dribbling: 76,
+          shooting: 77,
+          defense: 78,
+          passing: 79,
+          physical: 80
+        }
+      }),
+      /Окно оценки закрыто/
+    );
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }

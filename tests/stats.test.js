@@ -131,3 +131,64 @@ test('buildChatSnapshot aggregates ratings, games and MVP', () => {
   assert.equal(snapshot.currentGame.isFinished, true);
   assert.equal(snapshot.players.find((player) => player.id === 'player_3').position, 'GK');
 });
+
+test('buildChatSnapshot closes rating window after 24 hours', () => {
+  const state = {
+    version: 1,
+    meta: {},
+    chats: {
+      '-1001': {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        username: '',
+        currentGameId: 'game_1',
+        playerIds: ['player_1', 'player_2']
+      }
+    },
+    players: {
+      player_1: {
+        id: 'player_1',
+        telegramUserId: 1,
+        username: 'teterko',
+        displayName: 'Teterko',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001']
+      },
+      player_2: {
+        id: 'player_2',
+        telegramUserId: 2,
+        username: 'dbabanin',
+        displayName: 'Babanin',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'GK',
+        chatIds: ['-1001']
+      }
+    },
+    games: {
+      game_1: {
+        id: 'game_1',
+        chatId: '-1001',
+        dateLabel: 'Суббота 10 мая',
+        location: 'Поле 1',
+        time: '19:00',
+        scheduledAt: '2026-05-10T19:00:00.000Z',
+        playerIds: ['player_1', 'player_2'],
+        paymentLines: [],
+        priceLine: ''
+      }
+    },
+    ratings: {}
+  };
+
+  const openSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T18:59:00.000Z'));
+  const closedSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T19:00:00.000Z'));
+
+  assert.equal(openSnapshot.currentGame.canViewerRate, true);
+  assert.equal(closedSnapshot.currentGame.canViewerRate, false);
+});
