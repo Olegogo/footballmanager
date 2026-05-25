@@ -513,35 +513,34 @@ function renderFifaCard(player, options = {}) {
   const isUnrated = !hasCurrentRatings && !hasCareerRatings;
   const isRatingCard = variant === 'game-rating';
   const viewerHasRatedTarget = Boolean(player.viewerHasRatedTarget);
-  const showLimitedBeforeViewerRating = isRatingCard && !viewerHasRatedTarget;
-  const showKnownStats = showLimitedBeforeViewerRating
-    ? hasCurrentRatings
-    : hasCurrentRatings || hasCareerRatings;
-  const overall = hasCurrentRatings ? currentStats.overall : showKnownStats ? player.overall : null;
+  const hideMatchDetailsUntilViewerRates = isRatingCard && !viewerHasRatedTarget;
+  const hasVisibleRating = hasCurrentRatings || hasCareerRatings;
+  const showKnownStats = !hideMatchDetailsUntilViewerRates && hasVisibleRating;
+  const overall = hasCurrentRatings ? currentStats.overall : hasCareerRatings ? player.overall : null;
   const effectivePosition = hasCurrentRatings ? (currentStats?.position || player.position || 'N/A') : (player.position || 'N/A');
-  const position = showKnownStats ? effectivePosition : null;
+  const position = hasVisibleRating ? effectivePosition : null;
   const statValues = hasCurrentRatings ? currentStats?.stats : player.stats;
-  const statusLabel = (!hasCurrentRatings && showLimitedBeforeViewerRating) || isUnrated ? 'Не оценён' : '';
+  const statusLabel = isUnrated ? 'Не оценён' : '';
   const statPlaceholder = '-';
   const statMeta = getStatMetaForPosition(effectivePosition);
   const isGoalkeeper = isGoalkeeperPosition(effectivePosition);
   const overviewCells = [
-    { label: 'игр', value: showLimitedBeforeViewerRating ? statPlaceholder : player.games, emphasis: true },
+    { label: 'игр', value: hideMatchDetailsUntilViewerRates ? statPlaceholder : player.games, emphasis: true },
     ...(
       isGoalkeeper
         ? []
         : [
-            { label: 'голов', value: !showLimitedBeforeViewerRating && showKnownStats ? (hasCurrentRatings ? currentStats.goals : player.goals) : statPlaceholder, outlined: isRatingCard },
-            { label: 'голевых', value: !showLimitedBeforeViewerRating && showKnownStats ? (hasCurrentRatings ? currentStats.assists : player.assists) : statPlaceholder, outlined: isRatingCard }
+            { label: 'голов', value: !hideMatchDetailsUntilViewerRates && showKnownStats ? (hasCurrentRatings ? currentStats.goals : player.goals) : statPlaceholder, outlined: isRatingCard },
+            { label: 'голевых', value: !hideMatchDetailsUntilViewerRates && showKnownStats ? (hasCurrentRatings ? currentStats.assists : player.assists) : statPlaceholder, outlined: isRatingCard }
           ]
     )
   ];
   const statCells = statMeta.map(([key, label]) => [
     label.toLowerCase(),
-    !showLimitedBeforeViewerRating && showKnownStats ? statValues[key] : statPlaceholder
+    !hideMatchDetailsUntilViewerRates && showKnownStats ? statValues[key] : statPlaceholder
   ]);
   const openAttribute = clickable ? ` data-open-player="${escapeHtml(player.id)}"` : '';
-  const actionNote = isRatingCard ? `${ratingsCount} уже оценили` : '';
+  const actionNote = isRatingCard && ratingsCount > 0 ? `${ratingsCount} уже оценили` : '';
 
   return `
     <article class="fifa-card fifa-card--${escapeHtml(variant)} ${player.isMvp ? 'is-mvp' : ''} ${clickable ? 'is-clickable' : ''}"${openAttribute}>
@@ -916,7 +915,7 @@ function renderModal() {
     goals: viewerRating?.goals ?? 0,
     assists: viewerRating?.assists ?? 0,
     ...Object.fromEntries(
-      STAT_META.map(([key]) => [key, viewerRating?.stats?.[key] ?? player.stats[key] ?? 50])
+      STAT_META.map(([key]) => [key, viewerRating?.stats?.[key] ?? 50])
     )
   };
   const draftKey = game ? getRatingDraftKey(game.id, player.id) : '';
