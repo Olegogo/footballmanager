@@ -57,6 +57,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'GET' && url.pathname === '/lib/lineup.js') {
+      serveStaticFile(res, path.join(config.rootDir, 'src/lib/lineup.js'));
+      return;
+    }
+
     if (req.method === 'GET' && url.pathname === '/api/bootstrap') {
       const chatId = getChatIdFromRequest(url);
 

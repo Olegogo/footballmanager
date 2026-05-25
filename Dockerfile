@@ -2,7 +2,11 @@ FROM node:24-alpine
 
 WORKDIR /app
 
-COPY package.json ./
+RUN apk add --no-cache fontconfig ttf-dejavu
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
 COPY src ./src
 COPY web ./web
 COPY data ./data

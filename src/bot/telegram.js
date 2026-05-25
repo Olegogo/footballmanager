@@ -1,4 +1,5 @@
 import { parseAnnouncementText } from '../lib/parser.js';
+import { renderLineupPng } from '../lib/lineup-image.js';
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -176,11 +177,81 @@ export class TelegramBot {
     return data.result;
   }
 
+  async callApiMultipart(method, formData) {
+    const response = await fetch(`https://api.telegram.org/bot${this.config.telegramBotToken}/${method}`, {
+      method: 'POST',
+      body: formData
+    });
+    const data = await response.json();
+
+    if (!data.ok) {
+      throw new Error(data.description || `Telegram API error in ${method}`);
+    }
+
+    return data.result;
+  }
+
   async sendText(chatId, text, options = {}) {
     return this.callApi('sendMessage', {
       chat_id: chatId,
       text,
       reply_markup: options.replyMarkup
+    });
+  }
+
+  async sendPhoto(chatId, photo, options = {}) {
+    const formData = new FormData();
+    formData.set('chat_id', String(chatId));
+    formData.set('photo', new Blob([photo], { type: 'image/png' }), options.filename || 'lineup.png');
+
+    if (options.caption) {
+      formData.set('caption', options.caption);
+    }
+
+    if (options.replyMarkup) {
+      formData.set('reply_markup', JSON.stringify(options.replyMarkup));
+    }
+
+    return this.callApiMultipart('sendPhoto', formData);
+  }
+
+  async buildGameLineupImage(chatId, gameId) {
+    if (typeof this.store.getSnapshot !== 'function') {
+      return null;
+    }
+
+    const snapshot = this.store.getSnapshot(chatId, null);
+    const game = snapshot?.currentGame;
+
+    if (!game || game.id !== gameId || !game.participants?.length) {
+      return null;
+    }
+
+    return renderLineupPng(game);
+  }
+
+  async sendGameDetailsEntry(chatId, chatType, targetChatId, game) {
+    const replyMarkup = this.buildMiniAppKeyboard(chatType, targetChatId, 'Детали игры');
+
+    if (replyMarkup && game?.id) {
+      try {
+        const lineupImage = await this.buildGameLineupImage(targetChatId, game.id);
+
+        if (lineupImage) {
+          return await this.sendPhoto(chatId, lineupImage, {
+            filename: `lineup-${game.id}.png`,
+            replyMarkup
+          });
+        }
+      } catch (error) {
+        console.error('Unable to send game lineup image:', error.message);
+      }
+    }
+
+    return this.sendMiniAppEntry(chatId, chatType, targetChatId, {
+      primaryText: BUTTON_ONLY_TEXT,
+      buttonText: 'Детали игры',
+      buttonOnly: true
     });
   }
 
@@ -341,11 +412,7 @@ export class TelegramBot {
     }
 
     if (!options.isEdited && result && (result.created || result.updated)) {
-      await this.sendMiniAppEntry(message.chat.id, message.chat.type, message.chat.id, {
-        primaryText: BUTTON_ONLY_TEXT,
-        buttonText: 'Детали игры',
-        buttonOnly: true
-      });
+      await this.sendGameDetailsEntry(message.chat.id, message.chat.type, message.chat.id, result.game);
     }
   }
 

@@ -249,3 +249,121 @@ test('handleAnnouncement sends details button only for fresh messages', async ()
   await bot.handleAnnouncement(message, { isEdited: true });
   assert.equal(sent.length, 0);
 });
+
+test('handleAnnouncement sends lineup image with details button when snapshot is available', async () => {
+  const store = {
+    state: {
+      chats: {},
+      games: {}
+    },
+    async recordGameFromAnnouncement() {
+      return {
+        created: true,
+        updated: false,
+        game: {
+          id: 'game_7',
+          chatId: '-1007',
+          scheduledAt: '2099-05-24T16:30:00.000Z'
+        }
+      };
+    },
+    getSnapshot() {
+      return {
+        currentGame: {
+          id: 'game_7',
+          dateLabel: '24 мая',
+          location: 'Сокольники, поле 10',
+          time: '19:30',
+          participants: [
+            {
+              id: 'player_1',
+              username: 'teterko',
+              displayName: 'Teterko',
+              photoUrl: '',
+              overall: 81,
+              position: 'CM',
+              ratedGames: 2
+            },
+            {
+              id: 'player_2',
+              username: 'dbabanin',
+              displayName: 'Babanin',
+              photoUrl: '',
+              overall: 74,
+              position: 'GK',
+              ratedGames: 1
+            },
+            {
+              id: 'player_3',
+              username: 'satwerz',
+              displayName: 'Satwerz',
+              photoUrl: '',
+              overall: 76,
+              position: 'GK',
+              ratedGames: 1
+            },
+            {
+              id: 'player_4',
+              username: 'olegogo',
+              displayName: 'Oleg',
+              photoUrl: '',
+              overall: 70,
+              position: 'ST',
+              ratedGames: 1
+            },
+            {
+              id: 'player_5',
+              username: 'birarov',
+              displayName: 'Birarov',
+              photoUrl: '',
+              overall: 68,
+              position: 'CB',
+              ratedGames: 1
+            }
+          ]
+        }
+      };
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+  const texts = [];
+  const photos = [];
+
+  bot.botUsername = 'football_test_bot';
+  bot.sendText = async (chatId, text, options = {}) => {
+    texts.push({ chatId, text, options });
+    return { message_id: 103 };
+  };
+  bot.sendPhoto = async (chatId, photo, options = {}) => {
+    photos.push({ chatId, photo, options });
+    return { message_id: 104 };
+  };
+
+  await bot.handleAnnouncement({
+    text: `24 мая
+Сокольники, поле 10
+19:30
+
+1. @teterko
+2. @dbabanin
+3. @satwerz
+4. @olegogo
+5. @birarov`,
+    chat: {
+      id: -1007,
+      type: 'supergroup',
+      title: 'Football'
+    },
+    date: Math.floor(Date.now() / 1000),
+    message_id: 77
+  }, { isEdited: false });
+
+  assert.equal(texts.length, 0);
+  assert.equal(photos.length, 1);
+  assert.equal(photos[0].chatId, -1007);
+  assert.ok(Buffer.isBuffer(photos[0].photo));
+  assert.equal(photos[0].options.replyMarkup.inline_keyboard[0][0].text, 'Детали игры');
+});
