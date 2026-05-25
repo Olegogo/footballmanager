@@ -99,8 +99,8 @@ function buildClusterOffsets(count, position) {
 
   const columns = count <= 2 ? count : count <= 4 ? 2 : 3;
   const rows = Math.ceil(count / columns);
-  const xGap = position === 'N/A' ? 13 : ['LB', 'RB', 'LM', 'RM', 'LW', 'RW'].includes(position) ? 9 : 11;
-  const yGap = position === 'N/A' ? 10 : 8;
+  const xGap = position === 'N/A' ? 16 : ['LB', 'RB', 'LM', 'RM', 'LW', 'RW'].includes(position) ? 11 : 13;
+  const yGap = position === 'N/A' ? 15 : 10;
   const offsets = [];
 
   for (let index = 0; index < count; index += 1) {

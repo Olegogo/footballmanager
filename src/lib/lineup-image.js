@@ -12,16 +12,11 @@ import {
 } from './lineup.js';
 
 const WIDTH = 1200;
-const HEIGHT = 1600;
-const FIELD = {
-  x: 70,
-  y: 130,
-  width: 1060,
-  height: 1380
-};
+const HEIGHT = 1240;
+const LINE_INSET = 48;
 const PLAYER_CARD = {
-  width: 210,
-  height: 82
+  width: 150,
+  height: 178
 };
 const PHOTO_FETCH_TIMEOUT_MS = 1200;
 
@@ -46,15 +41,15 @@ function truncate(value, maxLength) {
 
 function getShortPlayerName(player) {
   const name = player.displayName || player.username || 'Игрок';
-  return truncate(name.replace(/^@/, '').split(/\s+/).filter(Boolean)[0] || name, 12);
+  return truncate(name.replace(/^@/, '').split(/\s+/).filter(Boolean)[0] || name, 10);
 }
 
 function toFieldX(percent) {
-  return FIELD.x + (FIELD.width * percent) / 100;
+  return (WIDTH * percent) / 100;
 }
 
 function toFieldY(percent) {
-  return FIELD.y + (FIELD.height * percent) / 100;
+  return (HEIGHT * percent) / 100;
 }
 
 function getPlayerRatingLabel(player) {
@@ -107,16 +102,16 @@ function renderPlayerAvatar(player, photoDataUrl, avatarId) {
   if (photoDataUrl) {
     return `
       <clipPath id="${avatarId}">
-        <circle cx="42" cy="41" r="28"></circle>
+        <rect x="40" y="18" width="70" height="70" rx="20"></rect>
       </clipPath>
-      <image href="${escapeXml(photoDataUrl)}" x="14" y="13" width="56" height="56" preserveAspectRatio="xMidYMid slice" clip-path="url(#${avatarId})"></image>
-      <circle cx="42" cy="41" r="28" fill="none" stroke="#f1cf72" stroke-width="3"></circle>
+      <image href="${escapeXml(photoDataUrl)}" x="40" y="18" width="70" height="70" preserveAspectRatio="xMidYMid slice" clip-path="url(#${avatarId})"></image>
+      <rect x="40" y="18" width="70" height="70" rx="20" fill="none" stroke="#fff2c7" stroke-opacity="0.24" stroke-width="2"></rect>
     `;
   }
 
   return `
-    <circle cx="42" cy="41" r="28" fill="#f1cf72"></circle>
-    <text x="42" y="51" text-anchor="middle" font-size="24" font-weight="900" fill="#211706">${initials}</text>
+    <rect x="40" y="18" width="70" height="70" rx="20" fill="#ffe28b" fill-opacity="0.18" stroke="#fff2c7" stroke-opacity="0.24" stroke-width="2"></rect>
+    <text x="75" y="64" text-anchor="middle" font-size="28" font-weight="900" fill="#ffe28b">${initials}</text>
   `;
 }
 
@@ -124,52 +119,34 @@ function renderPlayerCard({ player, slot, teamKey, index, photoDataUrl }) {
   const x = Math.round(toFieldX(slot.x) - PLAYER_CARD.width / 2);
   const y = Math.round(toFieldY(slot.y) - PLAYER_CARD.height / 2);
   const avatarId = `avatar-${teamKey}-${index}`;
-  const positionLabel = getPositionMeta(getEffectivePosition(player)).short;
+  const positionLabel = escapeXml(getPositionMeta(getEffectivePosition(player)).short);
 
   return `
     <g transform="translate(${x} ${y})">
-      <rect x="0" y="0" width="${PLAYER_CARD.width}" height="${PLAYER_CARD.height}" rx="18" fill="#15120a" fill-opacity="0.88" stroke="#f1cf72" stroke-width="2"></rect>
+      <rect x="0" y="0" width="${PLAYER_CARD.width}" height="${PLAYER_CARD.height}" rx="34" fill="#07130d" fill-opacity="0.94" stroke="#ffe28b" stroke-opacity="0.24" stroke-width="2"></rect>
+      <path d="M2 2 H148 V100 C119 87 31 87 2 100 Z" fill="#1b3822" fill-opacity="0.34"></path>
       ${renderPlayerAvatar(player, photoDataUrl, avatarId)}
-      <text x="86" y="34" font-size="30" font-weight="900" fill="#fffaf0">${escapeXml(getPlayerRatingLabel(player))}</text>
-      <text x="140" y="33" font-size="17" font-weight="800" fill="#d7c28c">${escapeXml(positionLabel)}</text>
-      <text x="86" y="62" font-size="23" font-weight="800" fill="#fffaf0">${escapeXml(getShortPlayerName(player))}</text>
+      <text x="75" y="121" text-anchor="middle" font-size="46" font-weight="900" fill="#ffe28b">${escapeXml(getPlayerRatingLabel(player))}</text>
+      <text x="75" y="151" text-anchor="middle" font-size="26" font-weight="900" fill="#fffaf0">${escapeXml(getShortPlayerName(player))}</text>
+      <text x="123" y="49" text-anchor="middle" font-size="22" font-weight="900" fill="#d7c28c">${positionLabel}</text>
     </g>
-  `;
-}
-
-function renderTeamBadge(team, y, anchor) {
-  const x = anchor === 'top' ? FIELD.x + 24 : FIELD.x + FIELD.width - 24;
-  const textAnchor = anchor === 'top' ? 'start' : 'end';
-  const label = anchor === 'top' ? 'Команда A' : 'Команда B';
-
-  return `
-    <text x="${x}" y="${y}" text-anchor="${textAnchor}" font-size="28" font-weight="900" fill="#f1cf72">${label}</text>
-    <text x="${x}" y="${y + 34}" text-anchor="${textAnchor}" font-size="20" font-weight="700" fill="#fffaf0" opacity="0.76">рейтинг ${Math.round(team.total)}</text>
   `;
 }
 
 function renderFieldLines() {
-  const centerY = FIELD.y + FIELD.height / 2;
-  const centerX = FIELD.x + FIELD.width / 2;
+  const centerY = HEIGHT / 2;
+  const centerX = WIDTH / 2;
+  const boxWidth = 552;
+  const boxHeight = 252;
 
   return `
-    <clipPath id="pitchClip">
-      <rect x="${FIELD.x}" y="${FIELD.y}" width="${FIELD.width}" height="${FIELD.height}"></rect>
-    </clipPath>
-    <rect x="${FIELD.x}" y="${FIELD.y}" width="${FIELD.width}" height="${FIELD.height}" fill="url(#pitchGradient)" stroke="#f1cf72" stroke-width="5"></rect>
-    <g clip-path="url(#pitchClip)" opacity="0.17">
-      ${Array.from({ length: 8 }, (_, index) => {
-        const stripeX = FIELD.x + index * 170 - 120;
-        return `<path d="M${stripeX} ${FIELD.y} L${stripeX + 430} ${FIELD.y} L${stripeX + 150} ${FIELD.y + FIELD.height} L${stripeX - 280} ${FIELD.y + FIELD.height} Z" fill="#ffffff"></path>`;
-      }).join('')}
-    </g>
-    <line x1="${FIELD.x}" y1="${centerY}" x2="${FIELD.x + FIELD.width}" y2="${centerY}" stroke="#fff7d7" stroke-width="4" opacity="0.9"></line>
-    <circle cx="${centerX}" cy="${centerY}" r="130" fill="none" stroke="#fff7d7" stroke-width="4" opacity="0.9"></circle>
-    <circle cx="${centerX}" cy="${centerY}" r="8" fill="#fff7d7" opacity="0.9"></circle>
-    <rect x="${FIELD.x + 315}" y="${FIELD.y}" width="430" height="150" fill="none" stroke="#fff7d7" stroke-width="4" opacity="0.9"></rect>
-    <rect x="${FIELD.x + 420}" y="${FIELD.y}" width="220" height="66" fill="none" stroke="#fff7d7" stroke-width="4" opacity="0.9"></rect>
-    <rect x="${FIELD.x + 315}" y="${FIELD.y + FIELD.height - 150}" width="430" height="150" fill="none" stroke="#fff7d7" stroke-width="4" opacity="0.9"></rect>
-    <rect x="${FIELD.x + 420}" y="${FIELD.y + FIELD.height - 66}" width="220" height="66" fill="none" stroke="#fff7d7" stroke-width="4" opacity="0.9"></rect>
+    <rect x="${LINE_INSET}" y="${LINE_INSET}" width="${WIDTH - LINE_INSET * 2}" height="${HEIGHT - LINE_INSET * 2}" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="4"></rect>
+    <line x1="${LINE_INSET}" y1="${centerY}" x2="${WIDTH - LINE_INSET}" y2="${centerY}" stroke="#ffffff" stroke-opacity="0.55" stroke-width="4"></line>
+    <circle cx="${centerX}" cy="${centerY}" r="174" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="4"></circle>
+    <rect x="${centerX - boxWidth / 2}" y="${LINE_INSET}" width="${boxWidth}" height="${boxHeight}" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="4"></rect>
+    <line x1="${centerX - boxWidth / 2}" y1="${LINE_INSET}" x2="${centerX + boxWidth / 2}" y2="${LINE_INSET}" stroke="#1f6d39" stroke-width="7"></line>
+    <rect x="${centerX - boxWidth / 2}" y="${HEIGHT - LINE_INSET - boxHeight}" width="${boxWidth}" height="${boxHeight}" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="4"></rect>
+    <line x1="${centerX - boxWidth / 2}" y1="${HEIGHT - LINE_INSET}" x2="${centerX + boxWidth / 2}" y2="${HEIGHT - LINE_INSET}" stroke="#0d3b21" stroke-width="7"></line>
   `;
 }
 
@@ -194,27 +171,20 @@ export async function renderLineupSvg(game) {
     })
     .join('');
 
-  const details = [game?.dateLabel, game?.location, game?.time].filter(Boolean).join(' · ');
-
   return `
     <svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
       <defs>
-        <linearGradient id="bgGradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#06110c"></stop>
-          <stop offset="1" stop-color="#102319"></stop>
-        </linearGradient>
-        <linearGradient id="pitchGradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#174b29"></stop>
-          <stop offset="0.52" stop-color="#0f3f24"></stop>
-          <stop offset="1" stop-color="#12351f"></stop>
+        <pattern id="fieldDots" width="52" height="52" patternUnits="userSpaceOnUse">
+          <circle cx="28" cy="28" r="2.4" fill="#ffffff" opacity="0.12"></circle>
+        </pattern>
+        <linearGradient id="fieldGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#28743f" stop-opacity="0.95"></stop>
+          <stop offset="1" stop-color="#0c361c" stop-opacity="0.98"></stop>
         </linearGradient>
       </defs>
-      <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#bgGradient)"></rect>
-      <text x="70" y="70" font-size="42" font-weight="900" fill="#fffaf0">Игровой день</text>
-      <text x="70" y="108" font-size="24" font-weight="700" fill="#fffaf0" opacity="0.72">${escapeXml(details)}</text>
+      <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#fieldGradient)"></rect>
+      <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#fieldDots)"></rect>
       ${renderFieldLines()}
-      ${renderTeamBadge(teams[0], FIELD.y + 50, 'top')}
-      ${renderTeamBadge(teams[1], FIELD.y + FIELD.height - 82, 'bottom')}
       ${teamCards}
     </svg>
   `;
