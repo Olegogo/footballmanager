@@ -511,33 +511,37 @@ function renderFifaCard(player, options = {}) {
   const hasCurrentRatings = Boolean(currentStats?.hasRatings);
   const hasCareerRatings = player.ratedGames > 0;
   const isUnrated = !hasCurrentRatings && !hasCareerRatings;
-  const showKnownStats = hasCurrentRatings || hasCareerRatings;
+  const isRatingCard = variant === 'game-rating';
+  const viewerHasRatedTarget = Boolean(player.viewerHasRatedTarget);
+  const showLimitedBeforeViewerRating = isRatingCard && !viewerHasRatedTarget;
+  const showKnownStats = showLimitedBeforeViewerRating
+    ? hasCurrentRatings
+    : hasCurrentRatings || hasCareerRatings;
   const overall = hasCurrentRatings ? currentStats.overall : showKnownStats ? player.overall : null;
   const effectivePosition = hasCurrentRatings ? (currentStats?.position || player.position || 'N/A') : (player.position || 'N/A');
   const position = showKnownStats ? effectivePosition : null;
   const statValues = hasCurrentRatings ? currentStats?.stats : player.stats;
-  const isRatingCard = variant === 'game-rating';
-  const statusLabel = isUnrated ? 'Не оценён' : '';
+  const statusLabel = (!hasCurrentRatings && showLimitedBeforeViewerRating) || isUnrated ? 'Не оценён' : '';
   const statPlaceholder = '-';
   const statMeta = getStatMetaForPosition(effectivePosition);
   const isGoalkeeper = isGoalkeeperPosition(effectivePosition);
   const overviewCells = [
-    { label: 'игр', value: player.games, emphasis: true },
+    { label: 'игр', value: showLimitedBeforeViewerRating ? statPlaceholder : player.games, emphasis: true },
     ...(
       isGoalkeeper
         ? []
         : [
-            { label: 'голов', value: showKnownStats ? (hasCurrentRatings ? currentStats.goals : player.goals) : statPlaceholder, outlined: isRatingCard },
-            { label: 'голевых', value: showKnownStats ? (hasCurrentRatings ? currentStats.assists : player.assists) : statPlaceholder, outlined: isRatingCard }
+            { label: 'голов', value: !showLimitedBeforeViewerRating && showKnownStats ? (hasCurrentRatings ? currentStats.goals : player.goals) : statPlaceholder, outlined: isRatingCard },
+            { label: 'голевых', value: !showLimitedBeforeViewerRating && showKnownStats ? (hasCurrentRatings ? currentStats.assists : player.assists) : statPlaceholder, outlined: isRatingCard }
           ]
     )
   ];
-  const statCells = statMeta.map(([key, label]) => [label.toLowerCase(), showKnownStats ? statValues[key] : statPlaceholder]);
+  const statCells = statMeta.map(([key, label]) => [
+    label.toLowerCase(),
+    !showLimitedBeforeViewerRating && showKnownStats ? statValues[key] : statPlaceholder
+  ]);
   const openAttribute = clickable ? ` data-open-player="${escapeHtml(player.id)}"` : '';
-  const actionNote =
-    isRatingCard && ratingsCount > 0
-      ? `${ratingsCount} уже оценили`
-      : '';
+  const actionNote = isRatingCard ? `${ratingsCount} уже оценили` : '';
 
   return `
     <article class="fifa-card fifa-card--${escapeHtml(variant)} ${player.isMvp ? 'is-mvp' : ''} ${clickable ? 'is-clickable' : ''}"${openAttribute}>
@@ -906,12 +910,13 @@ function renderModal() {
   }
 
   const editable = Boolean(gamePlayer?.canRateTarget && game);
+  const viewerRating = gamePlayer?.viewerRating ?? null;
   const serverDefaults = {
-    position: gamePlayer?.currentGameStats?.position || player.position || 'N/A',
-    goals: gamePlayer?.currentGameStats?.goals ?? 0,
-    assists: gamePlayer?.currentGameStats?.assists ?? 0,
+    position: viewerRating?.position || player.position || 'N/A',
+    goals: viewerRating?.goals ?? 0,
+    assists: viewerRating?.assists ?? 0,
     ...Object.fromEntries(
-      STAT_META.map(([key]) => [key, gamePlayer?.currentGameStats?.stats?.[key] ?? player.stats[key] ?? 50])
+      STAT_META.map(([key]) => [key, viewerRating?.stats?.[key] ?? player.stats[key] ?? 50])
     )
   };
   const draftKey = game ? getRatingDraftKey(game.id, player.id) : '';

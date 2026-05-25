@@ -381,7 +381,7 @@ test('submitRating stores goalkeeper goals and assists as zero', async () => {
   }
 });
 
-test('submitRating rejects ratings after 24 hours', async () => {
+test('submitRating accepts ratings after 24 hours when no newer game closed the window', async () => {
   const { directory, store } = await createStore();
 
   try {
@@ -447,24 +447,24 @@ test('submitRating rejects ratings after 24 hours', async () => {
       };
     });
 
-    await assert.rejects(
-      () => store.submitRating({
-        chatId: '-1001',
-        gameId: 'game_1',
-        raterPlayerId: 'player_1',
-        targetPlayerId: 'player_2',
-        payload: {
-          position: 'GK',
-          pace: 75,
-          dribbling: 76,
-          shooting: 77,
-          defense: 78,
-          passing: 79,
-          physical: 80
-        }
-      }),
-      /Окно оценки закрыто/
-    );
+    const rating = await store.submitRating({
+      chatId: '-1001',
+      gameId: 'game_1',
+      raterPlayerId: 'player_1',
+      targetPlayerId: 'player_2',
+      payload: {
+        position: 'GK',
+        pace: 75,
+        dribbling: 76,
+        shooting: 77,
+        defense: 78,
+        passing: 79,
+        physical: 80
+      }
+    });
+
+    assert.equal(rating.position, 'GK');
+    assert.equal(rating.targetPlayerId, 'player_2');
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }

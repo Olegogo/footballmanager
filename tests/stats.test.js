@@ -125,6 +125,18 @@ test('buildChatSnapshot aggregates ratings, games and MVP', () => {
     true
   );
   assert.equal(
+    snapshot.currentGame.participants.find((player) => player.id === 'player_2').viewerHasRatedTarget,
+    true
+  );
+  assert.equal(
+    snapshot.currentGame.participants.find((player) => player.id === 'player_2').viewerRating.goals,
+    2
+  );
+  assert.equal(
+    snapshot.currentGame.participants.find((player) => player.id === 'player_3').viewerHasRatedTarget,
+    false
+  );
+  assert.equal(
     snapshot.currentGame.participants.find((player) => player.id === 'player_1').canRateTarget,
     false
   );
@@ -132,7 +144,7 @@ test('buildChatSnapshot aggregates ratings, games and MVP', () => {
   assert.equal(snapshot.players.find((player) => player.id === 'player_3').position, 'GK');
 });
 
-test('buildChatSnapshot closes rating window after 24 hours', () => {
+test('buildChatSnapshot keeps rating window open until the next announcement', () => {
   const state = {
     version: 1,
     meta: {},
@@ -187,8 +199,8 @@ test('buildChatSnapshot closes rating window after 24 hours', () => {
   };
 
   const openSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T18:59:00.000Z'));
-  const closedSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T19:00:00.000Z'));
+  const laterSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-12T19:00:00.000Z'));
 
   assert.equal(openSnapshot.currentGame.canViewerRate, true);
-  assert.equal(closedSnapshot.currentGame.canViewerRate, false);
+  assert.equal(laterSnapshot.currentGame.canViewerRate, true);
 });

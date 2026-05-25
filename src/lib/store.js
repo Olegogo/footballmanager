@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { createSessionToken } from './auth.js';
 import { parseAnnouncementTextLog, parseTelegramExportGames } from './parser.js';
-import { POSITION_OPTIONS, RATING_WINDOW_MS, STAT_KEYS, buildChatSnapshot } from './stats.js';
+import { POSITION_OPTIONS, STAT_KEYS, buildChatSnapshot } from './stats.js';
 import { clamp, formatDisplayName, normalizeUsername, toIsoString, unique } from './utils.js';
 
 const DEFAULT_POSITION_BY_USERNAME = {
@@ -586,10 +586,6 @@ export class AppStore {
 
       if (new Date(game.scheduledAt) > new Date()) {
         throw new Error('Игра еще не началась');
-      }
-
-      if (Date.now() >= new Date(game.scheduledAt).getTime() + RATING_WINDOW_MS) {
-        throw new Error('Окно оценки закрыто. Оценивать можно в течение суток после начала игры');
       }
 
       if (raterPlayerId === targetPlayerId) {
