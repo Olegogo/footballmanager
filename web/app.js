@@ -109,6 +109,10 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
+function normalizeUsername(value = '') {
+  return String(value ?? '').trim().replace(/^@/, '').toLowerCase();
+}
+
 function getScreenTitle() {
   if (state.activeTab === 'game') {
     return 'Игровой день';
@@ -233,7 +237,43 @@ function getPlayer(playerId) {
 }
 
 function getViewerPlayer() {
-  return getPlayer(state.snapshot?.viewerPlayerId);
+  const sessionPlayer = getPlayer(state.snapshot?.viewerPlayerId);
+
+  if (sessionPlayer) {
+    return sessionPlayer;
+  }
+
+  const telegramUser = tg?.initDataUnsafe?.user ?? null;
+  const username = normalizeUsername(telegramUser?.username);
+
+  if (username) {
+    const matchedPlayer = getPlayers().find((player) => normalizeUsername(player.username) === username);
+
+    if (matchedPlayer) {
+      return matchedPlayer;
+    }
+  }
+
+  if (!telegramUser?.id) {
+    return null;
+  }
+
+  return {
+    id: `telegram_${telegramUser.id}`,
+    username: username || 'unknown',
+    displayName: [telegramUser.first_name, telegramUser.last_name].filter(Boolean).join(' ') || (username ? `@${username}` : 'Игрок'),
+    firstName: telegramUser.first_name || '',
+    lastName: telegramUser.last_name || '',
+    photoUrl: telegramUser.photo_url || '',
+    overall: 50,
+    position: 'N/A',
+    stats: Object.fromEntries(STAT_META.map(([key]) => [key, 50])),
+    games: 0,
+    ratedGames: 0,
+    goals: 0,
+    assists: 0,
+    isMvp: false
+  };
 }
 
 function getRatingDraftKey(gameId, playerId) {
