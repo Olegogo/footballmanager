@@ -677,7 +677,7 @@ function renderGameTab() {
     ${renderGameHeader(game)}
     ${renderField(game)}
     ${renderRatingBanner(game)}
-    <section class="stack cards-stack">
+    <section class="stack cards-stack cards-stack--game">
       ${game.participants
         .map((player) =>
           renderFifaCard(player, {
@@ -908,15 +908,23 @@ function getPlayerAchievements(player) {
 }
 
 function renderAchievementCard(achievement) {
+  const tooltip = `${achievement.title}: ${achievement.description}. ${achievement.detail}`;
+
   return `
-    <article class="achievement-card ${achievement.count ? 'is-unlocked' : 'is-locked'}">
+    <button
+      type="button"
+      class="achievement-button"
+      data-achievement="${escapeHtml(achievement.key)}"
+      aria-label="${escapeHtml(tooltip)}"
+    >
       ${renderAchievementIcon(achievement.key)}
-      <div class="achievement-copy">
+      ${achievement.count > 1 ? `<span class="achievement-counter">${escapeHtml(achievement.count)}</span>` : ''}
+      <span class="achievement-tooltip" role="tooltip">
         <strong>${escapeHtml(achievement.title)}</strong>
         <span>${escapeHtml(achievement.description)}</span>
         <small>${escapeHtml(achievement.detail)}</small>
-      </div>
-    </article>
+      </span>
+    </button>
   `;
 }
 
@@ -952,6 +960,7 @@ function renderProfileTab() {
     hasCareerRatings ? player.stats[key] : '-'
   ]);
   const achievements = getPlayerAchievements(player);
+  const unlockedAchievements = achievements.filter((achievement) => achievement.count > 0);
 
   return `
     <section class="editor-screen profile-screen" aria-label="Профиль игрока">
@@ -984,9 +993,15 @@ function renderProfileTab() {
         </div>
         <section class="profile-achievements" aria-label="Достижения">
           <h2>Достижения</h2>
-          <div class="achievement-grid">
-            ${achievements.map((achievement) => renderAchievementCard(achievement)).join('')}
-          </div>
+          ${
+            unlockedAchievements.length
+              ? `
+                <div class="achievement-grid">
+                  ${unlockedAchievements.map((achievement) => renderAchievementCard(achievement)).join('')}
+                </div>
+              `
+              : '<p class="achievement-empty">Тут будут твои достижения</p>'
+          }
         </section>
       </div>
     </section>
@@ -1240,6 +1255,18 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  const achievementButton = event.target.closest('[data-achievement]');
+
+  if (achievementButton) {
+    document.querySelectorAll('.achievement-button.is-open').forEach((button) => {
+      if (button !== achievementButton) {
+        button.classList.remove('is-open');
+      }
+    });
+    achievementButton.classList.toggle('is-open');
+    return;
+  }
+
   const openButton = event.target.closest('[data-open-player]');
 
   if (openButton) {
@@ -1288,6 +1315,13 @@ document.addEventListener('click', (event) => {
   if (gamesFilterButton) {
     state.gamesFilter = gamesFilterButton.dataset.gamesFilter;
     render();
+    return;
+  }
+
+  if (!event.target.closest('.achievement-button')) {
+    document.querySelectorAll('.achievement-button.is-open').forEach((button) => {
+      button.classList.remove('is-open');
+    });
   }
 });
 
