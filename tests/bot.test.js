@@ -229,7 +229,11 @@ test('handleAnnouncement sends details button only for fresh messages', async ()
 2. @dbabanin
 3. @satwerz
 4. @olegogo
-5. @birarov`,
+5. @birarov
+
+1000р
+89295991499
+Альфа, Тинь, Сбер`,
     chat: {
       id: -1007,
       type: 'supergroup',
@@ -351,7 +355,11 @@ test('handleAnnouncement sends lineup image with details button when snapshot is
 2. @dbabanin
 3. @satwerz
 4. @olegogo
-5. @birarov`,
+5. @birarov
+
+1000р
+89295991499
+Альфа, Тинь, Сбер`,
     chat: {
       id: -1007,
       type: 'supergroup',

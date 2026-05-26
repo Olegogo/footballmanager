@@ -17,11 +17,19 @@ async function createStore() {
   };
 }
 
+function withRequiredPayment(text) {
+  return `${text}
+
+1000р
+89295991499
+Альфа, Тинь, Сбер`;
+}
+
 test('recordGameFromAnnouncement overwrites upcoming game before kickoff', async () => {
   const { directory, store } = await createStore();
 
   try {
-    const firstRaw = `
+    const firstRaw = withRequiredPayment(`
 Воскресенье 17 мая
 Полежаевская
 19:30
@@ -32,8 +40,8 @@ test('recordGameFromAnnouncement overwrites upcoming game before kickoff', async
 4. @Satwerz
 5. @kirriiillll
 6. @Birarov
-    `;
-    const secondRaw = `
+    `);
+    const secondRaw = withRequiredPayment(`
 Воскресенье 17 мая
 Полежаевская
 20:00
@@ -46,7 +54,7 @@ test('recordGameFromAnnouncement overwrites upcoming game before kickoff', async
 6. @Birarov
 7. @O_legacy
 8. @KudryaIvan
-    `;
+    `);
 
     const firstAnnouncement = parseAnnouncementText(firstRaw, new Date('2099-05-17T10:00:00+03:00'));
     const secondAnnouncement = parseAnnouncementText(secondRaw, new Date('2099-05-17T12:00:00+03:00'));
@@ -90,7 +98,7 @@ test('recordGameFromAnnouncement does not overwrite game after kickoff', async (
   const { directory, store } = await createStore();
 
   try {
-    const firstRaw = `
+    const firstRaw = withRequiredPayment(`
 Воскресенье 17 мая
 Полежаевская
 19:30
@@ -101,8 +109,8 @@ test('recordGameFromAnnouncement does not overwrite game after kickoff', async (
 4. @Satwerz
 5. @kirriiillll
 6. @Birarov
-    `;
-    const secondRaw = `
+    `);
+    const secondRaw = withRequiredPayment(`
 Воскресенье 17 мая
 Полежаевская
 19:30
@@ -115,7 +123,7 @@ test('recordGameFromAnnouncement does not overwrite game after kickoff', async (
 6. @Birarov
 7. @O_legacy
 8. @KudryaIvan
-    `;
+    `);
 
     const firstAnnouncement = parseAnnouncementText(firstRaw, new Date('2099-05-17T10:00:00+03:00'));
     const secondAnnouncement = parseAnnouncementText(secondRaw, new Date('2099-05-17T22:00:00+03:00'));
@@ -158,7 +166,7 @@ test('recordGameFromAnnouncement switches current game to the latest announcemen
   const { directory, store } = await createStore();
 
   try {
-    const firstRaw = `
+    const firstRaw = withRequiredPayment(`
 Воскресенье 17 мая
 Полежаевская
 22:00
@@ -169,8 +177,8 @@ test('recordGameFromAnnouncement switches current game to the latest announcemen
 4. @Satwerz
 5. @kirriiillll
 6. @Birarov
-    `;
-    const secondRaw = `
+    `);
+    const secondRaw = withRequiredPayment(`
 Понедельник 18 мая
 Сокол
 19:00
@@ -181,7 +189,7 @@ test('recordGameFromAnnouncement switches current game to the latest announcemen
 4. @Satwerz
 5. @kirriiillll
 6. @Birarov
-    `;
+    `);
 
     const firstAnnouncement = parseAnnouncementText(firstRaw, new Date('2099-05-17T10:00:00+03:00'));
     const secondAnnouncement = parseAnnouncementText(secondRaw, new Date('2099-05-17T12:00:00+03:00'));
@@ -225,7 +233,7 @@ test('recordGameFromAnnouncement updates edited announcement with same message i
   const { directory, store } = await createStore();
 
   try {
-    const firstRaw = `
+    const firstRaw = withRequiredPayment(`
 Воскресенье 17 мая
 Полежаевская
 19:30
@@ -236,8 +244,8 @@ test('recordGameFromAnnouncement updates edited announcement with same message i
 4. @Satwerz
 5. @kirriiillll
 6. @Birarov
-    `;
-    const editedRaw = `
+    `);
+    const editedRaw = withRequiredPayment(`
 Воскресенье 17 мая
 Полежаевская
 20:15
@@ -249,7 +257,7 @@ test('recordGameFromAnnouncement updates edited announcement with same message i
 5. @kirriiillll
 6. @Birarov
 7. @O_legacy
-    `;
+    `);
 
     const firstAnnouncement = parseAnnouncementText(firstRaw, new Date('2099-05-17T10:00:00+03:00'));
     const editedAnnouncement = parseAnnouncementText(editedRaw, new Date('2099-05-17T11:00:00+03:00'));

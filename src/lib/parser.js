@@ -21,6 +21,7 @@ const DATE_REGEX = new RegExp(
 );
 const TIME_REGEX = /\b([01]?\d|2[0-3]):([0-5]\d)\b/;
 const PLAYER_LINE_REGEX = /^\s*(?:(?:\d{1,2}\.)|[-•])?\s*@([A-Za-z0-9_]{3,32})\b/;
+const REQUIRED_PAYMENT_PHONE = '89295991499';
 
 export function flattenTelegramExportText(text) {
   if (typeof text === 'string') {
@@ -90,10 +91,28 @@ function normalizeLines(rawText) {
     .filter(Boolean);
 }
 
+function hasRequiredPaymentBlock(lines) {
+  return lines.some((line, index) => {
+    const digits = line.replace(/\D/g, '');
+    const nextLine = lines[index + 1] ?? '';
+
+    return (
+      digits === REQUIRED_PAYMENT_PHONE &&
+      /альфа/i.test(nextLine) &&
+      /тинь/i.test(nextLine) &&
+      /сбер/i.test(nextLine)
+    );
+  });
+}
+
 export function parseAnnouncementText(rawText, referenceDate = new Date()) {
   const lines = normalizeLines(rawText);
 
   if (!lines.length) {
+    return null;
+  }
+
+  if (!hasRequiredPaymentBlock(lines)) {
     return null;
   }
 

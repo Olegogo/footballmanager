@@ -3,6 +3,13 @@ import assert from 'node:assert/strict';
 
 import { parseAnnouncementText, parseAnnouncementTextLog, parseTelegramExportGames } from '../src/lib/parser.js';
 
+function requiredPaymentBlock() {
+  return `
+1000р
+89295991499
+Альфа, Тинь, Сбер`;
+}
+
 test('parseAnnouncementText extracts date, location, time and players', () => {
   const text = `
 Воскресенье 17 мая
@@ -19,7 +26,7 @@ test('parseAnnouncementText extracts date, location, time and players', () => {
 
 1000р
 89295991499
-Альфа, Сбер, Тинь
+Альфа, Тинь, Сбер
   `;
   const parsed = parseAnnouncementText(text, new Date('2026-05-17T10:00:00+04:00'));
 
@@ -44,7 +51,7 @@ test('parseTelegramExportGames finds only announcement messages', () => {
         id: 2,
         date: '2026-05-17T10:00:00',
         text: [
-          'Воскресенье 17 мая\nПолежаевская\n19:30\n\n1. @teterko\n2. @dbabanin\n3. @dimasharovv\n4. @Satwerz\n5. @kirriiillll\n'
+          `Воскресенье 17 мая\nПолежаевская\n19:30\n\n1. @teterko\n2. @dbabanin\n3. @dimasharovv\n4. @Satwerz\n5. @kirriiillll\n${requiredPaymentBlock()}`
         ]
       }
     ]
@@ -57,7 +64,30 @@ test('parseTelegramExportGames finds only announcement messages', () => {
   assert.equal(games[0].announcement.location, 'Полежаевская');
 });
 
-test('parseAnnouncementText supports plain username list without numbering', () => {
+test('parseAnnouncementText supports plain username list without numbering when payment block exists', () => {
+  const text = `
+18 мая
+Полежаевская
+19:30
+
+@guttt
+@gutoperchivyi
+@O_legacy
+@username1
+@username2
+@username3
+${requiredPaymentBlock()}
+  `;
+  const parsed = parseAnnouncementText(text, new Date('2026-05-18T10:00:00+04:00'));
+
+  assert.ok(parsed);
+  assert.equal(parsed.location, 'Полежаевская');
+  assert.equal(parsed.time, '19:30');
+  assert.equal(parsed.playerUsernames.length, 6);
+  assert.deepEqual(parsed.playerUsernames.slice(0, 3), ['guttt', 'gutoperchivyi', 'o_legacy']);
+});
+
+test('parseAnnouncementText ignores messages without required payment block', () => {
   const text = `
 18 мая
 Полежаевская
@@ -70,13 +100,8 @@ test('parseAnnouncementText supports plain username list without numbering', () 
 @username2
 @username3
   `;
-  const parsed = parseAnnouncementText(text, new Date('2026-05-18T10:00:00+04:00'));
 
-  assert.ok(parsed);
-  assert.equal(parsed.location, 'Полежаевская');
-  assert.equal(parsed.time, '19:30');
-  assert.equal(parsed.playerUsernames.length, 6);
-  assert.deepEqual(parsed.playerUsernames.slice(0, 3), ['guttt', 'gutoperchivyi', 'o_legacy']);
+  assert.equal(parseAnnouncementText(text, new Date('2026-05-18T10:00:00+04:00')), null);
 });
 
 test('parseAnnouncementTextLog extracts multiple announcements from plain text history', () => {
@@ -93,6 +118,7 @@ test('parseAnnouncementTextLog extracts multiple announcements from plain text h
 @username1
 @username2
 @username3
+${requiredPaymentBlock()}
 
 да
 
@@ -106,6 +132,7 @@ test('parseAnnouncementTextLog extracts multiple announcements from plain text h
 4. @delta
 5. @epsilon
 6. @zeta
+${requiredPaymentBlock()}
   `;
   const items = parseAnnouncementTextLog(text, new Date('2026-05-18T10:00:00+04:00'));
 
@@ -130,6 +157,7 @@ test('parseAnnouncementText respects CHAT_TIMEZONE_OFFSET for scheduledAt', () =
 @username1
 @username2
 @username3
+${requiredPaymentBlock()}
   `;
 
   const parsed = parseAnnouncementText(text, new Date('2026-05-18T10:00:00.000Z'));
