@@ -374,6 +374,34 @@ function buildGamesView(state, chatId, playerCards, now) {
           return sum + (gameStats?.hasRatings ? gameStats.goals : 0);
         }, 0)
       );
+      const topScorer = game.playerIds
+        .map((playerId) => {
+          const gameStats = aggregation?.players[playerId];
+
+          if (!gameStats?.hasRatings || gameStats.goals <= 0) {
+            return null;
+          }
+
+          return {
+            playerId,
+            goals: gameStats.goals,
+            overall: gameStats.overall,
+            ratingsCount: gameStats.ratingsCount
+          };
+        })
+        .filter(Boolean)
+        .sort((left, right) => {
+          if (right.goals !== left.goals) {
+            return right.goals - left.goals;
+          }
+
+          if (right.overall !== left.overall) {
+            return right.overall - left.overall;
+          }
+
+          return right.ratingsCount - left.ratingsCount;
+        })[0] ?? null;
+      const topScorerPlayer = topScorer ? playersById.get(topScorer.playerId) : null;
 
       return {
         id: game.id,
@@ -391,6 +419,15 @@ function buildGamesView(state, chatId, playerCards, now) {
               username: mvpPlayer?.username || '',
               ratingIncrease: mvp.ratingIncrease,
               overall: mvp.overall
+            }
+          : null,
+        topScorer: topScorer
+          ? {
+              playerId: topScorer.playerId,
+              displayName: topScorerPlayer?.displayName || 'Игрок',
+              username: topScorerPlayer?.username || '',
+              goals: topScorer.goals,
+              overall: topScorer.overall
             }
           : null
       };

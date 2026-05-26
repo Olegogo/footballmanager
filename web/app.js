@@ -89,6 +89,7 @@ const state = {
 
 const tg = window.Telegram?.WebApp;
 const apiBaseUrl = String(window.APP_CONFIG?.API_BASE_URL || '').replace(/\/+$/, '');
+const appShellNode = document.querySelector('.app-shell');
 const contentNode = document.getElementById('content');
 const chatTitleNode = document.getElementById('chatTitle');
 const topbarNode = document.querySelector('.topbar');
@@ -816,6 +817,109 @@ function renderPlayersTab() {
   `;
 }
 
+function renderAchievementIcon(type) {
+  if (type === 'mvp') {
+    return `
+      <svg class="achievement-icon" viewBox="0 0 160 160" aria-hidden="true">
+        <defs>
+          <radialGradient id="mvp-medal-glow" cx="36%" cy="22%" r="78%">
+            <stop offset="0" stop-color="#fff8ca"></stop>
+            <stop offset="0.38" stop-color="#f4cf58"></stop>
+            <stop offset="0.72" stop-color="#b37412"></stop>
+            <stop offset="1" stop-color="#5b3005"></stop>
+          </radialGradient>
+          <linearGradient id="mvp-crown" x1="23" x2="136" y1="27" y2="93">
+            <stop offset="0" stop-color="#fff8cc"></stop>
+            <stop offset="0.48" stop-color="#f6c83e"></stop>
+            <stop offset="1" stop-color="#9c5b08"></stop>
+          </linearGradient>
+          <filter id="mvp-shadow" x="-30%" y="-30%" width="160%" height="170%">
+            <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#2d1600" flood-opacity="0.45"></feDropShadow>
+          </filter>
+        </defs>
+        <g filter="url(#mvp-shadow)">
+          <path d="M37 67 53 31l25 30 29-36 14 42H37Z" fill="url(#mvp-crown)" stroke="#fff0a2" stroke-width="5" stroke-linejoin="round"></path>
+          <circle cx="80" cy="93" r="47" fill="url(#mvp-medal-glow)" stroke="#fff0a2" stroke-width="6"></circle>
+          <circle cx="80" cy="93" r="34" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="3"></circle>
+          <text x="80" y="103" text-anchor="middle" fill="#fff1a8" font-size="31" font-weight="900" font-family="Trebuchet MS, sans-serif">MVP</text>
+          <circle cx="53" cy="31" r="8" fill="#fff0a2"></circle>
+          <circle cx="107" cy="25" r="8" fill="#fff0a2"></circle>
+          <circle cx="121" cy="67" r="7" fill="#ffe07b"></circle>
+        </g>
+      </svg>
+    `;
+  }
+
+  return `
+    <svg class="achievement-icon" viewBox="0 0 160 160" aria-hidden="true">
+      <defs>
+        <radialGradient id="goal-ball" cx="34%" cy="22%" r="72%">
+          <stop offset="0" stop-color="#ffffff"></stop>
+          <stop offset="0.46" stop-color="#f7f2dd"></stop>
+          <stop offset="1" stop-color="#9a9a90"></stop>
+        </radialGradient>
+        <linearGradient id="goal-base" x1="35" x2="126" y1="112" y2="148">
+          <stop offset="0" stop-color="#ffe79b"></stop>
+          <stop offset="0.5" stop-color="#cb8724"></stop>
+          <stop offset="1" stop-color="#5b3408"></stop>
+        </linearGradient>
+        <filter id="goal-shadow" x="-30%" y="-30%" width="160%" height="170%">
+          <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#07140f" flood-opacity="0.55"></feDropShadow>
+        </filter>
+      </defs>
+      <g filter="url(#goal-shadow)">
+        <path d="M50 121h60l12 22H38l12-22Z" fill="url(#goal-base)" stroke="#ffe7a1" stroke-width="4" stroke-linejoin="round"></path>
+        <path d="M66 100h28l8 22H58l8-22Z" fill="#d7a547" stroke="#ffefb4" stroke-width="4"></path>
+        <circle cx="80" cy="65" r="45" fill="url(#goal-ball)" stroke="#fbf8e9" stroke-width="5"></circle>
+        <path d="m80 39 16 12-6 19H70l-6-19 16-12Z" fill="#26322d"></path>
+        <path d="m43 62 21-11 6 19-13 15-16-7M117 62 96 51l-6 19 13 15 16-7M62 101l8-31h20l8 31M51 34l13 17M109 34 96 51" fill="none" stroke="#26322d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M80 52 85 63l12 1-9 8 3 12-11-6-11 6 3-12-9-8 12-1 5-11Z" fill="#ffe27b"></path>
+      </g>
+    </svg>
+  `;
+}
+
+function formatAchievementCount(count) {
+  return count === 1 ? '1 раз' : `${count} раз`;
+}
+
+function getPlayerAchievements(player) {
+  const games = getGames();
+  const mvpGames = games.filter((game) => game.mvp?.playerId === player.id);
+  const scorerGames = games.filter((game) => game.topScorer?.playerId === player.id);
+  const bestGoals = scorerGames.reduce((max, game) => Math.max(max, Number(game.topScorer?.goals || 0)), 0);
+
+  return [
+    {
+      key: 'mvp',
+      title: 'MVP',
+      description: 'Лучший скачок рейтинга',
+      count: mvpGames.length,
+      detail: mvpGames.length ? formatAchievementCount(mvpGames.length) : 'ещё не получено'
+    },
+    {
+      key: 'goleador',
+      title: 'Голеадор',
+      description: 'Больше всех голов за игру',
+      count: scorerGames.length,
+      detail: scorerGames.length ? `${formatAchievementCount(scorerGames.length)} • рекорд ${bestGoals}` : 'ещё не получено'
+    }
+  ];
+}
+
+function renderAchievementCard(achievement) {
+  return `
+    <article class="achievement-card ${achievement.count ? 'is-unlocked' : 'is-locked'}">
+      ${renderAchievementIcon(achievement.key)}
+      <div class="achievement-copy">
+        <strong>${escapeHtml(achievement.title)}</strong>
+        <span>${escapeHtml(achievement.description)}</span>
+        <small>${escapeHtml(achievement.detail)}</small>
+      </div>
+    </article>
+  `;
+}
+
 function renderProfileTab() {
   const player = getViewerPlayer();
 
@@ -847,6 +951,7 @@ function renderProfileTab() {
     label.toLowerCase(),
     hasCareerRatings ? player.stats[key] : '-'
   ]);
+  const achievements = getPlayerAchievements(player);
 
   return `
     <section class="editor-screen profile-screen" aria-label="Профиль игрока">
@@ -868,6 +973,7 @@ function renderProfileTab() {
           <div class="editor-name">${escapeHtml(player.displayName)}</div>
           <div class="editor-nick">@${escapeHtml(player.username || 'unknown')}</div>
         </div>
+        ${renderPositionSelector('Позиция', effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title)}
         <div class="profile-card-metrics">
           <div class="metric-grid metric-grid--summary ${overviewCells.length === 1 ? 'metric-grid--single' : ''}">
             ${overviewCells.map((cell) => renderMetricCell(cell.label, cell.value, cell)).join('')}
@@ -876,6 +982,12 @@ function renderProfileTab() {
             ${statCells.map(([label, value]) => renderMetricCell(label, value)).join('')}
           </div>
         </div>
+        <section class="profile-achievements" aria-label="Достижения">
+          <h2>Достижения</h2>
+          <div class="achievement-grid">
+            ${achievements.map((achievement) => renderAchievementCard(achievement)).join('')}
+          </div>
+        </section>
       </div>
     </section>
   `;
@@ -978,6 +1090,7 @@ function render() {
   const screenTitle = getScreenTitle();
   chatTitleNode.textContent = screenTitle;
   topbarNode?.classList.toggle('topbar--titleless', !screenTitle);
+  appShellNode?.classList.toggle('app-shell--profile', state.activeTab === 'profile');
   syncTabbar();
 
   if (!state.chatId) {

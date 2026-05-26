@@ -137,6 +137,8 @@ test('buildChatSnapshot aggregates ratings, games and MVP', () => {
   assert.equal(snapshot.games[0].id, 'game_2');
   assert.equal(snapshot.games[0].status, 'finished');
   assert.equal(snapshot.games[0].mvp.playerId, 'player_2');
+  assert.equal(snapshot.games[0].topScorer.playerId, 'player_2');
+  assert.equal(snapshot.games[0].topScorer.goals, 2);
   assert.equal(snapshot.games[0].totalGoals, 2);
   assert.equal(snapshot.games[0].playersCount, 3);
   assert.equal(snapshot.currentGame.canViewerRate, true);
