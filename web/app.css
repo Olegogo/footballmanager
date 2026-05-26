@@ -61,6 +61,14 @@ p {
   letter-spacing: -0.03em;
 }
 
+.topbar--titleless {
+  justify-content: flex-end;
+}
+
+.topbar--titleless h1 {
+  display: none;
+}
+
 .ghost-button,
 .tab-button,
 .chip,
@@ -1188,6 +1196,28 @@ input[type="range"] {
 .editor-submit {
   margin-top: 8px;
   font-size: 16px;
+}
+
+.profile-screen {
+  width: min(100%, 560px);
+  min-height: auto;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 34px;
+  border: 1px solid rgba(227, 194, 116, 0.32);
+}
+
+.profile-hero {
+  min-height: 292px;
+}
+
+.profile-body {
+  padding-bottom: 24px;
+}
+
+.profile-card-metrics {
+  display: grid;
+  gap: 14px;
 }
 
 .toast {

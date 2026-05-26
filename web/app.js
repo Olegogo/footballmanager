@@ -91,6 +91,7 @@ const tg = window.Telegram?.WebApp;
 const apiBaseUrl = String(window.APP_CONFIG?.API_BASE_URL || '').replace(/\/+$/, '');
 const contentNode = document.getElementById('content');
 const chatTitleNode = document.getElementById('chatTitle');
+const topbarNode = document.querySelector('.topbar');
 const modalRoot = document.getElementById('modalRoot');
 const toastNode = document.getElementById('toast');
 let refreshTimer = null;
@@ -113,7 +114,15 @@ function getScreenTitle() {
     return 'Игровой день';
   }
 
-  return state.activeTab === 'games' ? 'Игры' : 'Игроки';
+  if (state.activeTab === 'games') {
+    return 'Игры';
+  }
+
+  if (state.activeTab === 'players') {
+    return 'Игроки';
+  }
+
+  return '';
 }
 
 function isGoalkeeperPosition(position) {
@@ -221,6 +230,10 @@ function getPlayers() {
 
 function getPlayer(playerId) {
   return getPlayers().find((player) => player.id === playerId) ?? null;
+}
+
+function getViewerPlayer() {
+  return getPlayer(state.snapshot?.viewerPlayerId);
 }
 
 function getRatingDraftKey(gameId, playerId) {
@@ -763,6 +776,87 @@ function renderPlayersTab() {
   `;
 }
 
+function renderProfileTab() {
+  const player = getViewerPlayer();
+
+  if (!player) {
+    return `
+      <section class="empty-state">
+        <h2>Профиль пока недоступен</h2>
+        <p>Откройте miniapp из Telegram или войдите через dev-вход, чтобы увидеть свою карточку игрока.</p>
+      </section>
+    `;
+  }
+
+  const hasCareerRatings = player.ratedGames > 0;
+  const effectivePosition = player.position || 'N/A';
+  const statMeta = getStatMetaForPosition(effectivePosition);
+  const isGoalkeeper = isGoalkeeperPosition(effectivePosition);
+  const overviewCells = [
+    { label: 'игр', value: player.games, emphasis: true },
+    ...(
+      isGoalkeeper
+        ? []
+        : [
+            { label: 'голов', value: hasCareerRatings ? player.goals : '-' },
+            { label: 'голевых', value: hasCareerRatings ? player.assists : '-' }
+          ]
+    )
+  ];
+  const statCells = statMeta.map(([key, label]) => [
+    label.toLowerCase(),
+    hasCareerRatings ? player.stats[key] : '-'
+  ]);
+
+  return `
+    <section class="editor-screen profile-screen" aria-label="Профиль игрока">
+      <div class="editor-hero profile-hero">
+        ${renderCardHero(player)}
+        ${
+          hasCareerRatings
+            ? `
+              <div class="hero-score">
+                <strong>${escapeHtml(player.overall)}</strong>
+                <span>${escapeHtml(getPositionMeta(effectivePosition).card)}</span>
+              </div>
+            `
+            : '<span class="editor-status">Не оценён</span>'
+        }
+      </div>
+      <div class="editor-body profile-body">
+        <div class="editor-nameblock">
+          <div class="editor-name">${escapeHtml(player.displayName)}</div>
+          <div class="editor-nick">@${escapeHtml(player.username || 'unknown')}</div>
+        </div>
+        <div class="profile-card-metrics">
+          <div class="metric-grid metric-grid--summary ${overviewCells.length === 1 ? 'metric-grid--single' : ''}">
+            ${overviewCells.map((cell) => renderMetricCell(cell.label, cell.value, cell)).join('')}
+          </div>
+          <div class="metric-grid metric-grid--stats">
+            ${statCells.map(([label, value]) => renderMetricCell(label, value)).join('')}
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderActiveTab() {
+  if (state.activeTab === 'game') {
+    return renderGameTab();
+  }
+
+  if (state.activeTab === 'games') {
+    return renderGamesTab();
+  }
+
+  if (state.activeTab === 'profile') {
+    return renderProfileTab();
+  }
+
+  return renderPlayersTab();
+}
+
 function renderLoginPanel() {
   if (!state.allowDevLogin || state.token || tg?.initData) {
     return '';
@@ -834,8 +928,17 @@ function renderModal() {
   modalRoot.innerHTML = renderEditorScreen(player, gamePlayer, editable, defaults, game);
 }
 
+function syncTabbar() {
+  document.querySelectorAll('.tab-button').forEach((button) => {
+    button.classList.toggle('active', button.dataset.tab === state.activeTab);
+  });
+}
+
 function render() {
-  chatTitleNode.textContent = getScreenTitle();
+  const screenTitle = getScreenTitle();
+  chatTitleNode.textContent = screenTitle;
+  topbarNode?.classList.toggle('topbar--titleless', !screenTitle);
+  syncTabbar();
 
   if (!state.chatId) {
     contentNode.innerHTML = `
@@ -862,12 +965,8 @@ function render() {
 
   contentNode.innerHTML = `
     ${renderLoginPanel()}
-    ${state.activeTab === 'game' ? renderGameTab() : state.activeTab === 'games' ? renderGamesTab() : renderPlayersTab()}
+    ${renderActiveTab()}
   `;
-
-  document.querySelectorAll('.tab-button').forEach((button) => {
-    button.classList.toggle('active', button.dataset.tab === state.activeTab);
-  });
 
   renderModal();
 }
