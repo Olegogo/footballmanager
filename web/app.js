@@ -54,6 +54,11 @@ const FILTER_CHIPS = [
   { key: 'passing', label: 'Передачи' },
   { key: 'physical', label: 'Физика' }
 ];
+const GAME_FILTERS = [
+  { key: 'all', label: 'Все' },
+  { key: 'current', label: 'Текущие' },
+  { key: 'finished', label: 'Завершенные' }
+];
 function readChatIdFromStartParam() {
   const urlChatId = new URLSearchParams(window.location.search).get('chatId') || '';
   const startParam =
@@ -76,6 +81,7 @@ const state = {
   allowDevLogin: false,
   activeTab: 'game',
   activeSort: 'overall',
+  gamesFilter: 'all',
   positionFilter: '',
   selectedPlayerId: null,
   ratingDrafts: {}
@@ -103,7 +109,11 @@ function escapeHtml(value) {
 }
 
 function getScreenTitle() {
-  return state.activeTab === 'game' ? 'Игровой день' : 'Игроки';
+  if (state.activeTab === 'game') {
+    return 'Игровой день';
+  }
+
+  return state.activeTab === 'games' ? 'Игры' : 'Игроки';
 }
 
 function isGoalkeeperPosition(position) {
@@ -199,6 +209,10 @@ async function loadSnapshot() {
 
 function getCurrentGame() {
   return state.snapshot?.currentGame ?? null;
+}
+
+function getGames() {
+  return state.snapshot?.games ?? [];
 }
 
 function getPlayers() {
@@ -534,7 +548,7 @@ function renderGameHeader(game) {
 }
 
 function renderRatingBanner(game) {
-  let message = 'Оцените игроков после начала игры в течение суток';
+  let message = 'Оцените игроков после начала игры до следующего игрового дня';
 
   if (game.canViewerRate && game.isFinished) {
     message = 'Игра завершена. Оценить игроков можно до следующего игрового дня.';
@@ -621,6 +635,95 @@ function renderGameTab() {
         )
         .join('')}
     </section>
+  `;
+}
+
+function getGameStatusLabel(status) {
+  if (status === 'upcoming') {
+    return 'Скоро игра';
+  }
+
+  return status === 'live' ? 'Игра идет' : 'Игра закончена';
+}
+
+function getFilteredGames() {
+  return getGames().filter((game) => {
+    if (state.gamesFilter === 'current') {
+      return game.status === 'upcoming' || game.status === 'live';
+    }
+
+    if (state.gamesFilter === 'finished') {
+      return game.status === 'finished';
+    }
+
+    return true;
+  });
+}
+
+function renderGamesFilterBar() {
+  return `
+    <div class="filter-row games-filter-row">
+      ${GAME_FILTERS.map(
+        (filter) => `
+          <button type="button" class="chip ${state.gamesFilter === filter.key ? 'active' : ''}" data-games-filter="${escapeHtml(filter.key)}">
+            ${escapeHtml(filter.label)}
+          </button>
+        `
+      ).join('')}
+    </div>
+  `;
+}
+
+function renderGameCard(game) {
+  const isOpenable = game.status === 'upcoming' || game.status === 'live';
+  const openAttribute = isOpenable ? ` data-open-game="${escapeHtml(game.id)}"` : '';
+  const mvpLabel = game.mvp
+    ? `${game.mvp.displayName}${game.mvp.ratingIncrease ? ` +${game.mvp.ratingIncrease}` : ''}`
+    : 'Пока нет';
+
+  return `
+    <article class="game-card ${isOpenable ? 'game-card--openable' : ''}"${openAttribute}>
+      <div class="game-card-head">
+        <div>
+          <h2>${escapeHtml(game.dateLabel)}</h2>
+          <p>${escapeHtml(game.time)}</p>
+        </div>
+        <span class="status-pill ${escapeHtml(game.status)}">${escapeHtml(getGameStatusLabel(game.status))}</span>
+      </div>
+      <p class="game-card-location">${escapeHtml(game.location || 'Не указано')}</p>
+      <div class="game-card-stats">
+        <div>
+          <span>MVP</span>
+          <strong>${escapeHtml(mvpLabel)}</strong>
+        </div>
+        <div>
+          <span>Голов</span>
+          <strong>${escapeHtml(game.totalGoals)}</strong>
+        </div>
+        <div>
+          <span>Игроков</span>
+          <strong>${escapeHtml(game.playersCount)}</strong>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderGamesTab() {
+  const games = getFilteredGames();
+
+  return `
+    ${renderGamesFilterBar()}
+    ${
+      games.length
+        ? `<section class="stack games-stack">${games.map((game) => renderGameCard(game)).join('')}</section>`
+        : `
+          <section class="empty-state">
+            <h2>Игр нет</h2>
+            <p>В этом фильтре пока нет матчей.</p>
+          </section>
+        `
+    }
   `;
 }
 
@@ -759,7 +862,7 @@ function render() {
 
   contentNode.innerHTML = `
     ${renderLoginPanel()}
-    ${state.activeTab === 'game' ? renderGameTab() : renderPlayersTab()}
+    ${state.activeTab === 'game' ? renderGameTab() : state.activeTab === 'games' ? renderGamesTab() : renderPlayersTab()}
   `;
 
   document.querySelectorAll('.tab-button').forEach((button) => {
@@ -908,6 +1011,14 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  const gameCard = event.target.closest('[data-open-game]');
+
+  if (gameCard) {
+    state.activeTab = 'game';
+    render();
+    return;
+  }
+
   if (event.target.closest('[data-close-modal]') || event.target.matches('[data-modal-backdrop]')) {
     state.selectedPlayerId = null;
     renderModal();
@@ -917,6 +1028,13 @@ document.addEventListener('click', (event) => {
 
   if (sortButton) {
     state.activeSort = sortButton.dataset.sort;
+    render();
+  }
+
+  const gamesFilterButton = event.target.closest('[data-games-filter]');
+
+  if (gamesFilterButton) {
+    state.gamesFilter = gamesFilterButton.dataset.gamesFilter;
     render();
   }
 });

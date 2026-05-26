@@ -236,9 +236,24 @@ export function buildCareerIndex(state, chatId) {
 }
 
 export function getLatestMvp(state, chatId) {
+  const mvpIndex = buildGameMvpIndex(state, chatId);
+  const games = getGamesForChat(state, chatId).reverse();
+
+  for (const game of games) {
+    const mvp = mvpIndex.get(game.id);
+
+    if (mvp) {
+      return mvp;
+    }
+  }
+
+  return null;
+}
+
+export function buildGameMvpIndex(state, chatId) {
   const games = getGamesForChat(state, chatId);
   const career = new Map();
-  let latestMvp = null;
+  const mvpIndex = new Map();
 
   for (const game of games) {
     const aggregation = buildGameAggregation(state, game.id);
@@ -290,14 +305,14 @@ export function getLatestMvp(state, chatId) {
         return right.summary.assists - left.summary.assists;
       });
 
-      latestMvp = {
+      mvpIndex.set(game.id, {
         gameId: game.id,
         playerId: candidates[0].playerId,
         overall: candidates[0].nextOverall,
         ratingIncrease: candidates[0].increase,
         previousOverall: candidates[0].previousOverall,
         gameOverall: candidates[0].summary.overall
-      };
+      });
     }
 
     for (const playerId of game.playerIds) {
@@ -305,7 +320,7 @@ export function getLatestMvp(state, chatId) {
     }
   }
 
-  return latestMvp;
+  return mvpIndex;
 }
 
 function comparePlayers(left, right) {
@@ -343,6 +358,46 @@ function getGameStatus(game, now) {
   return 'live';
 }
 
+function buildGamesView(state, chatId, playerCards, now) {
+  const games = getGamesForChat(state, chatId);
+  const mvpIndex = buildGameMvpIndex(state, chatId);
+  const playersById = new Map(playerCards.map((player) => [player.id, player]));
+
+  return games
+    .map((game) => {
+      const aggregation = buildGameAggregation(state, game.id);
+      const mvp = mvpIndex.get(game.id);
+      const mvpPlayer = mvp ? playersById.get(mvp.playerId) : null;
+      const totalGoals = round(
+        game.playerIds.reduce((sum, playerId) => {
+          const gameStats = aggregation?.players[playerId];
+          return sum + (gameStats?.hasRatings ? gameStats.goals : 0);
+        }, 0)
+      );
+
+      return {
+        id: game.id,
+        dateLabel: game.dateLabel,
+        location: game.location,
+        time: game.time,
+        scheduledAt: game.scheduledAt,
+        status: getGameStatus(game, now),
+        playersCount: game.playerIds.length,
+        totalGoals,
+        mvp: mvp
+          ? {
+              playerId: mvp.playerId,
+              displayName: mvpPlayer?.displayName || 'Игрок',
+              username: mvpPlayer?.username || '',
+              ratingIncrease: mvp.ratingIncrease,
+              overall: mvp.overall
+            }
+          : null
+      };
+    })
+    .sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt));
+}
+
 export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = new Date()) {
   const chat = state.chats[String(chatId)];
 
@@ -350,6 +405,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     return {
       chat: null,
       currentGame: null,
+      games: [],
       players: [],
       latestMvpPlayerId: null,
       viewerPlayerId
@@ -458,6 +514,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     viewerPlayerId,
     latestMvpPlayerId: latestMvp?.playerId ?? null,
     currentGame: currentGameView,
+    games: buildGamesView(state, chatId, playerCards, now),
     players: playerCards
   };
 }

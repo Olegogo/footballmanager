@@ -236,6 +236,91 @@ p {
   line-height: 1.35;
 }
 
+.games-filter-row {
+  padding: 2px 0;
+}
+
+.games-stack {
+  gap: 12px;
+}
+
+.game-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(241, 207, 114, 0.16), transparent 36%),
+    linear-gradient(180deg, rgba(11, 28, 19, 0.96), rgba(5, 13, 9, 0.94));
+  border: 1px solid rgba(255, 235, 170, 0.18);
+  box-shadow: var(--shadow);
+}
+
+.game-card--openable {
+  cursor: pointer;
+}
+
+.game-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.game-card-head h2 {
+  font-size: 24px;
+  line-height: 1.05;
+}
+
+.game-card-head p,
+.game-card-location {
+  color: var(--muted);
+}
+
+.game-card-head p {
+  margin-top: 6px;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.game-card-location {
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.game-card-stats {
+  display: grid;
+  grid-template-columns: 1.3fr 0.8fr 0.8fr;
+  gap: 10px;
+}
+
+.game-card-stats div {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 235, 170, 0.1);
+}
+
+.game-card-stats span {
+  display: block;
+  margin-bottom: 5px;
+  color: rgba(255, 240, 209, 0.62);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.game-card-stats strong {
+  display: block;
+  overflow: hidden;
+  font-size: 18px;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .field-panel {
   padding: 14px;
 }
@@ -1128,6 +1213,7 @@ input[type="range"] {
   }
 
   .game-facts,
+  .game-card-stats,
   .two-columns {
     grid-template-columns: 1fr;
   }
