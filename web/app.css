@@ -49,8 +49,12 @@ p {
 .app-shell--profile {
   width: 100%;
   max-width: none;
+  min-height: 100dvh;
   margin: 0;
-  padding: 0 0 calc(110px + env(safe-area-inset-bottom));
+  padding: 0;
+  background:
+    linear-gradient(90deg, rgba(154, 118, 44, 0.9), rgba(41, 30, 11, 0.96) 74%),
+    linear-gradient(180deg, rgba(17, 13, 7, 0.82), rgba(17, 13, 7, 0.82));
 }
 
 .app-shell--profile .topbar {
@@ -1285,7 +1289,7 @@ input[type="range"] {
 
 .profile-screen {
   width: 100%;
-  min-height: calc(100dvh - env(safe-area-inset-bottom));
+  min-height: 100dvh;
   margin: 0 auto;
   overflow: hidden;
   border: 0;
@@ -1300,7 +1304,7 @@ input[type="range"] {
 .profile-body {
   gap: 20px;
   min-height: calc(100dvh - clamp(330px, 42dvh, 450px));
-  padding: 26px 20px calc(150px + env(safe-area-inset-bottom));
+  padding: 26px 20px calc(190px + env(safe-area-inset-bottom));
 }
 
 .profile-card-metrics {
