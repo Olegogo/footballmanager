@@ -148,6 +148,33 @@ test('/open sends only button text with custom label when keyboard works', async
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть футбольчик');
 });
 
+test('/start sends onboarding copy with app button', async () => {
+  const { store } = createBotStore([]);
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+  const sent = [];
+
+  bot.sendText = async (chatId, text, options = {}) => {
+    sent.push({ chatId, text, options });
+    return { message_id: 100 };
+  };
+
+  await bot.handleCommand({
+    text: '/start',
+    chat: {
+      id: 123,
+      type: 'private'
+    }
+  });
+
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].text, /Привет👋/);
+  assert.match(sent[0].text, /Надеюсь это поможет тебе рости/);
+  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть приложение');
+});
+
 test('/open tolerates PUBLIC_BASE_URL without scheme in group chats', async () => {
   const { store } = createBotStore([]);
   const bot = new TelegramBot({

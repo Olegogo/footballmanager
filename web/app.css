@@ -88,6 +88,29 @@ p {
   display: none;
 }
 
+.topbar--game {
+  justify-content: flex-start;
+}
+
+.back-button {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.back-button[hidden] {
+  display: none;
+}
+
 .ghost-button,
 .tab-button,
 .chip,
@@ -1497,6 +1520,11 @@ input[type="range"] {
 
 .profile-submit {
   margin-top: 6px;
+}
+
+.profile-edit-button {
+  width: 100%;
+  border-radius: 22px;
 }
 
 .profile-rating-note {

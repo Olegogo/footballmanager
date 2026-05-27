@@ -86,6 +86,7 @@ const state = {
   selectedPlayerId: null,
   selectedGameId: '',
   selfProfileDraft: null,
+  selfProfileEditing: false,
   ratingDrafts: {},
   manualGameOpen: false,
   manualGameConfirm: null,
@@ -103,6 +104,7 @@ const appShellNode = document.querySelector('.app-shell');
 const contentNode = document.getElementById('content');
 const chatTitleNode = document.getElementById('chatTitle');
 const topbarNode = document.querySelector('.topbar');
+const backButtonNode = document.getElementById('backButton');
 const modalRoot = document.getElementById('modalRoot');
 const toastNode = document.getElementById('toast');
 let refreshTimer = null;
@@ -126,7 +128,7 @@ function normalizeUsername(value = '') {
 
 function getScreenTitle() {
   if (state.activeTab === 'game') {
-    return 'Игровой день';
+    return '';
   }
 
   if (state.activeTab === 'games') {
@@ -229,6 +231,11 @@ async function loadSnapshot() {
   state.snapshot = data.snapshot;
   state.allowDevLogin = data.allowDevLogin;
   state.chatId = state.chatId || data.snapshot?.chat?.id || '';
+
+  if (state.token && !data.snapshot?.viewerPlayerId) {
+    localStorage.removeItem(storageKey());
+    state.token = '';
+  }
 }
 
 function getCurrentGame() {
@@ -1194,6 +1201,8 @@ function renderProfileTab() {
   };
   const effectivePosition = selfProfileDefaults.position || 'N/A';
   const canEditSelfProfile = Boolean(state.token && state.snapshot?.viewerPlayerId === player.id && !hasCareerRatings);
+  const isEditingSelfProfile = canEditSelfProfile && state.selfProfileEditing;
+  const showProfileValues = hasCareerRatings || player.hasSelfProfile;
   const statMeta = getStatMetaForPosition(effectivePosition);
   const isGoalkeeper = isGoalkeeperPosition(effectivePosition);
   const overviewCells = [
@@ -1209,7 +1218,7 @@ function renderProfileTab() {
   ];
   const statCells = statMeta.map(([key, label]) => [
     label.toLowerCase(),
-    hasCareerRatings ? player.stats[key] : '-'
+    showProfileValues ? player.stats[key] : '-'
   ]);
   const achievements = getPlayerAchievements(player);
   const unlockedAchievements = achievements.filter((achievement) => achievement.count > 0);
@@ -1235,9 +1244,16 @@ function renderProfileTab() {
           <div class="editor-nick">@${escapeHtml(player.username || 'unknown')}</div>
         </div>
         ${
-          canEditSelfProfile
+          isEditingSelfProfile
             ? renderSelfProfileForm(player, selfProfileDefaults)
-            : renderPositionSelector('Позиция', effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title)
+            : `
+              ${renderPositionSelector('Позиция', effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title)}
+              ${
+                canEditSelfProfile
+                  ? '<button type="button" class="primary-button profile-edit-button" data-edit-self-profile="true">Редактировать</button>'
+                  : ''
+              }
+            `
         }
         ${
           hasCareerRatings
@@ -1248,14 +1264,20 @@ function renderProfileTab() {
               </section>
             `
         }
-        <div class="profile-card-metrics">
-          <div class="metric-grid metric-grid--summary ${overviewCells.length === 1 ? 'metric-grid--single' : ''}">
-            ${overviewCells.map((cell) => renderMetricCell(cell.label, cell.value, cell)).join('')}
-          </div>
-          <div class="metric-grid metric-grid--stats">
-            ${statCells.map(([label, value]) => renderMetricCell(label, value)).join('')}
-          </div>
-        </div>
+        ${
+          isEditingSelfProfile
+            ? ''
+            : `
+              <div class="profile-card-metrics">
+                <div class="metric-grid metric-grid--summary ${overviewCells.length === 1 ? 'metric-grid--single' : ''}">
+                  ${overviewCells.map((cell) => renderMetricCell(cell.label, cell.value, cell)).join('')}
+                </div>
+                <div class="metric-grid metric-grid--stats">
+                  ${statCells.map(([label, value]) => renderMetricCell(label, value)).join('')}
+                </div>
+              </div>
+            `
+        }
         <section class="profile-achievements" aria-label="Достижения">
           <h2>Достижения</h2>
           ${
@@ -1387,7 +1409,7 @@ function renderModal() {
 
 function syncTabbar() {
   document.querySelectorAll('.tab-button').forEach((button) => {
-    const activeTab = state.activeTab === 'game' ? 'games' : state.activeTab;
+    const activeTab = state.activeTab === 'game' ? '' : state.activeTab;
     button.classList.toggle('active', button.dataset.tab === activeTab);
   });
 }
@@ -1396,6 +1418,10 @@ function render() {
   const screenTitle = getScreenTitle();
   chatTitleNode.textContent = screenTitle;
   topbarNode?.classList.toggle('topbar--titleless', !screenTitle);
+  topbarNode?.classList.toggle('topbar--game', state.activeTab === 'game');
+  if (backButtonNode) {
+    backButtonNode.hidden = state.activeTab !== 'game';
+  }
   appShellNode?.classList.toggle('app-shell--profile', state.activeTab === 'profile');
   syncTabbar();
 
@@ -1468,6 +1494,7 @@ async function submitSelfProfile(form) {
 
   state.snapshot = data.snapshot;
   state.selfProfileDraft = null;
+  state.selfProfileEditing = false;
   render();
   showToast('Карточка сохранена');
 }
@@ -1569,6 +1596,12 @@ document.getElementById('refreshButton')?.addEventListener('click', async () => 
   await refreshSnapshot();
 });
 
+backButtonNode?.addEventListener('click', () => {
+  state.activeTab = 'games';
+  state.selectedGameId = '';
+  render();
+});
+
 document.querySelector('.tabbar').addEventListener('click', (event) => {
   const button = event.target.closest('[data-tab]');
 
@@ -1580,10 +1613,22 @@ document.querySelector('.tabbar').addEventListener('click', (event) => {
   if (state.activeTab !== 'game') {
     state.selectedGameId = '';
   }
+  if (state.activeTab !== 'profile') {
+    state.selfProfileEditing = false;
+    state.selfProfileDraft = null;
+  }
   render();
 });
 
 document.addEventListener('click', (event) => {
+  const editSelfProfileButton = event.target.closest('[data-edit-self-profile]');
+
+  if (editSelfProfileButton) {
+    state.selfProfileEditing = true;
+    render();
+    return;
+  }
+
   const openCreateButton = event.target.closest('[data-open-create-game]');
 
   if (openCreateButton) {
