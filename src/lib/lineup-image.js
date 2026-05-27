@@ -5,9 +5,7 @@ import { Resvg } from '@resvg/resvg-js';
 import {
   buildTeamFieldAssignments,
   getEffectiveOverall,
-  getEffectivePosition,
   getInitials,
-  getPositionMeta,
   splitBalancedTeams
 } from './lineup.js';
 
@@ -16,7 +14,7 @@ const HEIGHT = 1240;
 const LINE_INSET = 48;
 const PLAYER_CARD = {
   width: 150,
-  height: 178
+  height: 132
 };
 const PHOTO_FETCH_TIMEOUT_MS = 1200;
 
@@ -53,6 +51,10 @@ function toFieldY(percent) {
 }
 
 function getPlayerRatingLabel(player) {
+  if (!player.currentGameStats?.hasRatings && !(player.ratedGames > 0)) {
+    return '';
+  }
+
   return String(Math.round(Number(getEffectiveOverall(player) || 50)));
 }
 
@@ -102,16 +104,16 @@ function renderPlayerAvatar(player, photoDataUrl, avatarId) {
   if (photoDataUrl) {
     return `
       <clipPath id="${avatarId}">
-        <rect x="40" y="18" width="70" height="70" rx="20"></rect>
+        <circle cx="75" cy="38" r="36"></circle>
       </clipPath>
-      <image href="${escapeXml(photoDataUrl)}" x="40" y="18" width="70" height="70" preserveAspectRatio="xMidYMid slice" clip-path="url(#${avatarId})"></image>
-      <rect x="40" y="18" width="70" height="70" rx="20" fill="none" stroke="#fff2c7" stroke-opacity="0.24" stroke-width="2"></rect>
+      <image href="${escapeXml(photoDataUrl)}" x="39" y="2" width="72" height="72" preserveAspectRatio="xMidYMid slice" clip-path="url(#${avatarId})"></image>
+      <circle cx="75" cy="38" r="36" fill="none" stroke="#fff2c7" stroke-opacity="0.78" stroke-width="4"></circle>
     `;
   }
 
   return `
-    <rect x="40" y="18" width="70" height="70" rx="20" fill="#ffe28b" fill-opacity="0.18" stroke="#fff2c7" stroke-opacity="0.24" stroke-width="2"></rect>
-    <text x="75" y="64" text-anchor="middle" font-size="28" font-weight="900" fill="#ffe28b">${initials}</text>
+    <circle cx="75" cy="38" r="36" fill="#07130d" fill-opacity="0.9" stroke="#fff2c7" stroke-opacity="0.78" stroke-width="4"></circle>
+    <text x="75" y="48" text-anchor="middle" font-size="26" font-weight="900" fill="#ffe28b">${initials}</text>
   `;
 }
 
@@ -119,16 +121,15 @@ function renderPlayerCard({ player, slot, teamKey, index, photoDataUrl }) {
   const x = Math.round(toFieldX(slot.x) - PLAYER_CARD.width / 2);
   const y = Math.round(toFieldY(slot.y) - PLAYER_CARD.height / 2);
   const avatarId = `avatar-${teamKey}-${index}`;
-  const positionLabel = escapeXml(getPositionMeta(getEffectivePosition(player)).short);
+  const ratingLabel = getPlayerRatingLabel(player);
+  const nameLabel = ratingLabel
+    ? `${ratingLabel}. ${getShortPlayerName(player)}`
+    : getShortPlayerName(player);
 
   return `
     <g transform="translate(${x} ${y})">
-      <rect x="0" y="0" width="${PLAYER_CARD.width}" height="${PLAYER_CARD.height}" rx="34" fill="#07130d" fill-opacity="0.94" stroke="#ffe28b" stroke-opacity="0.24" stroke-width="2"></rect>
-      <path d="M2 2 H148 V100 C119 87 31 87 2 100 Z" fill="#1b3822" fill-opacity="0.34"></path>
       ${renderPlayerAvatar(player, photoDataUrl, avatarId)}
-      <text x="75" y="121" text-anchor="middle" font-size="46" font-weight="900" fill="#ffe28b">${escapeXml(getPlayerRatingLabel(player))}</text>
-      <text x="75" y="151" text-anchor="middle" font-size="26" font-weight="900" fill="#fffaf0">${escapeXml(getShortPlayerName(player))}</text>
-      <text x="123" y="49" text-anchor="middle" font-size="22" font-weight="900" fill="#d7c28c">${positionLabel}</text>
+      <text x="75" y="104" text-anchor="middle" font-size="24" font-weight="900" fill="#fffaf0" paint-order="stroke" stroke="#07130d" stroke-width="8" stroke-linejoin="round">${escapeXml(nameLabel)}</text>
     </g>
   `;
 }

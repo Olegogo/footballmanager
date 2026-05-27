@@ -477,3 +477,36 @@ test('submitRating accepts ratings after 24 hours when no newer game closed the 
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
+
+test('updateSelfProfile stores unrated player card data without creating rating', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const player = await store.upsertPlayerByUsername('-1001', 'O_legacy');
+
+    await store.updateSelfProfile({
+      chatId: '-1001',
+      playerId: player.id,
+      payload: {
+        position: 'ST',
+        pace: 77,
+        dribbling: 72,
+        shooting: 80,
+        defense: 41,
+        passing: 68,
+        physical: 74
+      }
+    });
+
+    const snapshot = store.getSnapshot('-1001', player.id);
+    const card = snapshot.players.find((item) => item.id === player.id);
+
+    assert.equal(card.ratedGames, 0);
+    assert.equal(card.hasSelfProfile, true);
+    assert.equal(card.position, 'ST');
+    assert.equal(card.stats.pace, 77);
+    assert.equal(card.overall, 50);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});

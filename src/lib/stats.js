@@ -442,6 +442,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     return {
       chat: null,
       currentGame: null,
+      gameDays: [],
       games: [],
       players: [],
       latestMvpPlayerId: null,
@@ -472,48 +473,47 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
         lastName: player.lastName,
         photoUrl: player.photoUrl,
         overall: playerCareer.overall,
-        position: playerCareer.ratedGames ? playerCareer.position : (player.defaultPosition || 'N/A'),
-        stats: playerCareer.stats,
+        position: playerCareer.ratedGames ? playerCareer.position : (player.selfProfile?.position || player.defaultPosition || 'N/A'),
+        stats: playerCareer.ratedGames ? playerCareer.stats : (player.selfProfile?.stats || playerCareer.stats),
         games: playerCareer.games,
         ratedGames: playerCareer.ratedGames,
         goals: playerCareer.goals,
         assists: playerCareer.assists,
+        hasSelfProfile: Boolean(player.selfProfile),
         isMvp: latestMvp?.playerId === player.id
       };
     })
     .sort(comparePlayers);
 
   const currentGame = chat.currentGameId ? state.games[chat.currentGameId] : null;
-  let currentGameView = null;
-
-  if (currentGame) {
-    const aggregation = buildGameAggregation(state, currentGame.id);
-    const status = getGameStatus(currentGame, now);
-    const hasStarted = now >= new Date(currentGame.scheduledAt);
-    const viewerIsParticipant = viewerPlayerId ? currentGame.playerIds.includes(viewerPlayerId) : false;
-    const ratingWindowOpen = chat.currentGameId === currentGame.id && hasStarted;
+  const buildGameDayView = (game) => {
+    const aggregation = buildGameAggregation(state, game.id);
+    const status = getGameStatus(game, now);
+    const hasStarted = now >= new Date(game.scheduledAt);
+    const viewerIsParticipant = viewerPlayerId ? game.playerIds.includes(viewerPlayerId) : false;
+    const ratingWindowOpen = chat.currentGameId === game.id && hasStarted;
     const viewerRatings = new Map(
       Object.values(state.ratings)
-        .filter((rating) => rating.gameId === currentGame.id && rating.raterPlayerId === viewerPlayerId)
+        .filter((rating) => rating.gameId === game.id && rating.raterPlayerId === viewerPlayerId)
         .map((rating) => [rating.targetPlayerId, rating])
     );
 
-    currentGameView = {
-      id: currentGame.id,
-      dateLabel: currentGame.dateLabel,
-      location: currentGame.location,
-      time: currentGame.time,
-      scheduledAt: currentGame.scheduledAt,
-      priceLine: currentGame.priceLine,
-      paymentLines: currentGame.paymentLines,
+    return {
+      id: game.id,
+      dateLabel: game.dateLabel,
+      location: game.location,
+      time: game.time,
+      scheduledAt: game.scheduledAt,
+      priceLine: game.priceLine,
+      paymentLines: game.paymentLines,
       status,
       hasStarted,
       isFinished: status === 'finished',
       ratingWindowOpen,
       viewerIsParticipant,
       canViewerRate: ratingWindowOpen && viewerIsParticipant,
-      ratingsPromptSent: Boolean(currentGame.ratingsOpenedAt),
-      participants: currentGame.playerIds
+      ratingsPromptSent: Boolean(game.ratingsOpenedAt),
+      participants: game.playerIds
         .map((playerId) => {
           const profile = playerCards.find((player) => player.id === playerId);
           const gameStats = aggregation?.players[playerId];
@@ -540,7 +540,13 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
         })
         .filter(Boolean)
     };
-  }
+  };
+
+  const currentGameView = currentGame ? buildGameDayView(currentGame) : null;
+  const gameDays = getGamesForChat(state, chatId)
+    .slice(-2)
+    .map((game) => buildGameDayView(game))
+    .sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt));
 
   return {
     chat: {
@@ -551,6 +557,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     viewerPlayerId,
     latestMvpPlayerId: latestMvp?.playerId ?? null,
     currentGame: currentGameView,
+    gameDays,
     games: buildGamesView(state, chatId, playerCards, now),
     players: playerCards
   };

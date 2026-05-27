@@ -84,6 +84,8 @@ const state = {
   gamesFilter: 'all',
   positionFilter: '',
   selectedPlayerId: null,
+  selectedGameId: '',
+  selfProfileDraft: null,
   ratingDrafts: {}
 };
 
@@ -222,11 +224,19 @@ async function loadSnapshot() {
 }
 
 function getCurrentGame() {
+  if (state.selectedGameId) {
+    return getGameDays().find((game) => game.id === state.selectedGameId) ?? state.snapshot?.currentGame ?? null;
+  }
+
   return state.snapshot?.currentGame ?? null;
 }
 
 function getGames() {
   return state.snapshot?.games ?? [];
+}
+
+function getGameDays() {
+  return state.snapshot?.gameDays ?? [];
 }
 
 function getPlayers() {
@@ -279,6 +289,32 @@ function getViewerPlayer() {
 
 function getRatingDraftKey(gameId, playerId) {
   return `${gameId}:${playerId}`;
+}
+
+function hasVisibleRating(player, currentStats = null) {
+  return Boolean(currentStats?.hasRatings || player.ratedGames > 0);
+}
+
+function hasVisibleStats(player, currentStats = null) {
+  return Boolean(currentStats?.hasRatings || player.ratedGames > 0 || player.hasSelfProfile);
+}
+
+function getPlayerOverallLabel(player, currentStats = null) {
+  if (!hasVisibleRating(player, currentStats)) {
+    return '';
+  }
+
+  return String(Math.round(Number(currentStats?.hasRatings ? currentStats.overall : player.overall)));
+}
+
+function getGameDateShort(dateLabel = '') {
+  const parts = String(dateLabel).trim().split(/\s+/).filter(Boolean);
+
+  if (parts.length >= 3 && /^\D+$/.test(parts[0]) && /^\d{1,2}$/.test(parts[1])) {
+    return parts.slice(1).join(' ');
+  }
+
+  return String(dateLabel || '');
 }
 
 function sortPlayers(players) {
@@ -383,15 +419,17 @@ function renderFifaCard(player, options = {}) {
   const ratingsCount = currentStats?.ratingsCount ?? 0;
   const hasCurrentRatings = Boolean(currentStats?.hasRatings);
   const hasCareerRatings = player.ratedGames > 0;
-  const isUnrated = !hasCurrentRatings && !hasCareerRatings;
+  const hasRating = hasVisibleRating(player, currentStats);
+  const hasStats = hasVisibleStats(player, currentStats);
+  const isUnrated = !hasRating;
   const isRatingCard = variant === 'game-rating';
   const viewerHasRatedTarget = Boolean(player.viewerHasRatedTarget);
   const hideMatchDetailsUntilViewerRates = isRatingCard && !viewerHasRatedTarget;
-  const hasVisibleRating = hasCurrentRatings || hasCareerRatings;
-  const showKnownStats = !hideMatchDetailsUntilViewerRates && hasVisibleRating;
+  const showKnownStats = !hideMatchDetailsUntilViewerRates && hasStats;
+  const showRatedTotals = !hideMatchDetailsUntilViewerRates && hasRating;
   const overall = hasCurrentRatings ? currentStats.overall : hasCareerRatings ? player.overall : null;
   const effectivePosition = hasCurrentRatings ? (currentStats?.position || player.position || 'N/A') : (player.position || 'N/A');
-  const position = hasVisibleRating ? effectivePosition : null;
+  const position = hasRating ? effectivePosition : null;
   const statValues = hasCurrentRatings ? currentStats?.stats : player.stats;
   const statusLabel = isUnrated ? 'Не оценён' : '';
   const statPlaceholder = '-';
@@ -403,8 +441,8 @@ function renderFifaCard(player, options = {}) {
       isGoalkeeper
         ? []
         : [
-            { label: 'голов', value: !hideMatchDetailsUntilViewerRates && showKnownStats ? (hasCurrentRatings ? currentStats.goals : player.goals) : statPlaceholder, outlined: isRatingCard },
-            { label: 'голевых', value: !hideMatchDetailsUntilViewerRates && showKnownStats ? (hasCurrentRatings ? currentStats.assists : player.assists) : statPlaceholder, outlined: isRatingCard }
+            { label: 'голов', value: showRatedTotals ? (hasCurrentRatings ? currentStats.goals : player.goals) : statPlaceholder, outlined: isRatingCard },
+            { label: 'голевых', value: showRatedTotals ? (hasCurrentRatings ? currentStats.assists : player.assists) : statPlaceholder, outlined: isRatingCard }
           ]
     )
   ];
@@ -636,6 +674,7 @@ function renderField(game) {
                   .map(({ player, slot }) => {
                     const isInteractive = Boolean(player.canRateTarget);
                     const openAttribute = isInteractive ? `data-open-player="${escapeHtml(player.id)}"` : '';
+                    const ratingLabel = getPlayerOverallLabel(player, player.currentGameStats);
                     return `
                       <button
                         type="button"
@@ -645,7 +684,7 @@ function renderField(game) {
                       >
                         <div class="field-player-photo">${renderMiniAvatar(player)}</div>
                         <div class="field-player-info">
-                          <strong>${escapeHtml(getEffectiveOverall(player))}</strong>
+                          ${ratingLabel ? `<strong>${escapeHtml(ratingLabel)}</strong>` : ''}
                           <span>${escapeHtml(player.displayName.split(' ')[0])}</span>
                         </div>
                       </button>
@@ -658,6 +697,31 @@ function renderField(game) {
           .join('')}
       </div>
     </section>
+  `;
+}
+
+function renderGamePlayerRow(player) {
+  const currentStats = player.currentGameStats;
+  const isRatedInGame = Boolean(currentStats?.hasRatings);
+  const position = isRatedInGame ? currentStats.position : player.position;
+  const positionLabel = getPositionMeta(position).short;
+  const openAttribute = player.canRateTarget ? ` data-open-player="${escapeHtml(player.id)}"` : '';
+
+  return `
+    <article class="game-player-row ${player.canRateTarget ? 'is-clickable' : ''}"${openAttribute}>
+      <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
+      <div class="game-player-main">
+        <strong>${escapeHtml(player.displayName)}</strong>
+        <span>${escapeHtml(positionLabel === '—' ? 'Позиция не выбрана' : positionLabel)}</span>
+      </div>
+      ${
+        isRatedInGame
+          ? `<div class="game-player-rating">${escapeHtml(currentStats.overall)}</div>`
+          : player.canRateTarget
+            ? `<button type="button" class="primary-button game-player-action" data-open-player="${escapeHtml(player.id)}">Оценить</button>`
+            : ''
+      }
+    </article>
   `;
 }
 
@@ -677,17 +741,8 @@ function renderGameTab() {
     ${renderGameHeader(game)}
     ${renderField(game)}
     ${renderRatingBanner(game)}
-    <section class="stack cards-stack cards-stack--game">
-      ${game.participants
-        .map((player) =>
-          renderFifaCard(player, {
-            variant: player.canRateTarget ? 'game-rating' : 'game-summary',
-            actionLabel: player.canRateTarget ? 'Оценить' : '',
-            currentStats: player.currentGameStats,
-            clickable: Boolean(player.canRateTarget)
-          })
-        )
-        .join('')}
+    <section class="game-player-list">
+      ${game.participants.map((player) => renderGamePlayerRow(player)).join('')}
     </section>
   `;
 }
@@ -729,7 +784,7 @@ function renderGamesFilterBar() {
 }
 
 function renderGameCard(game) {
-  const isOpenable = game.status === 'upcoming' || game.status === 'live';
+  const isOpenable = getGameDays().some((item) => item.id === game.id);
   const openAttribute = isOpenable ? ` data-open-game="${escapeHtml(game.id)}"` : '';
   const mvpLabel = game.mvp
     ? `${game.mvp.displayName}${game.mvp.ratingIncrease ? ` +${game.mvp.ratingIncrease}` : ''}`
@@ -739,7 +794,7 @@ function renderGameCard(game) {
     <article class="game-card ${isOpenable ? 'game-card--openable' : ''}"${openAttribute}>
       <div class="game-card-head">
         <div>
-          <h2>${escapeHtml(game.dateLabel)}</h2>
+          <h2>${escapeHtml(getGameDateShort(game.dateLabel))}</h2>
           <p>${escapeHtml(game.time)}</p>
         </div>
         <span class="status-pill ${escapeHtml(game.status)}">${escapeHtml(getGameStatusLabel(game.status))}</span>
@@ -751,7 +806,7 @@ function renderGameCard(game) {
           <strong>${escapeHtml(mvpLabel)}</strong>
         </div>
         <div>
-          <span>Голов</span>
+          <span>Всего голов</span>
           <strong>${escapeHtml(game.totalGoals)}</strong>
         </div>
         <div>
@@ -928,6 +983,32 @@ function renderAchievementCard(achievement) {
   `;
 }
 
+function renderSelfProfileForm(player, defaults) {
+  const effectivePosition = defaults.position || 'N/A';
+
+  return `
+    <form id="selfProfileForm" class="profile-form">
+      <label class="editor-select">
+        <span>Позиция</span>
+        <select name="position">
+          ${POSITION_CHOICES
+            .map((position) => `
+              <option value="${position}" ${effectivePosition === position ? 'selected' : ''}>
+                ${escapeHtml(getPositionMeta(position).title)}
+              </option>
+            `)
+            .join('')}
+        </select>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6.7 8.8a1 1 0 0 1 1.4 0L12 12.7l3.9-3.9a1 1 0 1 1 1.4 1.4l-4.6 4.6a1 1 0 0 1-1.4 0L6.7 10.2a1 1 0 0 1 0-1.4z"></path>
+        </svg>
+      </label>
+      ${getStatMetaForPosition(effectivePosition).map(([key, label]) => renderEditorRange(key, label.toLowerCase(), defaults[key] ?? 50)).join('')}
+      <button type="submit" class="primary-button card-action profile-submit">Сохранить</button>
+    </form>
+  `;
+}
+
 function renderProfileTab() {
   const player = getViewerPlayer();
 
@@ -941,7 +1022,12 @@ function renderProfileTab() {
   }
 
   const hasCareerRatings = player.ratedGames > 0;
-  const effectivePosition = player.position || 'N/A';
+  const selfProfileDefaults = (!hasCareerRatings && state.selfProfileDraft) || {
+    position: player.position || 'N/A',
+    ...Object.fromEntries(STAT_META.map(([key]) => [key, player.stats?.[key] ?? 50]))
+  };
+  const effectivePosition = selfProfileDefaults.position || 'N/A';
+  const canEditSelfProfile = Boolean(state.token && state.snapshot?.viewerPlayerId === player.id && !hasCareerRatings);
   const statMeta = getStatMetaForPosition(effectivePosition);
   const isGoalkeeper = isGoalkeeperPosition(effectivePosition);
   const overviewCells = [
@@ -982,7 +1068,11 @@ function renderProfileTab() {
           <div class="editor-name">${escapeHtml(player.displayName)}</div>
           <div class="editor-nick">@${escapeHtml(player.username || 'unknown')}</div>
         </div>
-        ${renderPositionSelector('Позиция', effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title)}
+        ${
+          canEditSelfProfile
+            ? renderSelfProfileForm(player, selfProfileDefaults)
+            : renderPositionSelector('Позиция', effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title)
+        }
         <div class="profile-card-metrics">
           <div class="metric-grid metric-grid--summary ${overviewCells.length === 1 ? 'metric-grid--single' : ''}">
             ${overviewCells.map((cell) => renderMetricCell(cell.label, cell.value, cell)).join('')}
@@ -1055,6 +1145,27 @@ function readRatingFormDraft(form) {
   }
 
   return draft;
+}
+
+function readSelfProfileForm(form) {
+  const formData = new FormData(form);
+  const draft = {
+    position: String(formData.get('position') || 'N/A')
+  };
+
+  for (const [key] of STAT_META) {
+    draft[key] = Number(formData.get(key) || 50);
+  }
+
+  return draft;
+}
+
+function saveSelfProfileDraft(form) {
+  if (!form) {
+    return;
+  }
+
+  state.selfProfileDraft = readSelfProfileForm(form);
 }
 
 function saveRatingFormDraft(form) {
@@ -1167,6 +1278,20 @@ async function submitRating(form) {
   showToast('Оценка сохранена');
 }
 
+async function submitSelfProfile(form) {
+  saveSelfProfileDraft(form);
+  const payload = state.selfProfileDraft || readSelfProfileForm(form);
+  const data = await api('/api/profile', {
+    method: 'POST',
+    body: payload
+  });
+
+  state.snapshot = data.snapshot;
+  state.selfProfileDraft = null;
+  render();
+  showToast('Карточка сохранена');
+}
+
 async function refreshSnapshot({ silent = false } = {}) {
   if (!state.chatId) {
     return;
@@ -1176,6 +1301,10 @@ async function refreshSnapshot({ silent = false } = {}) {
     const activeRatingForm = document.getElementById('ratingForm');
     if (activeRatingForm) {
       saveRatingFormDraft(activeRatingForm);
+    }
+    const activeSelfProfileForm = document.getElementById('selfProfileForm');
+    if (activeSelfProfileForm) {
+      saveSelfProfileDraft(activeSelfProfileForm);
     }
 
     await loadSnapshot();
@@ -1222,7 +1351,7 @@ function updateStepper(form, name, delta) {
   saveRatingFormDraft(form);
 }
 
-document.getElementById('refreshButton').addEventListener('click', async () => {
+document.getElementById('refreshButton')?.addEventListener('click', async () => {
   await refreshSnapshot();
 });
 
@@ -1234,6 +1363,9 @@ document.querySelector('.tabbar').addEventListener('click', (event) => {
   }
 
   state.activeTab = button.dataset.tab;
+  if (state.activeTab === 'game') {
+    state.selectedGameId = '';
+  }
   render();
 });
 
@@ -1293,6 +1425,7 @@ document.addEventListener('click', (event) => {
   const gameCard = event.target.closest('[data-open-game]');
 
   if (gameCard) {
+    state.selectedGameId = gameCard.dataset.openGame;
     state.activeTab = 'game';
     render();
     return;
@@ -1339,6 +1472,13 @@ document.addEventListener('change', (event) => {
     return;
   }
 
+  if (event.target.matches('#selfProfileForm select[name="position"]')) {
+    const form = event.target.closest('form');
+    saveSelfProfileDraft(form);
+    render();
+    return;
+  }
+
   if (event.target.matches('input[type="range"]')) {
     const valueNode =
       event.target.closest('.editor-range')?.querySelector('.editor-range-value') ||
@@ -1347,6 +1487,7 @@ document.addEventListener('change', (event) => {
       valueNode.textContent = event.target.value;
     }
     saveRatingFormDraft(event.target.closest('form'));
+    saveSelfProfileDraft(event.target.closest('#selfProfileForm'));
   }
 });
 
@@ -1359,6 +1500,7 @@ document.addEventListener('input', (event) => {
       valueNode.textContent = event.target.value;
     }
     saveRatingFormDraft(event.target.closest('form'));
+    saveSelfProfileDraft(event.target.closest('#selfProfileForm'));
   }
 });
 
@@ -1388,6 +1530,16 @@ document.addEventListener('submit', async (event) => {
     const formData = new FormData(event.target);
     try {
       await loginDev(String(formData.get('username') || ''), String(formData.get('displayName') || ''));
+    } catch (error) {
+      showToast(error.message);
+    }
+    return;
+  }
+
+  if (event.target.id === 'selfProfileForm') {
+    event.preventDefault();
+    try {
+      await submitSelfProfile(event.target);
     } catch (error) {
       showToast(error.message);
     }

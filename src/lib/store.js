@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { createSessionToken } from './auth.js';
 import { parseAnnouncementTextLog, parseTelegramExportGames } from './parser.js';
-import { POSITION_OPTIONS, STAT_KEYS, buildChatSnapshot } from './stats.js';
+import { POSITION_OPTIONS, STAT_KEYS, buildCareerIndex, buildChatSnapshot } from './stats.js';
 import { clamp, formatDisplayName, normalizeUsername, toIsoString, unique } from './utils.js';
 
 const DEFAULT_POSITION_BY_USERNAME = {
@@ -107,6 +107,10 @@ function attachPlayerToChat(state, chatId, playerId) {
 
 function sanitizePosition(position) {
   return POSITION_OPTIONS.includes(position) ? position : 'CM';
+}
+
+function sanitizeProfilePosition(position) {
+  return POSITION_OPTIONS.includes(position) ? position : 'N/A';
 }
 
 function isGameEditableBeforeStart(game, now) {
@@ -626,6 +630,33 @@ export class AppStore {
       rating.updatedAt = new Date().toISOString();
       state.ratings[rating.id] = rating;
       return rating;
+    });
+  }
+
+  async updateSelfProfile({ chatId, playerId, payload }) {
+    return this.mutate((state) => {
+      const chat = state.chats[String(chatId)];
+      const player = state.players[playerId];
+
+      if (!chat || !player || !chat.playerIds.includes(playerId)) {
+        throw new Error('Игрок не найден');
+      }
+
+      const career = buildCareerIndex(state, chatId).get(playerId);
+
+      if (career?.ratedGames > 0) {
+        throw new Error('Карточку уже формируют оценки других игроков');
+      }
+
+      player.selfProfile = {
+        position: sanitizeProfilePosition(payload.position),
+        stats: Object.fromEntries(
+          STAT_KEYS.map((key) => [key, clamp(Number(payload[key] ?? 50), 1, 99)])
+        ),
+        updatedAt: new Date().toISOString()
+      };
+      player.updatedAt = new Date().toISOString();
+      return player.selfProfile;
     });
   }
 

@@ -217,6 +217,25 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'POST' && url.pathname === '/api/profile') {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Unauthorized' });
+        return;
+      }
+
+      const body = await readJsonBody(req);
+      await store.updateSelfProfile({
+        chatId: session.chatId,
+        playerId: session.playerId,
+        payload: body
+      });
+      const snapshot = store.getSnapshot(session.chatId, session.playerId);
+      sendJson(res, 200, { snapshot });
+      return;
+    }
+
     if (req.method === 'GET' && url.pathname === '/robots.txt') {
       sendText(res, 200, 'User-agent: *\nDisallow:');
       return;
