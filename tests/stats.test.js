@@ -126,8 +126,16 @@ test('buildChatSnapshot aggregates ratings, games and MVP', () => {
     }
   };
 
-  const snapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-17T22:45:00.000Z'));
+  const activeSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-17T22:45:00.000Z'));
+  const activeTarget = activeSnapshot.currentGame.participants.find((player) => player.id === 'player_2');
 
+  assert.equal(activeSnapshot.currentGame.canViewerRate, true);
+  assert.equal(activeTarget.currentGameStats.overall, 84);
+  assert.equal(activeTarget.viewerHasRatedTarget, true);
+  assert.equal(activeTarget.viewerRating.goals, 2);
+  assert.equal(activeSnapshot.players.find((player) => player.id === 'player_2').ratedGames, 0);
+
+  const snapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-19T00:00:00.000Z'));
   assert.equal(snapshot.players[0].id, 'player_2');
   assert.equal(snapshot.players[0].isMvp, true);
   assert.equal(snapshot.players[0].overall, 84);
@@ -141,10 +149,10 @@ test('buildChatSnapshot aggregates ratings, games and MVP', () => {
   assert.equal(snapshot.games[0].topScorer.goals, 2);
   assert.equal(snapshot.games[0].totalGoals, 2);
   assert.equal(snapshot.games[0].playersCount, 3);
-  assert.equal(snapshot.currentGame.canViewerRate, true);
+  assert.equal(snapshot.currentGame.canViewerRate, false);
   assert.equal(
     snapshot.currentGame.participants.find((player) => player.id === 'player_2').canRateTarget,
-    true
+    false
   );
   assert.equal(
     snapshot.currentGame.participants.find((player) => player.id === 'player_2').viewerHasRatedTarget,
@@ -276,7 +284,7 @@ test('getLatestMvp picks the biggest positive career rating jump', () => {
   };
 
   const mvp = getLatestMvp(state, '-1001');
-  const snapshot = buildChatSnapshot(state, '-1001', 'player_3', new Date('2026-05-17T22:30:00.000Z'));
+  const snapshot = buildChatSnapshot(state, '-1001', 'player_3', new Date('2026-05-19T00:00:00.000Z'));
 
   assert.equal(mvp.playerId, 'player_2');
   assert.equal(mvp.previousOverall, 50);
@@ -288,7 +296,7 @@ test('getLatestMvp picks the biggest positive career rating jump', () => {
   assert.equal(snapshot.players[0].isMvp, true);
 });
 
-test('buildChatSnapshot keeps rating window open until the next announcement', () => {
+test('buildChatSnapshot keeps rating window open for 24 hours after kickoff', () => {
   const state = {
     version: 1,
     meta: {},
@@ -343,8 +351,112 @@ test('buildChatSnapshot keeps rating window open until the next announcement', (
   };
 
   const openSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T18:59:00.000Z'));
-  const laterSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-12T19:00:00.000Z'));
+  const laterSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T19:00:00.000Z'));
 
   assert.equal(openSnapshot.currentGame.canViewerRate, true);
-  assert.equal(laterSnapshot.currentGame.canViewerRate, true);
+  assert.equal(laterSnapshot.currentGame.canViewerRate, false);
+});
+
+test('buildChatSnapshot merges viewer games and career ratings across football chats', () => {
+  const state = {
+    version: 1,
+    meta: {},
+    chats: {
+      '-1001': {
+        id: '-1001',
+        title: 'Old Chat',
+        type: 'supergroup',
+        username: '',
+        currentGameId: 'game_old',
+        playerIds: ['player_1', 'player_2']
+      },
+      '-2002': {
+        id: '-2002',
+        title: 'New Chat',
+        type: 'supergroup',
+        username: '',
+        currentGameId: 'game_future',
+        playerIds: ['player_1', 'player_3']
+      }
+    },
+    players: {
+      player_1: {
+        id: 'player_1',
+        telegramUserId: 1,
+        username: 'oleg',
+        displayName: 'Oleg',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        privateChatId: '777',
+        chatIds: ['-1001', '-2002']
+      },
+      player_2: {
+        id: 'player_2',
+        telegramUserId: 2,
+        username: 'rater',
+        displayName: 'Rater',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001']
+      },
+      player_3: {
+        id: 'player_3',
+        telegramUserId: 3,
+        username: 'newbie',
+        displayName: 'Newbie',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-2002']
+      }
+    },
+    games: {
+      game_old: {
+        id: 'game_old',
+        chatId: '-1001',
+        dateLabel: '1 мая',
+        location: 'Старое поле',
+        time: '19:00',
+        scheduledAt: '2026-05-01T19:00:00.000Z',
+        playerIds: ['player_1', 'player_2'],
+        paymentLines: [],
+        priceLine: ''
+      },
+      game_future: {
+        id: 'game_future',
+        chatId: '-2002',
+        dateLabel: '30 мая',
+        location: 'Новое поле',
+        time: '16:00',
+        scheduledAt: '2026-05-30T16:00:00.000Z',
+        playerIds: ['player_1', 'player_3'],
+        paymentLines: [],
+        priceLine: ''
+      }
+    },
+    ratings: {
+      rating_1: {
+        id: 'rating_1',
+        chatId: '-1001',
+        gameId: 'game_old',
+        raterPlayerId: 'player_2',
+        targetPlayerId: 'player_1',
+        ...rating({ overall: 78, position: 'ST', goals: 3 })
+      }
+    }
+  };
+
+  const snapshot = buildChatSnapshot(state, '-2002', 'player_1', new Date('2026-05-27T12:00:00.000Z'));
+  const player = snapshot.players.find((item) => item.id === 'player_1');
+
+  assert.equal(snapshot.games.length, 2);
+  assert.equal(snapshot.currentGame.id, 'game_future');
+  assert.equal(player.overall, 78);
+  assert.equal(player.position, 'ST');
+  assert.equal(player.ratedGames, 1);
 });

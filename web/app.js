@@ -1541,7 +1541,7 @@ function renderModal() {
     goals: viewerRating?.goals ?? 0,
     assists: viewerRating?.assists ?? 0,
     ...Object.fromEntries(
-      STAT_META.map(([key]) => [key, viewerRating?.stats?.[key] ?? 50])
+      STAT_META.map(([key]) => [key, viewerRating?.stats?.[key] ?? player.stats?.[key] ?? 50])
     )
   };
   const draftKey = game ? getRatingDraftKey(game.id, player.id) : '';

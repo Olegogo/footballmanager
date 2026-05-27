@@ -259,8 +259,9 @@ const server = http.createServer(async (req, res) => {
 
       const body = await readJsonBody(req);
       const gameId = decodeURIComponent(url.pathname.split('/')[3]);
+      const existingGame = store.getGameById(gameId);
       const result = await store.updateManualGame({
-        chatId: session.chatId,
+        chatId: existingGame?.chatId ?? session.chatId,
         gameId,
         requesterPlayerId: session.playerId,
         date: body.date,
@@ -289,8 +290,9 @@ const server = http.createServer(async (req, res) => {
       }
 
       const gameId = decodeURIComponent(url.pathname.split('/')[3]);
+      const existingGame = store.getGameById(gameId);
       await store.deleteGame({
-        chatId: session.chatId,
+        chatId: existingGame?.chatId ?? session.chatId,
         gameId,
         requesterPlayerId: session.playerId
       });

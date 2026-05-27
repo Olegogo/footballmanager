@@ -2,6 +2,7 @@ import { round } from './utils.js';
 
 export const STAT_KEYS = ['pace', 'dribbling', 'shooting', 'defense', 'passing', 'physical'];
 export const POSITION_OPTIONS = ['N/A', 'GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST'];
+export const RATING_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const FALLBACK_STATS = {
   pace: 50,
@@ -14,6 +15,19 @@ const FALLBACK_STATS = {
 
 function compareByDate(left, right) {
   return new Date(left.scheduledAt) - new Date(right.scheduledAt);
+}
+
+function getRatingWindowEnd(game) {
+  return new Date(new Date(game.scheduledAt).getTime() + RATING_WINDOW_MS);
+}
+
+export function isRatingWindowOpen(game, now = new Date()) {
+  const scheduledAt = new Date(game.scheduledAt);
+  return now >= scheduledAt && now < getRatingWindowEnd(game);
+}
+
+function isFinalizedForCareer(game, now = new Date()) {
+  return now >= getRatingWindowEnd(game);
 }
 
 function pickDominantPosition(positionCounts) {
@@ -164,6 +178,13 @@ function getChatPlayers(state, chatId) {
   return Object.values(state.players).filter((player) => player.chatIds.includes(String(chatId)));
 }
 
+function getPlayersForChatIds(state, chatIds) {
+  const allowedChatIds = new Set(chatIds.map(String));
+  return Object.values(state.players).filter((player) =>
+    (player.chatIds ?? []).some((playerChatId) => allowedChatIds.has(String(playerChatId)))
+  );
+}
+
 function getSelectablePlayers(state) {
   return Object.values(state.players).filter((player) =>
     (player.chatIds ?? []).some((chatId) => state.chats[chatId]?.type !== 'private')
@@ -173,6 +194,13 @@ function getSelectablePlayers(state) {
 export function getGamesForChat(state, chatId) {
   return Object.values(state.games)
     .filter((game) => game.chatId === String(chatId))
+    .sort(compareByDate);
+}
+
+function getGamesForChatIds(state, chatIds) {
+  const allowedChatIds = new Set(chatIds.map(String));
+  return Object.values(state.games)
+    .filter((game) => allowedChatIds.has(String(game.chatId)))
     .sort(compareByDate);
 }
 
@@ -219,16 +247,14 @@ export function buildGameAggregation(state, gameId) {
   };
 }
 
-export function buildCareerIndex(state, chatId) {
-  const players = getChatPlayers(state, chatId);
-  const games = getGamesForChat(state, chatId);
+function buildCareerIndexForPlayersAndGames(state, players, games, now = new Date()) {
   const career = new Map();
 
   for (const player of players) {
     career.set(player.id, createEmptyCareerEntry());
   }
 
-  for (const game of games) {
+  for (const game of games.filter((item) => isFinalizedForCareer(item, now))) {
     const aggregation = buildGameAggregation(state, game.id);
 
     for (const playerId of game.playerIds) {
@@ -241,49 +267,33 @@ export function buildCareerIndex(state, chatId) {
   );
 }
 
-function buildGlobalCareerIndex(state) {
-  const career = new Map();
-
-  for (const player of Object.values(state.players)) {
-    career.set(player.id, createEmptyCareerEntry());
-  }
-
-  const games = Object.values(state.games).sort(compareByDate);
-
-  for (const game of games) {
-    const aggregation = buildGameAggregation(state, game.id);
-
-    for (const playerId of game.playerIds) {
-      applyGameToCareerEntry(ensureCareerEntry(career, playerId), aggregation?.players[playerId]);
-    }
-  }
-
-  return new Map(
-    [...career.entries()].map(([playerId, entry]) => [playerId, finalizeCareerEntry(entry)])
+export function buildCareerIndex(state, chatId, now = new Date()) {
+  return buildCareerIndexForPlayersAndGames(
+    state,
+    getChatPlayers(state, chatId),
+    getGamesForChat(state, chatId),
+    now
   );
 }
 
-export function getLatestMvp(state, chatId) {
-  const mvpIndex = buildGameMvpIndex(state, chatId);
-  const games = getGamesForChat(state, chatId).reverse();
-
-  for (const game of games) {
-    const mvp = mvpIndex.get(game.id);
-
-    if (mvp) {
-      return mvp;
-    }
-  }
-
-  return null;
+export function buildGlobalCareerIndex(state, now = new Date()) {
+  return buildCareerIndexForPlayersAndGames(
+    state,
+    Object.values(state.players),
+    Object.values(state.games).sort(compareByDate),
+    now
+  );
 }
 
-export function buildGameMvpIndex(state, chatId) {
-  const games = getGamesForChat(state, chatId);
+function buildGameMvpIndexForGames(state, games, now = new Date()) {
   const career = new Map();
   const mvpIndex = new Map();
 
-  for (const game of games) {
+  for (const game of games.sort(compareByDate)) {
+    if (!isFinalizedForCareer(game, now)) {
+      continue;
+    }
+
     const aggregation = buildGameAggregation(state, game.id);
     const candidates = game.playerIds
       .map((playerId) => {
@@ -351,6 +361,29 @@ export function buildGameMvpIndex(state, chatId) {
   return mvpIndex;
 }
 
+function getLatestMvpForGames(state, games, now = new Date()) {
+  const mvpIndex = buildGameMvpIndexForGames(state, games, now);
+
+  for (const game of [...games].sort(compareByDate).reverse()) {
+    const mvp = mvpIndex.get(game.id);
+
+    if (mvp) {
+      return mvp;
+    }
+  }
+
+  return null;
+}
+
+export function getLatestMvp(state, chatId, now = new Date()) {
+  return getLatestMvpForGames(state, getGamesForChat(state, chatId), now);
+}
+
+export function buildGameMvpIndex(state, chatId, now = new Date()) {
+  const games = getGamesForChat(state, chatId);
+  return buildGameMvpIndexForGames(state, games, now);
+}
+
 function comparePlayers(left, right) {
   if (left.isMvp !== right.isMvp) {
     return left.isMvp ? -1 : 1;
@@ -386,9 +419,8 @@ function getGameStatus(game, now) {
   return 'live';
 }
 
-function buildGamesView(state, chatId, playerCards, now) {
-  const games = getGamesForChat(state, chatId);
-  const mvpIndex = buildGameMvpIndex(state, chatId);
+function buildGamesView(state, games, playerCards, now) {
+  const mvpIndex = buildGameMvpIndexForGames(state, games, now);
   const playersById = new Map(playerCards.map((player) => [player.id, player]));
 
   return games
@@ -402,7 +434,7 @@ function buildGamesView(state, chatId, playerCards, now) {
           return sum + (gameStats?.hasRatings ? gameStats.goals : 0);
         }, 0)
       );
-      const topScorer = game.playerIds
+      const topScorer = isFinalizedForCareer(game, now) ? game.playerIds
         .map((playerId) => {
           const gameStats = aggregation?.players[playerId];
 
@@ -428,7 +460,7 @@ function buildGamesView(state, chatId, playerCards, now) {
           }
 
           return right.ratingsCount - left.ratingsCount;
-        })[0] ?? null;
+        })[0] ?? null : null;
       const topScorerPlayer = topScorer ? playersById.get(topScorer.playerId) : null;
 
       return {
@@ -463,10 +495,59 @@ function buildGamesView(state, chatId, playerCards, now) {
     .sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt));
 }
 
+function getSnapshotChatIds(state, chatId, viewerPlayerId = null) {
+  const requestedChatId = String(chatId);
+  const requestedChat = state.chats[requestedChatId];
+  const viewerPlayer = viewerPlayerId ? state.players[viewerPlayerId] : null;
+  const chatIds = new Set();
+
+  if (requestedChat && requestedChat.type !== 'private') {
+    chatIds.add(requestedChatId);
+  }
+
+  if (viewerPlayer) {
+    for (const playerChatId of viewerPlayer.chatIds ?? []) {
+      const chat = state.chats[playerChatId];
+
+      if (chat && chat.type !== 'private') {
+        chatIds.add(String(playerChatId));
+      }
+    }
+  }
+
+  if (!chatIds.size && requestedChat?.type === 'private') {
+    for (const chat of Object.values(state.chats)) {
+      if (chat.type !== 'private') {
+        chatIds.add(String(chat.id));
+      }
+    }
+  }
+
+  return [...chatIds];
+}
+
+function pickCurrentGame(games, now = new Date()) {
+  if (!games.length) {
+    return null;
+  }
+
+  const liveOrUpcoming = games
+    .filter((game) => ['live', 'upcoming'].includes(getGameStatus(game, now)))
+    .sort((left, right) => new Date(left.scheduledAt) - new Date(right.scheduledAt))[0];
+
+  if (liveOrUpcoming) {
+    return liveOrUpcoming;
+  }
+
+  return [...games].sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt))[0];
+}
+
 export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = new Date()) {
   const chat = state.chats[String(chatId)];
 
-  if (!chat) {
+  const scopedChatIds = getSnapshotChatIds(state, chatId, viewerPlayerId);
+
+  if (!chat && !scopedChatIds.length) {
     return {
       chat: null,
       currentGame: null,
@@ -480,10 +561,10 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     };
   }
 
-  const players = getChatPlayers(state, chatId);
-  const career = buildCareerIndex(state, chatId);
-  const globalCareer = buildGlobalCareerIndex(state);
-  const latestMvp = getLatestMvp(state, chatId);
+  const scopedGames = getGamesForChatIds(state, scopedChatIds);
+  const players = getPlayersForChatIds(state, scopedChatIds);
+  const globalCareer = buildGlobalCareerIndex(state, now);
+  const latestMvp = getLatestMvpForGames(state, scopedGames, now);
   const buildPlayerCard = (player, playerCareer, isMvp = false) => {
     const careerEntry = playerCareer ?? {
       games: 0,
@@ -515,7 +596,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
   };
   const playerCards = players
     .map((player) => {
-      const playerCareer = globalCareer.get(player.id) ?? career.get(player.id) ?? {
+      const playerCareer = globalCareer.get(player.id) ?? {
         games: 0,
         ratedGames: 0,
         goals: 0,
@@ -533,13 +614,13 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     .sort(comparePlayers);
   const viewerPlayer = viewerPlayerId ? state.players[viewerPlayerId] : null;
 
-  const currentGame = chat.currentGameId ? state.games[chat.currentGameId] : null;
+  const currentGame = pickCurrentGame(scopedGames, now);
   const buildGameDayView = (game) => {
     const aggregation = buildGameAggregation(state, game.id);
     const status = getGameStatus(game, now);
     const hasStarted = now >= new Date(game.scheduledAt);
     const viewerIsParticipant = viewerPlayerId ? game.playerIds.includes(viewerPlayerId) : false;
-    const ratingWindowOpen = chat.currentGameId === game.id && hasStarted;
+    const ratingWindowOpen = isRatingWindowOpen(game, now);
     const viewerRatings = new Map(
       Object.values(state.ratings)
         .filter((rating) => rating.gameId === game.id && rating.raterPlayerId === viewerPlayerId)
@@ -562,7 +643,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       canViewerRate: ratingWindowOpen && viewerIsParticipant,
       ratingsPromptSent: Boolean(game.ratingsOpenedAt),
       organizerPlayerId: game.organizerPlayerId ?? null,
-      canViewerManage: Boolean(viewerPlayerId && (!game.organizerPlayerId || game.organizerPlayerId === viewerPlayerId)),
+      canViewerManage: Boolean(viewerPlayerId && game.organizerPlayerId === viewerPlayerId),
       participants: game.playerIds
         .map((playerId) => {
           const profile = playerCards.find((player) => player.id === playerId);
@@ -593,23 +674,23 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
   };
 
   const currentGameView = currentGame ? buildGameDayView(currentGame) : null;
-  const gameDays = getGamesForChat(state, chatId)
+  const gameDays = scopedGames
     .slice(-2)
     .map((game) => buildGameDayView(game))
     .sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt));
 
   return {
     chat: {
-      id: chat.id,
-      title: chat.title,
-      currentGameId: chat.currentGameId
+      id: chat?.id ?? String(chatId),
+      title: chat?.title ?? '',
+      currentGameId: currentGame?.id ?? null
     },
     viewerPlayerId,
     latestMvpPlayerId: latestMvp?.playerId ?? null,
     viewerCanCreateGames: Boolean(viewerPlayer?.privateChatId),
     currentGame: currentGameView,
     gameDays,
-    games: buildGamesView(state, chatId, playerCards, now),
+    games: buildGamesView(state, scopedGames, playerCards, now),
     players: playerCards,
     availablePlayers
   };

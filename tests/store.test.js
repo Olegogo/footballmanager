@@ -389,7 +389,7 @@ test('submitRating stores goalkeeper goals and assists as zero', async () => {
   }
 });
 
-test('submitRating accepts ratings after 24 hours when no newer game closed the window', async () => {
+test('submitRating rejects ratings after the 24 hour window', async () => {
   const { directory, store } = await createStore();
 
   try {
@@ -455,7 +455,7 @@ test('submitRating accepts ratings after 24 hours when no newer game closed the 
       };
     });
 
-    const rating = await store.submitRating({
+    await assert.rejects(() => store.submitRating({
       chatId: '-1001',
       gameId: 'game_1',
       raterPlayerId: 'player_1',
@@ -469,10 +469,7 @@ test('submitRating accepts ratings after 24 hours when no newer game closed the 
         passing: 79,
         physical: 80
       }
-    });
-
-    assert.equal(rating.position, 'GK');
-    assert.equal(rating.targetPlayerId, 'player_2');
+    }), /Окно оценки уже закрыто/);
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }
@@ -668,16 +665,12 @@ test('manual games keep previous ratings on the next game roster', async () => {
         createdAt: '2026-05-01T10:00:00.000Z',
         updatedAt: '2026-05-01T10:00:00.000Z'
       };
-      state.chats['-1001'].currentGameId = 'game_old';
-      return null;
-    });
-
-    await store.submitRating({
-      chatId: '-1001',
-      gameId: 'game_old',
-      raterPlayerId: rater.id,
-      targetPlayerId: target.id,
-      payload: {
+      state.ratings.rating_old = {
+        id: 'rating_old',
+        chatId: '-1001',
+        gameId: 'game_old',
+        raterPlayerId: rater.id,
+        targetPlayerId: target.id,
         position: 'ST',
         pace: 80,
         dribbling: 80,
@@ -686,8 +679,12 @@ test('manual games keep previous ratings on the next game roster', async () => {
         passing: 80,
         physical: 80,
         goals: 2,
-        assists: 1
-      }
+        assists: 1,
+        createdAt: '2026-05-01T17:00:00.000Z',
+        updatedAt: '2026-05-01T17:00:00.000Z'
+      };
+      state.chats['-1001'].currentGameId = 'game_old';
+      return null;
     });
 
     const nextGame = await store.createManualGame({

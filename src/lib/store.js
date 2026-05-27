@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { createSessionToken } from './auth.js';
 import { parseAnnouncementTextLog, parseTelegramExportGames } from './parser.js';
-import { POSITION_OPTIONS, STAT_KEYS, buildCareerIndex, buildChatSnapshot } from './stats.js';
+import { POSITION_OPTIONS, STAT_KEYS, buildChatSnapshot, buildGlobalCareerIndex, isRatingWindowOpen } from './stats.js';
 import { clamp, formatDisplayName, normalizeUsername, toIsoString, unique } from './utils.js';
 
 const DEFAULT_POSITION_BY_USERNAME = {
@@ -232,7 +232,7 @@ function applyManualFieldsToGame(state, game, {
 }
 
 function assertCanManageGame(game, requesterPlayerId) {
-  if (!game.organizerPlayerId || game.organizerPlayerId === requesterPlayerId) {
+  if (game.organizerPlayerId && game.organizerPlayerId === requesterPlayerId) {
     return;
   }
 
@@ -857,19 +857,19 @@ export class AppStore {
 
   async submitRating({ chatId, gameId, raterPlayerId, targetPlayerId, payload }) {
     return this.mutate((state) => {
-      const chat = state.chats[String(chatId)];
       const game = state.games[gameId];
+      const chat = game ? state.chats[String(game.chatId)] : state.chats[String(chatId)];
 
-      if (!chat || !game || game.chatId !== String(chatId)) {
+      if (!chat || !game) {
         throw new Error('Игра не найдена');
-      }
-
-      if (chat.currentGameId !== gameId) {
-        throw new Error('Окно оценки уже закрыто новой игрой');
       }
 
       if (new Date(game.scheduledAt) > new Date()) {
         throw new Error('Игра еще не началась');
+      }
+
+      if (!isRatingWindowOpen(game, new Date())) {
+        throw new Error('Окно оценки уже закрыто');
       }
 
       if (raterPlayerId === targetPlayerId) {
@@ -890,7 +890,7 @@ export class AppStore {
       if (!rating) {
         rating = {
           id: `rating_${state.meta.nextRatingId++}`,
-          chatId: String(chatId),
+          chatId: String(game.chatId),
           gameId,
           raterPlayerId,
           targetPlayerId,
@@ -918,11 +918,11 @@ export class AppStore {
       const chat = state.chats[String(chatId)];
       const player = state.players[playerId];
 
-      if (!chat || !player || !chat.playerIds.includes(playerId)) {
+      if (!player || (chat && !chat.playerIds.includes(playerId) && !(player.chatIds ?? []).includes(String(chatId)))) {
         throw new Error('Игрок не найден');
       }
 
-      const career = buildCareerIndex(state, chatId).get(playerId);
+      const career = buildGlobalCareerIndex(state, new Date()).get(playerId);
 
       if (career?.ratedGames > 0) {
         throw new Error('Карточку уже формируют оценки других игроков');
