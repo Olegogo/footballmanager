@@ -515,7 +515,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
   };
   const playerCards = players
     .map((player) => {
-      const playerCareer = career.get(player.id) ?? {
+      const playerCareer = globalCareer.get(player.id) ?? career.get(player.id) ?? {
         games: 0,
         ratedGames: 0,
         goals: 0,
@@ -561,6 +561,8 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       viewerIsParticipant,
       canViewerRate: ratingWindowOpen && viewerIsParticipant,
       ratingsPromptSent: Boolean(game.ratingsOpenedAt),
+      organizerPlayerId: game.organizerPlayerId ?? null,
+      canViewerManage: Boolean(viewerPlayerId && (!game.organizerPlayerId || game.organizerPlayerId === viewerPlayerId)),
       participants: game.playerIds
         .map((playerId) => {
           const profile = playerCards.find((player) => player.id === playerId);

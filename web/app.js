@@ -87,9 +87,14 @@ const state = {
   selectedGameId: '',
   selfProfileDraft: null,
   selfProfileEditing: false,
+  gameActionsOpen: false,
   ratingDrafts: {},
   manualGameOpen: false,
+  manualGameMode: 'create',
+  manualGameGameId: '',
   manualGameConfirm: null,
+  manualPlayerPickerOpen: false,
+  manualPlayerSearch: '',
   manualGameDraft: {
     date: '',
     time: '',
@@ -104,7 +109,9 @@ const appShellNode = document.querySelector('.app-shell');
 const contentNode = document.getElementById('content');
 const chatTitleNode = document.getElementById('chatTitle');
 const topbarNode = document.querySelector('.topbar');
-const backButtonNode = document.getElementById('backButton');
+const gameTopActionsNode = document.getElementById('gameTopActions');
+const gameMenuButtonNode = document.getElementById('gameMenuButton');
+const closeGameButtonNode = document.getElementById('closeGameButton');
 const modalRoot = document.getElementById('modalRoot');
 const toastNode = document.getElementById('toast');
 let refreshTimer = null;
@@ -306,6 +313,51 @@ function getViewerPlayer() {
     assists: 0,
     isMvp: false
   };
+}
+
+function closeGameScreen() {
+  state.activeTab = 'games';
+  state.selectedGameId = '';
+  state.gameActionsOpen = false;
+  render();
+}
+
+function resetManualGameState() {
+  state.manualGameOpen = false;
+  state.manualGameMode = 'create';
+  state.manualGameGameId = '';
+  state.manualGameConfirm = null;
+  state.manualPlayerPickerOpen = false;
+  state.manualPlayerSearch = '';
+  state.manualGameDraft = {
+    date: '',
+    time: '',
+    location: '',
+    playerIds: []
+  };
+}
+
+function openManualGameCreate() {
+  resetManualGameState();
+  state.manualGameOpen = true;
+  renderModal();
+}
+
+function openManualGameEdit(game) {
+  state.gameActionsOpen = false;
+  state.manualGameOpen = true;
+  state.manualGameMode = 'edit';
+  state.manualGameGameId = game.id;
+  state.manualGameConfirm = null;
+  state.manualPlayerPickerOpen = false;
+  state.manualPlayerSearch = '';
+  state.manualGameDraft = {
+    date: new Date(game.scheduledAt).toISOString().slice(0, 10),
+    time: game.time || '19:30',
+    location: game.location || '',
+    playerIds: game.participants.map((player) => player.id)
+  };
+  renderModal();
 }
 
 function getRatingDraftKey(gameId, playerId) {
@@ -724,9 +776,15 @@ function renderField(game) {
 function renderGamePlayerRow(player) {
   const currentStats = player.currentGameStats;
   const isRatedInGame = Boolean(currentStats?.hasRatings);
+  const hasCareerRating = player.ratedGames > 0;
   const position = isRatedInGame ? currentStats.position : player.position;
   const positionLabel = getPositionMeta(position).short;
   const openAttribute = player.canRateTarget ? ` data-open-player="${escapeHtml(player.id)}"` : '';
+  const ratingLabel = isRatedInGame
+    ? currentStats.overall
+    : hasCareerRating
+      ? Math.round(Number(player.overall))
+      : '';
 
   return `
     <article class="game-player-row ${player.canRateTarget ? 'is-clickable' : ''}"${openAttribute}>
@@ -736,8 +794,8 @@ function renderGamePlayerRow(player) {
         <span>${escapeHtml(positionLabel === '—' ? 'Позиция не выбрана' : positionLabel)}</span>
       </div>
       ${
-        isRatedInGame
-          ? `<div class="game-player-rating">${escapeHtml(currentStats.overall)}</div>`
+        ratingLabel
+          ? `<div class="game-player-rating">${escapeHtml(ratingLabel)}</div>`
           : player.canRateTarget
             ? `<button type="button" class="primary-button game-player-action" data-open-player="${escapeHtml(player.id)}">Оценить</button>`
             : ''
@@ -861,6 +919,20 @@ function getManualSelectedPlayers() {
   return getAvailablePlayers().filter((player) => selectedIds.has(player.id));
 }
 
+function getManualFilteredPlayers() {
+  const query = normalizeUsername(state.manualPlayerSearch).replace(/\s+/g, '');
+
+  if (!query) {
+    return getAvailablePlayers();
+  }
+
+  return getAvailablePlayers().filter((player) => {
+    const username = normalizeUsername(player.username);
+    const displayName = normalizeUsername(player.displayName).replace(/\s+/g, '');
+    return username.includes(query) || displayName.includes(query);
+  });
+}
+
 function renderManualPlayerCard(player) {
   const selected = state.manualGameDraft.playerIds.includes(player.id);
   const rating = getPlayerOverallLabel(player);
@@ -883,6 +955,58 @@ function renderManualPlayerCard(player) {
       </span>
     </button>
   `;
+}
+
+function renderManualSelectedPlayers() {
+  const selectedPlayers = getManualSelectedPlayers();
+
+  if (!selectedPlayers.length) {
+    return '<p class="manual-selected-empty">Выбранные игроки появятся здесь.</p>';
+  }
+
+  return `
+    <div class="manual-selected-row">
+      ${selectedPlayers
+        .map((player) => `
+          <button type="button" class="manual-selected-chip" data-toggle-manual-player="${escapeHtml(player.id)}">
+            <span>${escapeHtml(player.displayName)}</span>
+            <strong>×</strong>
+          </button>
+        `)
+        .join('')}
+    </div>
+  `;
+}
+
+function renderManualPlayerPicker() {
+  if (!state.manualPlayerPickerOpen) {
+    return '';
+  }
+
+  const players = getManualFilteredPlayers();
+
+  return `
+    <section class="manual-player-picker" aria-label="Выбор игроков">
+      ${
+        players.length
+          ? players.map((player) => renderManualPlayerCard(player)).join('')
+          : '<p class="achievement-empty">Никого не нашли. Попробуйте другой запрос.</p>'
+      }
+    </section>
+  `;
+}
+
+function refreshManualPlayerPicker() {
+  const picker = document.querySelector('.manual-player-picker');
+
+  if (!picker) {
+    return;
+  }
+
+  const players = getManualFilteredPlayers();
+  picker.innerHTML = players.length
+    ? players.map((player) => renderManualPlayerCard(player)).join('')
+    : '<p class="achievement-empty">Никого не нашли. Попробуйте другой запрос.</p>';
 }
 
 function renderManualFieldPreview() {
@@ -949,13 +1073,13 @@ function renderCreateGameModal() {
   }
 
   ensureManualGameDraftDefaults();
-  const availablePlayers = getAvailablePlayers();
+  const isEditing = state.manualGameMode === 'edit';
 
   return `
     <div class="modal-backdrop modal-backdrop--full" data-create-backdrop="true">
-      <section class="modal-card create-game-modal" role="dialog" aria-modal="true" aria-label="Создать игру">
+      <section class="modal-card create-game-modal" role="dialog" aria-modal="true" aria-label="${isEditing ? 'Редактировать игру' : 'Создать игру'}">
         <button class="modal-close" type="button" data-close-create-game="true">×</button>
-        <h2>Создать игру</h2>
+        <h2>${isEditing ? 'Редактировать игру' : 'Создать игру'}</h2>
         <form id="manualGameForm" class="manual-game-form">
           <div class="manual-fields">
             <label>
@@ -975,16 +1099,39 @@ function renderCreateGameModal() {
             <h3>Игроки</h3>
             <span>${escapeHtml(state.manualGameDraft.playerIds.length)} выбрано</span>
           </div>
-          <div class="manual-player-grid">
-            ${
-              availablePlayers.length
-                ? availablePlayers.map((player) => renderManualPlayerCard(player)).join('')
-                : '<p class="achievement-empty">Пока нет игроков. Они появятся после сообщений в чате или импорта истории.</p>'
-            }
+          <div class="manual-player-search-wrap">
+            <input
+              type="search"
+              class="manual-player-search"
+              name="playerSearch"
+              value="${escapeHtml(state.manualPlayerSearch)}"
+              placeholder="Поиск по имени или @нику"
+              autocomplete="off"
+              data-manual-player-search="true"
+            >
+            ${renderManualPlayerPicker()}
           </div>
+          ${renderManualSelectedPlayers()}
           ${renderManualFieldPreview()}
-          <button type="submit" class="primary-button card-action manual-submit">Создать</button>
+          <button type="submit" class="primary-button card-action manual-submit">${isEditing ? 'Сохранить' : 'Создать'}</button>
         </form>
+      </section>
+    </div>
+  `;
+}
+
+function renderGameActionsModal() {
+  const game = getCurrentGame();
+
+  if (!state.gameActionsOpen || !game) {
+    return '';
+  }
+
+  return `
+    <div class="modal-backdrop modal-backdrop--compact" data-game-actions-backdrop="true">
+      <section class="modal-card game-actions-card" role="dialog" aria-modal="true" aria-label="Действия с игрой">
+        <button type="button" class="game-action-button" data-edit-game="true">Редактировать</button>
+        <button type="button" class="game-action-button game-action-button--danger" data-delete-game="true">Удалить игру</button>
       </section>
     </div>
   `;
@@ -1005,7 +1152,7 @@ function renderGamesTab() {
           </section>
         `
     }
-    <button type="button" class="floating-create-button" data-open-create-game="true">Создать игру</button>
+    <button type="button" class="floating-create-button" data-open-create-game="true" aria-label="Создать игру">+</button>
   `;
 }
 
@@ -1244,24 +1391,19 @@ function renderProfileTab() {
           <div class="editor-nick">@${escapeHtml(player.username || 'unknown')}</div>
         </div>
         ${
-          isEditingSelfProfile
-            ? renderSelfProfileForm(player, selfProfileDefaults)
-            : `
-              ${renderPositionSelector('Позиция', effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title)}
-              ${
-                canEditSelfProfile
-                  ? '<button type="button" class="primary-button profile-edit-button" data-edit-self-profile="true">Редактировать</button>'
-                  : ''
-              }
-            `
-        }
-        ${
           hasCareerRatings
             ? ''
             : `
               <section class="profile-rating-note">
                 У тебя пока нет рейтинга. Он формируется на основе оценок тиммейтов после игр с твоим участием
               </section>
+            `
+        }
+        ${
+          isEditingSelfProfile
+            ? renderSelfProfileForm(player, selfProfileDefaults)
+            : `
+              ${renderPositionSelector('Позиция', effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title)}
             `
         }
         ${
@@ -1276,6 +1418,11 @@ function renderProfileTab() {
                   ${statCells.map(([label, value]) => renderMetricCell(label, value)).join('')}
                 </div>
               </div>
+              ${
+                canEditSelfProfile
+                  ? '<button type="button" class="primary-button profile-edit-button" data-edit-self-profile="true">Редактировать</button>'
+                  : ''
+              }
             `
         }
         <section class="profile-achievements" aria-label="Достижения">
@@ -1380,9 +1527,10 @@ function renderModal() {
   const game = getCurrentGame();
   const gamePlayer = game?.participants?.find((item) => item.id === state.selectedPlayerId) ?? null;
   const createGameModal = renderCreateGameModal();
+  const gameActionsModal = renderGameActionsModal();
 
   if (!player) {
-    modalRoot.innerHTML = createGameModal;
+    modalRoot.innerHTML = [createGameModal, gameActionsModal].join('');
     return;
   }
 
@@ -1403,7 +1551,8 @@ function renderModal() {
 
   modalRoot.innerHTML = [
     renderEditorScreen(player, gamePlayer, editable, defaults, game),
-    createGameModal
+    createGameModal,
+    gameActionsModal
   ].join('');
 }
 
@@ -1419,8 +1568,12 @@ function render() {
   chatTitleNode.textContent = screenTitle;
   topbarNode?.classList.toggle('topbar--titleless', !screenTitle);
   topbarNode?.classList.toggle('topbar--game', state.activeTab === 'game');
-  if (backButtonNode) {
-    backButtonNode.hidden = state.activeTab !== 'game';
+  if (gameTopActionsNode) {
+    gameTopActionsNode.hidden = state.activeTab !== 'game';
+  }
+  if (gameMenuButtonNode) {
+    const game = getCurrentGame();
+    gameMenuButtonNode.hidden = !(state.activeTab === 'game' && game?.canViewerManage);
   }
   appShellNode?.classList.toggle('app-shell--profile', state.activeTab === 'profile');
   syncTabbar();
@@ -1506,27 +1659,42 @@ async function submitManualGame(notifyPlayers) {
     return;
   }
 
-  const data = await api('/api/games', {
-    method: 'POST',
-    body: {
-      ...payload,
-      notifyPlayers
-    }
+  const isEditing = state.manualGameMode === 'edit';
+  const data = await api(isEditing ? `/api/games/${encodeURIComponent(state.manualGameGameId)}` : '/api/games', {
+    method: isEditing ? 'PUT' : 'POST',
+    body: isEditing
+      ? payload
+      : {
+          ...payload,
+          notifyPlayers
+        }
   });
 
   state.snapshot = data.snapshot;
   state.selectedGameId = data.game?.id || '';
   state.activeTab = 'game';
-  state.manualGameOpen = false;
-  state.manualGameConfirm = null;
-  state.manualGameDraft = {
-    date: '',
-    time: '',
-    location: '',
-    playerIds: []
-  };
+  resetManualGameState();
   render();
-  showToast(notifyPlayers ? 'Игра создана, приглашения отправлены' : 'Игра создана');
+  showToast(isEditing ? 'Игра сохранена' : notifyPlayers ? 'Игра создана, приглашения отправлены' : 'Игра создана');
+}
+
+async function deleteCurrentGame() {
+  const game = getCurrentGame();
+
+  if (!game) {
+    return;
+  }
+
+  const data = await api(`/api/games/${encodeURIComponent(game.id)}`, {
+    method: 'DELETE'
+  });
+
+  state.snapshot = data.snapshot;
+  state.gameActionsOpen = false;
+  state.selectedGameId = '';
+  state.activeTab = 'games';
+  render();
+  showToast('Игра удалена');
 }
 
 async function refreshSnapshot({ silent = false } = {}) {
@@ -1596,10 +1764,11 @@ document.getElementById('refreshButton')?.addEventListener('click', async () => 
   await refreshSnapshot();
 });
 
-backButtonNode?.addEventListener('click', () => {
-  state.activeTab = 'games';
-  state.selectedGameId = '';
-  render();
+closeGameButtonNode?.addEventListener('click', closeGameScreen);
+
+gameMenuButtonNode?.addEventListener('click', () => {
+  state.gameActionsOpen = true;
+  renderModal();
 });
 
 document.querySelector('.tabbar').addEventListener('click', (event) => {
@@ -1642,18 +1811,54 @@ document.addEventListener('click', (event) => {
       return;
     }
 
-    state.manualGameOpen = true;
-    state.manualGameConfirm = null;
-    renderModal();
+    openManualGameCreate();
     return;
   }
 
   const closeCreateButton = event.target.closest('[data-close-create-game]');
 
   if (closeCreateButton || event.target.matches('[data-create-backdrop]')) {
-    state.manualGameOpen = false;
-    state.manualGameConfirm = null;
+    resetManualGameState();
     renderModal();
+    return;
+  }
+
+  const gameActionsBackdrop = event.target.matches('[data-game-actions-backdrop]');
+
+  if (gameActionsBackdrop) {
+    state.gameActionsOpen = false;
+    renderModal();
+    return;
+  }
+
+  const editGameButton = event.target.closest('[data-edit-game]');
+
+  if (editGameButton) {
+    const game = getCurrentGame();
+
+    if (game) {
+      openManualGameEdit(game);
+    }
+    return;
+  }
+
+  const deleteGameButton = event.target.closest('[data-delete-game]');
+
+  if (deleteGameButton) {
+    deleteCurrentGame().catch((error) => {
+      showToast(error.message);
+    });
+    return;
+  }
+
+  const manualSearchInput = event.target.closest('[data-manual-player-search]');
+
+  if (manualSearchInput) {
+    state.manualPlayerPickerOpen = true;
+    renderModal();
+    setTimeout(() => {
+      document.querySelector('[data-manual-player-search]')?.focus();
+    }, 0);
     return;
   }
 
@@ -1774,6 +1979,13 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('change', (event) => {
+  if (event.target.matches('[data-manual-player-search]')) {
+    state.manualPlayerSearch = event.target.value;
+    state.manualPlayerPickerOpen = true;
+    refreshManualPlayerPicker();
+    return;
+  }
+
   if (event.target.closest('#manualGameForm')) {
     saveManualGameDraft(event.target.closest('#manualGameForm'));
     return;
@@ -1812,6 +2024,13 @@ document.addEventListener('change', (event) => {
 });
 
 document.addEventListener('input', (event) => {
+  if (event.target.matches('[data-manual-player-search]')) {
+    state.manualPlayerSearch = event.target.value;
+    state.manualPlayerPickerOpen = true;
+    refreshManualPlayerPicker();
+    return;
+  }
+
   if (event.target.closest('#manualGameForm')) {
     saveManualGameDraft(event.target.closest('#manualGameForm'));
     return;
@@ -1852,6 +2071,14 @@ document.addEventListener('submit', async (event) => {
 
     if (payload.playerIds.length < 2) {
       showToast('Добавьте минимум двух игроков');
+      return;
+    }
+
+    if (state.manualGameMode === 'edit') {
+      state.manualGameConfirm = payload;
+      submitManualGame(false).catch((error) => {
+        showToast(error.message);
+      });
       return;
     }
 

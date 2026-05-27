@@ -185,6 +185,66 @@ function buildManualSchedule(date, time, timezoneOffset = process.env.CHAT_TIMEZ
   };
 }
 
+function resolveManualPlayerIds(state, playerIds) {
+  return unique(
+    (Array.isArray(playerIds) ? playerIds : [])
+      .map((playerId) => String(playerId))
+      .filter((playerId) => Boolean(state.players[playerId]))
+  );
+}
+
+function applyManualFieldsToGame(state, game, {
+  date,
+  time,
+  location,
+  playerIds,
+  timezoneOffset,
+  nowIso
+}) {
+  const selectedPlayerIds = resolveManualPlayerIds(state, playerIds);
+
+  if (selectedPlayerIds.length < 2) {
+    throw new Error('Добавьте минимум двух игроков');
+  }
+
+  const schedule = buildManualSchedule(date, time, timezoneOffset);
+  const normalizedLocation = String(location ?? '').trim();
+
+  game.key = [
+    schedule.scheduledAt.slice(0, 16),
+    normalizedLocation.toLowerCase(),
+    selectedPlayerIds.join(',')
+  ].join('|');
+  game.dateLabel = schedule.dateLabel;
+  game.location = normalizedLocation;
+  game.time = schedule.time;
+  game.scheduledAt = schedule.scheduledAt;
+  game.date = schedule.date;
+  game.playerIds = selectedPlayerIds;
+  game.playerUsernames = selectedPlayerIds.map((playerId) => state.players[playerId]?.username).filter(Boolean);
+  game.updatedAt = nowIso;
+
+  for (const playerId of selectedPlayerIds) {
+    attachPlayerToChat(state, game.chatId, playerId);
+  }
+
+  return game;
+}
+
+function assertCanManageGame(game, requesterPlayerId) {
+  if (!game.organizerPlayerId || game.organizerPlayerId === requesterPlayerId) {
+    return;
+  }
+
+  throw new Error('Редактировать игру может только организатор');
+}
+
+function findLatestGameForChat(state, chatId) {
+  return Object.values(state.games)
+    .filter((game) => game.chatId === String(chatId))
+    .sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt))[0] ?? null;
+}
+
 function setCurrentGame(chat, game, nowIso, previousGame = null) {
   if (previousGame && previousGame.id !== game.id && !previousGame.closedAt) {
     previousGame.closedAt = nowIso;
@@ -568,42 +628,26 @@ export class AppStore {
         throw new Error('Организатор не найден');
       }
 
-      const selectedPlayerIds = unique(
-        (Array.isArray(playerIds) ? playerIds : [])
-          .map((playerId) => String(playerId))
-          .filter((playerId) => Boolean(state.players[playerId]))
-      );
-
-      if (selectedPlayerIds.length < 2) {
-        throw new Error('Добавьте минимум двух игроков');
-      }
-
-      const schedule = buildManualSchedule(date, time, timezoneOffset);
       const now = new Date().toISOString();
       const gameId = `game_${state.meta.nextGameId++}`;
-      const usernames = selectedPlayerIds.map((playerId) => state.players[playerId]?.username).filter(Boolean);
       const game = {
         id: gameId,
         chatId: String(chatId),
         messageId: null,
         rawText: '',
-        key: [
-          schedule.scheduledAt.slice(0, 16),
-          String(location ?? '').trim().toLowerCase(),
-          selectedPlayerIds.join(',')
-        ].join('|'),
+        key: '',
         source: 'manual',
         sourceDate: now,
         organizerPlayerId,
-        dateLabel: schedule.dateLabel,
-        location: String(location ?? '').trim(),
-        time: schedule.time,
-        scheduledAt: schedule.scheduledAt,
-        date: schedule.date,
+        dateLabel: '',
+        location: '',
+        time: '',
+        scheduledAt: '',
+        date: '',
         priceLine: '',
         paymentLines: [],
-        playerUsernames: usernames,
-        playerIds: selectedPlayerIds,
+        playerUsernames: [],
+        playerIds: [],
         declinedPlayerIds: [],
         ratingsOpenedAt: null,
         ratingsPromptMessageId: null,
@@ -613,14 +657,86 @@ export class AppStore {
         updatedAt: now
       };
 
-      for (const playerId of selectedPlayerIds) {
-        attachPlayerToChat(state, chat.id, playerId);
-      }
+      applyManualFieldsToGame(state, game, {
+        date,
+        time,
+        location,
+        playerIds,
+        timezoneOffset,
+        nowIso: now
+      });
 
       state.games[gameId] = game;
       const currentGame = chat.currentGameId ? state.games[chat.currentGameId] : null;
       setCurrentGame(chat, game, now, currentGame);
       return { created: true, game };
+    });
+  }
+
+  async updateManualGame({
+    chatId,
+    gameId,
+    requesterPlayerId,
+    date,
+    time,
+    location,
+    playerIds,
+    timezoneOffset
+  }) {
+    return this.mutate((state) => {
+      const chat = state.chats[String(chatId)];
+      const game = state.games[gameId];
+
+      if (!chat || !game || game.chatId !== String(chatId)) {
+        throw new Error('Игра не найдена');
+      }
+
+      assertCanManageGame(game, requesterPlayerId);
+
+      if (!isGameEditableBeforeStart(game, new Date())) {
+        throw new Error('Игру уже нельзя редактировать');
+      }
+
+      const now = new Date().toISOString();
+      applyManualFieldsToGame(state, game, {
+        date,
+        time,
+        location,
+        playerIds,
+        timezoneOffset,
+        nowIso: now
+      });
+      setCurrentGame(chat, game, now, chat.currentGameId ? state.games[chat.currentGameId] : null);
+      return { updated: true, game };
+    });
+  }
+
+  async deleteGame({ chatId, gameId, requesterPlayerId }) {
+    return this.mutate((state) => {
+      const chat = state.chats[String(chatId)];
+      const game = state.games[gameId];
+
+      if (!chat || !game || game.chatId !== String(chatId)) {
+        throw new Error('Игра не найдена');
+      }
+
+      assertCanManageGame(game, requesterPlayerId);
+
+      for (const ratingId of Object.keys(state.ratings)) {
+        if (state.ratings[ratingId].gameId === gameId) {
+          delete state.ratings[ratingId];
+        }
+      }
+
+      delete state.games[gameId];
+
+      if (chat.currentGameId === gameId) {
+        const latestGame = findLatestGameForChat(state, chatId);
+        chat.currentGameId = latestGame?.id ?? null;
+      }
+
+      chat.updatedAt = new Date().toISOString();
+      return { deleted: true };
     });
   }
 

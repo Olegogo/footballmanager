@@ -630,3 +630,144 @@ test('removePlayerFromGame removes declined player and returns organizer', async
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
+
+test('manual games keep previous ratings on the next game roster', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    await store.ensureChat({
+      id: '-1001',
+      title: 'Football Chat',
+      type: 'supergroup'
+    });
+    const rater = await store.upsertPlayerByUsername('-1001', 'rater');
+    const target = await store.upsertPlayerByUsername('-1001', 'target');
+
+    await store.mutate((state) => {
+      state.games.game_old = {
+        id: 'game_old',
+        chatId: '-1001',
+        messageId: null,
+        rawText: '',
+        key: 'old',
+        source: 'test',
+        sourceDate: '2026-05-01T10:00:00.000Z',
+        dateLabel: '1 мая',
+        location: 'Сокольники',
+        time: '19:30',
+        scheduledAt: '2026-05-01T16:30:00.000Z',
+        date: '2026-05-01',
+        priceLine: '',
+        paymentLines: [],
+        playerUsernames: ['rater', 'target'],
+        playerIds: [rater.id, target.id],
+        ratingsOpenedAt: '2026-05-01T16:30:00.000Z',
+        ratingsPromptMessageId: null,
+        ratingsClosedByGameId: null,
+        closedAt: null,
+        createdAt: '2026-05-01T10:00:00.000Z',
+        updatedAt: '2026-05-01T10:00:00.000Z'
+      };
+      state.chats['-1001'].currentGameId = 'game_old';
+      return null;
+    });
+
+    await store.submitRating({
+      chatId: '-1001',
+      gameId: 'game_old',
+      raterPlayerId: rater.id,
+      targetPlayerId: target.id,
+      payload: {
+        position: 'ST',
+        pace: 80,
+        dribbling: 80,
+        shooting: 80,
+        defense: 80,
+        passing: 80,
+        physical: 80,
+        goals: 2,
+        assists: 1
+      }
+    });
+
+    const nextGame = await store.createManualGame({
+      chatId: '-1001',
+      organizerPlayerId: rater.id,
+      date: '2099-05-30',
+      time: '16:00',
+      location: 'Сокольники, поле 10',
+      playerIds: [rater.id, target.id],
+      timezoneOffset: '+03:00'
+    });
+    const snapshot = store.getSnapshot('-1001', rater.id);
+    const targetInNextGame = snapshot.currentGame.participants.find((player) => player.id === target.id);
+
+    assert.equal(snapshot.currentGame.id, nextGame.game.id);
+    assert.equal(targetInNextGame.ratedGames, 1);
+    assert.equal(targetInNextGame.overall, 80);
+    assert.equal(targetInNextGame.position, 'ST');
+    assert.equal(targetInNextGame.goals, 2);
+    assert.equal(targetInNextGame.assists, 1);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('updateManualGame and deleteGame manage organizer games', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const organizer = await store.rememberTelegramUser(777, {
+      id: 777,
+      username: 'organizer',
+      first_name: 'Org'
+    }, {
+      chatType: 'private'
+    });
+    await store.ensureChat({
+      id: '-1001',
+      title: 'Football Chat',
+      type: 'supergroup'
+    });
+    const first = await store.upsertPlayerByUsername('-1001', 'first');
+    const second = await store.upsertPlayerByUsername('-1001', 'second');
+    const third = await store.upsertPlayerByUsername('-1001', 'third');
+    const created = await store.createManualGame({
+      chatId: '-1001',
+      organizerPlayerId: organizer.id,
+      date: '2099-05-30',
+      time: '16:00',
+      location: 'Сокольники',
+      playerIds: [first.id, second.id],
+      timezoneOffset: '+03:00'
+    });
+
+    const updated = await store.updateManualGame({
+      chatId: '-1001',
+      gameId: created.game.id,
+      requesterPlayerId: organizer.id,
+      date: '2099-05-31',
+      time: '18:15',
+      location: 'Полежаевская',
+      playerIds: [first.id, third.id],
+      timezoneOffset: '+03:00'
+    });
+
+    assert.equal(updated.game.dateLabel, '31 мая');
+    assert.equal(updated.game.time, '18:15');
+    assert.equal(updated.game.location, 'Полежаевская');
+    assert.deepEqual(updated.game.playerIds, [first.id, third.id]);
+
+    const deleted = await store.deleteGame({
+      chatId: '-1001',
+      gameId: created.game.id,
+      requesterPlayerId: organizer.id
+    });
+
+    assert.equal(deleted.deleted, true);
+    assert.equal(store.state.games[created.game.id], undefined);
+    assert.equal(store.state.chats['-1001'].currentGameId, null);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});

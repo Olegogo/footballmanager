@@ -249,6 +249,56 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'PUT' && /^\/api\/games\/[^/]+$/.test(url.pathname)) {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Unauthorized' });
+        return;
+      }
+
+      const body = await readJsonBody(req);
+      const gameId = decodeURIComponent(url.pathname.split('/')[3]);
+      const result = await store.updateManualGame({
+        chatId: session.chatId,
+        gameId,
+        requesterPlayerId: session.playerId,
+        date: body.date,
+        time: body.time,
+        location: body.location,
+        playerIds: body.playerIds,
+        timezoneOffset: config.chatTimezoneOffset
+      });
+
+      bot.schedulePromptForGame(result.game);
+
+      const snapshot = store.getSnapshot(session.chatId, session.playerId);
+      sendJson(res, 200, {
+        game: { id: result.game.id },
+        snapshot
+      });
+      return;
+    }
+
+    if (req.method === 'DELETE' && /^\/api\/games\/[^/]+$/.test(url.pathname)) {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Unauthorized' });
+        return;
+      }
+
+      const gameId = decodeURIComponent(url.pathname.split('/')[3]);
+      await store.deleteGame({
+        chatId: session.chatId,
+        gameId,
+        requesterPlayerId: session.playerId
+      });
+      const snapshot = store.getSnapshot(session.chatId, session.playerId);
+      sendJson(res, 200, { snapshot });
+      return;
+    }
+
     if (req.method === 'POST' && /^\/api\/games\/[^/]+\/ratings$/.test(url.pathname)) {
       const session = getViewerSession(req);
 
