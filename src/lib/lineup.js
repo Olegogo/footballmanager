@@ -21,15 +21,15 @@ export const POSITION_CHOICES = ['N/A', 'GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CA
 const FIELD_POSITION_LAYOUT_TOP = {
   GK: { x: 50, y: 12 },
   CB: { x: 50, y: 23 },
-  LB: { x: 86, y: 30 },
-  RB: { x: 14, y: 30 },
+  LB: { x: 80, y: 30 },
+  RB: { x: 20, y: 30 },
   CDM: { x: 50, y: 36 },
   CM: { x: 50, y: 42 },
   CAM: { x: 50, y: 45 },
-  LM: { x: 88, y: 41 },
-  RM: { x: 12, y: 41 },
-  LW: { x: 90, y: 47 },
-  RW: { x: 10, y: 47 },
+  LM: { x: 82, y: 41 },
+  RM: { x: 18, y: 41 },
+  LW: { x: 84, y: 47 },
+  RW: { x: 16, y: 47 },
   ST: { x: 50, y: 49 },
   'N/A': { x: 50, y: 34 }
 };
@@ -37,15 +37,15 @@ const FIELD_POSITION_LAYOUT_TOP = {
 const FIELD_POSITION_LAYOUT_BOTTOM = {
   GK: { x: 50, y: 88 },
   CB: { x: 50, y: 77 },
-  LB: { x: 14, y: 70 },
-  RB: { x: 86, y: 70 },
+  LB: { x: 20, y: 70 },
+  RB: { x: 80, y: 70 },
   CDM: { x: 50, y: 64 },
   CM: { x: 50, y: 58 },
   CAM: { x: 50, y: 55 },
-  LM: { x: 12, y: 59 },
-  RM: { x: 88, y: 59 },
-  LW: { x: 10, y: 53 },
-  RW: { x: 90, y: 53 },
+  LM: { x: 18, y: 59 },
+  RM: { x: 82, y: 59 },
+  LW: { x: 16, y: 53 },
+  RW: { x: 84, y: 53 },
   ST: { x: 50, y: 51 },
   'N/A': { x: 50, y: 66 }
 };
@@ -83,8 +83,8 @@ export function getEffectivePosition(player) {
 
 function getFieldZoneBounds(zone) {
   return zone === 'top'
-    ? { xMin: 9, xMax: 91, yMin: 10, yMax: 49 }
-    : { xMin: 9, xMax: 91, yMin: 51, yMax: 90 };
+    ? { xMin: 14, xMax: 86, yMin: 10, yMax: 49 }
+    : { xMin: 14, xMax: 86, yMin: 51, yMax: 90 };
 }
 
 function getFieldBaseSlot(position, zone) {
