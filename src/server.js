@@ -195,6 +195,60 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'POST' && url.pathname === '/api/games') {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Unauthorized' });
+        return;
+      }
+
+      const organizer = store.getPlayerById(session.playerId);
+
+      if (!organizer) {
+        sendJson(res, 403, { error: 'Игрок не найден' });
+        return;
+      }
+
+      if (!organizer.privateChatId && !config.allowDevLogin) {
+        sendJson(res, 403, { error: 'Сначала запустите бота в личке командой /start' });
+        return;
+      }
+
+      if (bot.enabled && organizer.telegramUserId) {
+        const isMember = await bot.isUserMemberOfChat(session.chatId, organizer.telegramUserId);
+
+        if (!isMember) {
+          sendJson(res, 403, { error: 'Создавать игры могут только участники чата, где добавлен бот' });
+          return;
+        }
+      }
+
+      const body = await readJsonBody(req);
+      const result = await store.createManualGame({
+        chatId: session.chatId,
+        organizerPlayerId: session.playerId,
+        date: body.date,
+        time: body.time,
+        location: body.location,
+        playerIds: body.playerIds,
+        timezoneOffset: config.chatTimezoneOffset
+      });
+
+      bot.schedulePromptForGame(result.game);
+
+      if (body.notifyPlayers) {
+        await bot.notifyPlayersAboutManualGame(result.game.id);
+      }
+
+      const snapshot = store.getSnapshot(session.chatId, session.playerId);
+      sendJson(res, 200, {
+        game: { id: result.game.id },
+        snapshot
+      });
+      return;
+    }
+
     if (req.method === 'POST' && /^\/api\/games\/[^/]+\/ratings$/.test(url.pathname)) {
       const session = getViewerSession(req);
 

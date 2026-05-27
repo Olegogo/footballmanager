@@ -30,6 +30,10 @@ function findPlayerByTelegramUserId(state, telegramUserId) {
   return Object.values(state.players).find((player) => player.telegramUserId === telegramUserId) ?? null;
 }
 
+function findPlayerById(state, playerId) {
+  return state.players[playerId] ?? null;
+}
+
 function findPlayerByUsername(state, username) {
   const normalized = normalizeUsername(username);
   return Object.values(state.players).find((player) => player.username === normalized) ?? null;
@@ -127,6 +131,58 @@ function isGameEditableBeforeStart(game, now) {
 
 function isSameAnnouncementSchedule(game, announcement) {
   return game.date === announcement.date && game.time === announcement.time;
+}
+
+function createDateWithOffset(year, monthIndex, day, hours, minutes, offset) {
+  const match = String(offset).trim().match(/^([+-])(\d{2}):(\d{2})$/);
+
+  if (!match) {
+    return new Date(year, monthIndex, day, hours, minutes, 0, 0);
+  }
+
+  const sign = match[1] === '-' ? -1 : 1;
+  const offsetHours = Number(match[2]);
+  const offsetMinutes = Number(match[3]);
+  const totalOffsetMinutes = sign * (offsetHours * 60 + offsetMinutes);
+  const utcTimestamp = Date.UTC(year, monthIndex, day, hours, minutes, 0, 0) - totalOffsetMinutes * 60 * 1000;
+  return new Date(utcTimestamp);
+}
+
+function buildManualSchedule(date, time, timezoneOffset = process.env.CHAT_TIMEZONE_OFFSET || '+03:00') {
+  const dateMatch = String(date ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const timeMatch = String(time ?? '').match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+
+  if (!dateMatch || !timeMatch) {
+    throw new Error('Укажите дату и время игры');
+  }
+
+  const year = Number(dateMatch[1]);
+  const monthIndex = Number(dateMatch[2]) - 1;
+  const day = Number(dateMatch[3]);
+  const hours = Number(timeMatch[1]);
+  const minutes = Number(timeMatch[2]);
+  const scheduledAt = createDateWithOffset(year, monthIndex, day, hours, minutes, timezoneOffset);
+  const monthNames = [
+    'января',
+    'февраля',
+    'марта',
+    'апреля',
+    'мая',
+    'июня',
+    'июля',
+    'августа',
+    'сентября',
+    'октября',
+    'ноября',
+    'декабря'
+  ];
+
+  return {
+    scheduledAt: scheduledAt.toISOString(),
+    date: scheduledAt.toISOString().slice(0, 10),
+    dateLabel: `${day} ${monthNames[monthIndex]}`,
+    time: `${timeMatch[1]}:${timeMatch[2]}`
+  };
 }
 
 function setCurrentGame(chat, game, nowIso, previousGame = null) {
@@ -341,6 +397,10 @@ export class AppStore {
       player.lastName = user?.last_name ?? player.lastName;
       player.displayName = extra.displayName || formatDisplayName(user) || player.displayName;
       player.photoUrl = extra.photoUrl || user?.photo_url || player.photoUrl;
+      if (chat.type === 'private') {
+        player.privateChatId = String(chat.id);
+        player.privateStartedAt = player.privateStartedAt || new Date().toISOString();
+      }
       player.updatedAt = new Date().toISOString();
       applyPlayerDefaults(player, normalizedUsername);
 
@@ -484,6 +544,110 @@ export class AppStore {
       state.games[gameId] = game;
       setCurrentGame(chat, game, now, currentGame);
       return { created: true, game };
+    });
+  }
+
+  async createManualGame({
+    chatId,
+    organizerPlayerId,
+    date,
+    time,
+    location,
+    playerIds,
+    timezoneOffset
+  }) {
+    return this.mutate((state) => {
+      const chat = state.chats[String(chatId)];
+      const organizer = findPlayerById(state, organizerPlayerId);
+
+      if (!chat) {
+        throw new Error('Чат не найден');
+      }
+
+      if (!organizer) {
+        throw new Error('Организатор не найден');
+      }
+
+      const selectedPlayerIds = unique(
+        (Array.isArray(playerIds) ? playerIds : [])
+          .map((playerId) => String(playerId))
+          .filter((playerId) => Boolean(state.players[playerId]))
+      );
+
+      if (selectedPlayerIds.length < 2) {
+        throw new Error('Добавьте минимум двух игроков');
+      }
+
+      const schedule = buildManualSchedule(date, time, timezoneOffset);
+      const now = new Date().toISOString();
+      const gameId = `game_${state.meta.nextGameId++}`;
+      const usernames = selectedPlayerIds.map((playerId) => state.players[playerId]?.username).filter(Boolean);
+      const game = {
+        id: gameId,
+        chatId: String(chatId),
+        messageId: null,
+        rawText: '',
+        key: [
+          schedule.scheduledAt.slice(0, 16),
+          String(location ?? '').trim().toLowerCase(),
+          selectedPlayerIds.join(',')
+        ].join('|'),
+        source: 'manual',
+        sourceDate: now,
+        organizerPlayerId,
+        dateLabel: schedule.dateLabel,
+        location: String(location ?? '').trim(),
+        time: schedule.time,
+        scheduledAt: schedule.scheduledAt,
+        date: schedule.date,
+        priceLine: '',
+        paymentLines: [],
+        playerUsernames: usernames,
+        playerIds: selectedPlayerIds,
+        declinedPlayerIds: [],
+        ratingsOpenedAt: null,
+        ratingsPromptMessageId: null,
+        ratingsClosedByGameId: null,
+        closedAt: null,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      for (const playerId of selectedPlayerIds) {
+        attachPlayerToChat(state, chat.id, playerId);
+      }
+
+      state.games[gameId] = game;
+      const currentGame = chat.currentGameId ? state.games[chat.currentGameId] : null;
+      setCurrentGame(chat, game, now, currentGame);
+      return { created: true, game };
+    });
+  }
+
+  async removePlayerFromGame({ gameId, playerId }) {
+    return this.mutate((state) => {
+      const game = state.games[gameId];
+      const player = findPlayerById(state, playerId);
+
+      if (!game || !player) {
+        throw new Error('Игра или игрок не найдены');
+      }
+
+      const wasInGame = game.playerIds.includes(playerId);
+
+      if (wasInGame) {
+        game.playerIds = game.playerIds.filter((id) => id !== playerId);
+        game.playerUsernames = game.playerIds.map((id) => state.players[id]?.username).filter(Boolean);
+        game.declinedPlayerIds = unique([...(game.declinedPlayerIds ?? []), playerId]);
+        game.updatedAt = new Date().toISOString();
+      }
+
+      return {
+        removed: wasInGame,
+        game,
+        player,
+        organizer: game.organizerPlayerId ? findPlayerById(state, game.organizerPlayerId) : null
+      };
     });
   }
 
@@ -725,5 +889,17 @@ export class AppStore {
 
   getSnapshot(chatId, viewerPlayerId = null) {
     return buildChatSnapshot(this.state, String(chatId), viewerPlayerId, new Date());
+  }
+
+  getPlayerById(playerId) {
+    return findPlayerById(this.state, playerId);
+  }
+
+  getPlayerByTelegramUserId(telegramUserId) {
+    return findPlayerByTelegramUserId(this.state, telegramUserId);
+  }
+
+  getGameById(gameId) {
+    return this.state.games[gameId] ?? null;
   }
 }

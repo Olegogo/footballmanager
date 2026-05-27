@@ -510,3 +510,123 @@ test('updateSelfProfile stores unrated player card data without creating rating'
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
+
+test('createManualGame creates current game from selected players', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const organizer = await store.rememberTelegramUser(777, {
+      id: 777,
+      username: 'organizer',
+      first_name: 'Org'
+    }, {
+      chatType: 'private'
+    });
+    await store.ensureChat({
+      id: '-1001',
+      title: 'Football Chat',
+      type: 'supergroup'
+    });
+    await store.rememberTelegramUser('-1001', {
+      id: 777,
+      username: 'organizer',
+      first_name: 'Org'
+    }, {
+      chatTitle: 'Football Chat',
+      chatType: 'supergroup'
+    });
+    const first = await store.upsertPlayerByUsername('-1001', 'O_legacy');
+    const second = await store.upsertPlayerByUsername('-1001', 'dbabanin');
+
+    const result = await store.createManualGame({
+      chatId: '-1001',
+      organizerPlayerId: organizer.id,
+      date: '2099-05-30',
+      time: '16:00',
+      location: 'Сокольники, поле 10',
+      playerIds: [organizer.id, first.id, second.id],
+      timezoneOffset: '+03:00'
+    });
+
+    assert.equal(result.created, true);
+    assert.equal(result.game.source, 'manual');
+    assert.equal(result.game.location, 'Сокольники, поле 10');
+    assert.equal(result.game.time, '16:00');
+    assert.equal(result.game.scheduledAt, '2099-05-30T13:00:00.000Z');
+    assert.deepEqual(result.game.playerIds, [organizer.id, first.id, second.id]);
+
+    const snapshot = store.getSnapshot('-1001', organizer.id);
+    assert.equal(snapshot.chat.currentGameId, result.game.id);
+    assert.equal(snapshot.currentGame.id, result.game.id);
+    assert.equal(snapshot.currentGame.participants.length, 3);
+    assert.equal(snapshot.viewerCanCreateGames, true);
+    assert.ok(snapshot.availablePlayers.some((player) => player.id === first.id));
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('removePlayerFromGame removes declined player and returns organizer', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const organizer = await store.rememberTelegramUser(777, {
+      id: 777,
+      username: 'organizer',
+      first_name: 'Org'
+    }, {
+      chatType: 'private'
+    });
+    const invited = await store.rememberTelegramUser(888, {
+      id: 888,
+      username: 'invited',
+      first_name: 'Invited'
+    }, {
+      chatType: 'private'
+    });
+    await store.ensureChat({
+      id: '-1001',
+      title: 'Football Chat',
+      type: 'supergroup'
+    });
+    await store.rememberTelegramUser('-1001', {
+      id: 777,
+      username: 'organizer',
+      first_name: 'Org'
+    }, {
+      chatTitle: 'Football Chat',
+      chatType: 'supergroup'
+    });
+    await store.rememberTelegramUser('-1001', {
+      id: 888,
+      username: 'invited',
+      first_name: 'Invited'
+    }, {
+      chatTitle: 'Football Chat',
+      chatType: 'supergroup'
+    });
+
+    const result = await store.createManualGame({
+      chatId: '-1001',
+      organizerPlayerId: organizer.id,
+      date: '2099-05-30',
+      time: '16:00',
+      location: 'Сокольники, поле 10',
+      playerIds: [organizer.id, invited.id],
+      timezoneOffset: '+03:00'
+    });
+
+    const decline = await store.removePlayerFromGame({
+      gameId: result.game.id,
+      playerId: invited.id
+    });
+
+    assert.equal(decline.removed, true);
+    assert.equal(decline.organizer.id, organizer.id);
+    assert.equal(decline.player.id, invited.id);
+    assert.deepEqual(decline.game.playerIds, [organizer.id]);
+    assert.deepEqual(decline.game.declinedPlayerIds, [invited.id]);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});

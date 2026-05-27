@@ -164,6 +164,12 @@ function getChatPlayers(state, chatId) {
   return Object.values(state.players).filter((player) => player.chatIds.includes(String(chatId)));
 }
 
+function getSelectablePlayers(state) {
+  return Object.values(state.players).filter((player) =>
+    (player.chatIds ?? []).some((chatId) => state.chats[chatId]?.type !== 'private')
+  );
+}
+
 export function getGamesForChat(state, chatId) {
   return Object.values(state.games)
     .filter((game) => game.chatId === String(chatId))
@@ -221,6 +227,28 @@ export function buildCareerIndex(state, chatId) {
   for (const player of players) {
     career.set(player.id, createEmptyCareerEntry());
   }
+
+  for (const game of games) {
+    const aggregation = buildGameAggregation(state, game.id);
+
+    for (const playerId of game.playerIds) {
+      applyGameToCareerEntry(ensureCareerEntry(career, playerId), aggregation?.players[playerId]);
+    }
+  }
+
+  return new Map(
+    [...career.entries()].map(([playerId, entry]) => [playerId, finalizeCareerEntry(entry)])
+  );
+}
+
+function buildGlobalCareerIndex(state) {
+  const career = new Map();
+
+  for (const player of Object.values(state.players)) {
+    career.set(player.id, createEmptyCareerEntry());
+  }
+
+  const games = Object.values(state.games).sort(compareByDate);
 
   for (const game of games) {
     const aggregation = buildGameAggregation(state, game.id);
@@ -445,14 +473,46 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       gameDays: [],
       games: [],
       players: [],
+      availablePlayers: [],
       latestMvpPlayerId: null,
-      viewerPlayerId
+      viewerPlayerId,
+      viewerCanCreateGames: false
     };
   }
 
   const players = getChatPlayers(state, chatId);
   const career = buildCareerIndex(state, chatId);
+  const globalCareer = buildGlobalCareerIndex(state);
   const latestMvp = getLatestMvp(state, chatId);
+  const buildPlayerCard = (player, playerCareer, isMvp = false) => {
+    const careerEntry = playerCareer ?? {
+      games: 0,
+      ratedGames: 0,
+      goals: 0,
+      assists: 0,
+      overall: 50,
+      stats: { ...FALLBACK_STATS },
+      position: 'N/A'
+    };
+
+    return {
+      id: player.id,
+      username: player.username,
+      displayName: player.displayName || (player.username ? `@${player.username}` : 'Игрок'),
+      firstName: player.firstName,
+      lastName: player.lastName,
+      photoUrl: player.photoUrl,
+      overall: careerEntry.overall,
+      position: careerEntry.ratedGames ? careerEntry.position : (player.selfProfile?.position || player.defaultPosition || 'N/A'),
+      stats: careerEntry.ratedGames ? careerEntry.stats : (player.selfProfile?.stats || careerEntry.stats),
+      games: careerEntry.games,
+      ratedGames: careerEntry.ratedGames,
+      goals: careerEntry.goals,
+      assists: careerEntry.assists,
+      hasSelfProfile: Boolean(player.selfProfile),
+      isMvp
+    };
+  };
   const playerCards = players
     .map((player) => {
       const playerCareer = career.get(player.id) ?? {
@@ -465,25 +525,13 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
         position: 'N/A'
       };
 
-      return {
-        id: player.id,
-        username: player.username,
-        displayName: player.displayName || (player.username ? `@${player.username}` : 'Игрок'),
-        firstName: player.firstName,
-        lastName: player.lastName,
-        photoUrl: player.photoUrl,
-        overall: playerCareer.overall,
-        position: playerCareer.ratedGames ? playerCareer.position : (player.selfProfile?.position || player.defaultPosition || 'N/A'),
-        stats: playerCareer.ratedGames ? playerCareer.stats : (player.selfProfile?.stats || playerCareer.stats),
-        games: playerCareer.games,
-        ratedGames: playerCareer.ratedGames,
-        goals: playerCareer.goals,
-        assists: playerCareer.assists,
-        hasSelfProfile: Boolean(player.selfProfile),
-        isMvp: latestMvp?.playerId === player.id
-      };
+      return buildPlayerCard(player, playerCareer, latestMvp?.playerId === player.id);
     })
     .sort(comparePlayers);
+  const availablePlayers = getSelectablePlayers(state)
+    .map((player) => buildPlayerCard(player, globalCareer.get(player.id), latestMvp?.playerId === player.id))
+    .sort(comparePlayers);
+  const viewerPlayer = viewerPlayerId ? state.players[viewerPlayerId] : null;
 
   const currentGame = chat.currentGameId ? state.games[chat.currentGameId] : null;
   const buildGameDayView = (game) => {
@@ -556,9 +604,11 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     },
     viewerPlayerId,
     latestMvpPlayerId: latestMvp?.playerId ?? null,
+    viewerCanCreateGames: Boolean(viewerPlayer?.privateChatId),
     currentGame: currentGameView,
     gameDays,
     games: buildGamesView(state, chatId, playerCards, now),
-    players: playerCards
+    players: playerCards,
+    availablePlayers
   };
 }

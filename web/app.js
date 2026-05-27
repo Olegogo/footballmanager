@@ -79,14 +79,22 @@ const state = {
   token: '',
   snapshot: null,
   allowDevLogin: false,
-  activeTab: 'game',
+  activeTab: 'games',
   activeSort: 'overall',
   gamesFilter: 'all',
   positionFilter: '',
   selectedPlayerId: null,
   selectedGameId: '',
   selfProfileDraft: null,
-  ratingDrafts: {}
+  ratingDrafts: {},
+  manualGameOpen: false,
+  manualGameConfirm: null,
+  manualGameDraft: {
+    date: '',
+    time: '',
+    location: '',
+    playerIds: []
+  }
 };
 
 const tg = window.Telegram?.WebApp;
@@ -243,8 +251,14 @@ function getPlayers() {
   return state.snapshot?.players ?? [];
 }
 
+function getAvailablePlayers() {
+  return state.snapshot?.availablePlayers?.length ? state.snapshot.availablePlayers : getPlayers();
+}
+
 function getPlayer(playerId) {
-  return getPlayers().find((player) => player.id === playerId) ?? null;
+  return getPlayers().find((player) => player.id === playerId) ??
+    getAvailablePlayers().find((player) => player.id === playerId) ??
+    null;
 }
 
 function getViewerPlayer() {
@@ -818,6 +832,157 @@ function renderGameCard(game) {
   `;
 }
 
+function toDateInputValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function ensureManualGameDraftDefaults() {
+  if (!state.manualGameDraft.date) {
+    state.manualGameDraft.date = toDateInputValue(new Date());
+  }
+
+  if (!state.manualGameDraft.time) {
+    state.manualGameDraft.time = '19:30';
+  }
+}
+
+function getManualSelectedPlayers() {
+  const selectedIds = new Set(state.manualGameDraft.playerIds);
+  return getAvailablePlayers().filter((player) => selectedIds.has(player.id));
+}
+
+function renderManualPlayerCard(player) {
+  const selected = state.manualGameDraft.playerIds.includes(player.id);
+  const rating = getPlayerOverallLabel(player);
+  const position = getPositionMeta(player.position).short;
+
+  return `
+    <button
+      type="button"
+      class="manual-player-card ${selected ? 'is-selected' : ''}"
+      data-toggle-manual-player="${escapeHtml(player.id)}"
+    >
+      <span class="game-player-avatar">${renderMiniAvatar(player)}</span>
+      <span class="manual-player-info">
+        <strong>${escapeHtml(player.displayName)}</strong>
+        <small>@${escapeHtml(player.username || 'unknown')}</small>
+      </span>
+      <span class="manual-player-meta">
+        ${rating ? `<strong>${escapeHtml(rating)}</strong>` : ''}
+        <small>${escapeHtml(position === '—' ? 'позиция?' : position)}</small>
+      </span>
+    </button>
+  `;
+}
+
+function renderManualFieldPreview() {
+  const selectedPlayers = getManualSelectedPlayers();
+
+  if (selectedPlayers.length < 2) {
+    return `
+      <section class="subtle-panel manual-preview-empty">
+        <p>Добавьте игроков, и здесь появится баланс команд и расстановка по позициям.</p>
+      </section>
+    `;
+  }
+
+  return renderField({
+    participants: selectedPlayers.map((player) => ({
+      ...player,
+      canRateTarget: false,
+      currentGameStats: null
+    }))
+  });
+}
+
+function readManualGameForm(form) {
+  const formData = new FormData(form);
+
+  return {
+    date: String(formData.get('date') || ''),
+    time: String(formData.get('time') || ''),
+    location: String(formData.get('location') || '').trim(),
+    playerIds: [...state.manualGameDraft.playerIds]
+  };
+}
+
+function saveManualGameDraft(form) {
+  if (!form) {
+    return;
+  }
+
+  state.manualGameDraft = {
+    ...state.manualGameDraft,
+    ...readManualGameForm(form)
+  };
+}
+
+function renderCreateGameModal() {
+  if (state.manualGameConfirm) {
+    return `
+      <div class="modal-backdrop" data-create-backdrop="true">
+        <section class="modal-card confirm-card" role="dialog" aria-modal="true" aria-label="Сообщить игрокам">
+          <button class="modal-close" type="button" data-close-create-game="true">×</button>
+          <h2>Сообщить игрокам об игре?</h2>
+          <p>Игроки, которые запускали бота в личке, получат приглашение и смогут отказаться кнопкой “Не смогу”.</p>
+          <div class="confirm-actions">
+            <button type="button" class="primary-button" data-create-game-confirm="yes">Да</button>
+            <button type="button" class="ghost-action" data-create-game-confirm="skip">Пропустить</button>
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  if (!state.manualGameOpen) {
+    return '';
+  }
+
+  ensureManualGameDraftDefaults();
+  const availablePlayers = getAvailablePlayers();
+
+  return `
+    <div class="modal-backdrop modal-backdrop--full" data-create-backdrop="true">
+      <section class="modal-card create-game-modal" role="dialog" aria-modal="true" aria-label="Создать игру">
+        <button class="modal-close" type="button" data-close-create-game="true">×</button>
+        <h2>Создать игру</h2>
+        <form id="manualGameForm" class="manual-game-form">
+          <div class="manual-fields">
+            <label>
+              <span>Дата</span>
+              <input type="date" name="date" value="${escapeHtml(state.manualGameDraft.date)}" required>
+            </label>
+            <label>
+              <span>Время</span>
+              <input type="time" name="time" value="${escapeHtml(state.manualGameDraft.time)}" required>
+            </label>
+            <label class="manual-field-wide">
+              <span>Место</span>
+              <input type="text" name="location" value="${escapeHtml(state.manualGameDraft.location)}" placeholder="Например: Сокольники, поле 10" required>
+            </label>
+          </div>
+          <div class="manual-section-title">
+            <h3>Игроки</h3>
+            <span>${escapeHtml(state.manualGameDraft.playerIds.length)} выбрано</span>
+          </div>
+          <div class="manual-player-grid">
+            ${
+              availablePlayers.length
+                ? availablePlayers.map((player) => renderManualPlayerCard(player)).join('')
+                : '<p class="achievement-empty">Пока нет игроков. Они появятся после сообщений в чате или импорта истории.</p>'
+            }
+          </div>
+          ${renderManualFieldPreview()}
+          <button type="submit" class="primary-button card-action manual-submit">Создать</button>
+        </form>
+      </section>
+    </div>
+  `;
+}
+
 function renderGamesTab() {
   const games = getFilteredGames();
 
@@ -833,6 +998,7 @@ function renderGamesTab() {
           </section>
         `
     }
+    <button type="button" class="floating-create-button" data-open-create-game="true">Создать игру</button>
   `;
 }
 
@@ -1191,9 +1357,10 @@ function renderModal() {
   const player = getPlayer(state.selectedPlayerId);
   const game = getCurrentGame();
   const gamePlayer = game?.participants?.find((item) => item.id === state.selectedPlayerId) ?? null;
+  const createGameModal = renderCreateGameModal();
 
   if (!player) {
-    modalRoot.innerHTML = '';
+    modalRoot.innerHTML = createGameModal;
     return;
   }
 
@@ -1212,12 +1379,16 @@ function renderModal() {
     ? { ...serverDefaults, ...state.ratingDrafts[draftKey] }
     : serverDefaults;
 
-  modalRoot.innerHTML = renderEditorScreen(player, gamePlayer, editable, defaults, game);
+  modalRoot.innerHTML = [
+    renderEditorScreen(player, gamePlayer, editable, defaults, game),
+    createGameModal
+  ].join('');
 }
 
 function syncTabbar() {
   document.querySelectorAll('.tab-button').forEach((button) => {
-    button.classList.toggle('active', button.dataset.tab === state.activeTab);
+    const activeTab = state.activeTab === 'game' ? 'games' : state.activeTab;
+    button.classList.toggle('active', button.dataset.tab === activeTab);
   });
 }
 
@@ -1301,6 +1472,36 @@ async function submitSelfProfile(form) {
   showToast('Карточка сохранена');
 }
 
+async function submitManualGame(notifyPlayers) {
+  const payload = state.manualGameConfirm;
+
+  if (!payload) {
+    return;
+  }
+
+  const data = await api('/api/games', {
+    method: 'POST',
+    body: {
+      ...payload,
+      notifyPlayers
+    }
+  });
+
+  state.snapshot = data.snapshot;
+  state.selectedGameId = data.game?.id || '';
+  state.activeTab = 'game';
+  state.manualGameOpen = false;
+  state.manualGameConfirm = null;
+  state.manualGameDraft = {
+    date: '',
+    time: '',
+    location: '',
+    playerIds: []
+  };
+  render();
+  showToast(notifyPlayers ? 'Игра создана, приглашения отправлены' : 'Игра создана');
+}
+
 async function refreshSnapshot({ silent = false } = {}) {
   if (!state.chatId) {
     return;
@@ -1314,6 +1515,10 @@ async function refreshSnapshot({ silent = false } = {}) {
     const activeSelfProfileForm = document.getElementById('selfProfileForm');
     if (activeSelfProfileForm) {
       saveSelfProfileDraft(activeSelfProfileForm);
+    }
+    const manualGameForm = document.getElementById('manualGameForm');
+    if (manualGameForm) {
+      saveManualGameDraft(manualGameForm);
     }
 
     await loadSnapshot();
@@ -1372,13 +1577,69 @@ document.querySelector('.tabbar').addEventListener('click', (event) => {
   }
 
   state.activeTab = button.dataset.tab;
-  if (state.activeTab === 'game') {
+  if (state.activeTab !== 'game') {
     state.selectedGameId = '';
   }
   render();
 });
 
 document.addEventListener('click', (event) => {
+  const openCreateButton = event.target.closest('[data-open-create-game]');
+
+  if (openCreateButton) {
+    if (!state.token) {
+      showToast('Открой miniapp из Telegram, чтобы создать игру');
+      return;
+    }
+
+    if (!state.snapshot?.viewerCanCreateGames && !state.allowDevLogin) {
+      showToast('Сначала запусти бота в личке командой /start');
+      return;
+    }
+
+    state.manualGameOpen = true;
+    state.manualGameConfirm = null;
+    renderModal();
+    return;
+  }
+
+  const closeCreateButton = event.target.closest('[data-close-create-game]');
+
+  if (closeCreateButton || event.target.matches('[data-create-backdrop]')) {
+    state.manualGameOpen = false;
+    state.manualGameConfirm = null;
+    renderModal();
+    return;
+  }
+
+  const manualPlayerButton = event.target.closest('[data-toggle-manual-player]');
+
+  if (manualPlayerButton) {
+    const form = document.getElementById('manualGameForm');
+    saveManualGameDraft(form);
+    const playerId = manualPlayerButton.dataset.toggleManualPlayer;
+    const selected = new Set(state.manualGameDraft.playerIds);
+
+    if (selected.has(playerId)) {
+      selected.delete(playerId);
+    } else {
+      selected.add(playerId);
+    }
+
+    state.manualGameDraft.playerIds = [...selected];
+    renderModal();
+    return;
+  }
+
+  const createGameConfirmButton = event.target.closest('[data-create-game-confirm]');
+
+  if (createGameConfirmButton) {
+    submitManualGame(createGameConfirmButton.dataset.createGameConfirm === 'yes').catch((error) => {
+      showToast(error.message);
+    });
+    return;
+  }
+
   const stepperButton = event.target.closest('[data-stepper-action]');
 
   if (stepperButton) {
@@ -1468,6 +1729,11 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('change', (event) => {
+  if (event.target.closest('#manualGameForm')) {
+    saveManualGameDraft(event.target.closest('#manualGameForm'));
+    return;
+  }
+
   if (event.target.id === 'positionFilter') {
     state.positionFilter = event.target.value;
     render();
@@ -1501,6 +1767,11 @@ document.addEventListener('change', (event) => {
 });
 
 document.addEventListener('input', (event) => {
+  if (event.target.closest('#manualGameForm')) {
+    saveManualGameDraft(event.target.closest('#manualGameForm'));
+    return;
+  }
+
   if (event.target.matches('input[type="range"]')) {
     const valueNode =
       event.target.closest('.editor-range')?.querySelector('.editor-range-value') ||
@@ -1524,6 +1795,26 @@ window.addEventListener('focus', () => {
 });
 
 document.addEventListener('submit', async (event) => {
+  if (event.target.id === 'manualGameForm') {
+    event.preventDefault();
+    saveManualGameDraft(event.target);
+    const payload = readManualGameForm(event.target);
+
+    if (!payload.date || !payload.time || !payload.location) {
+      showToast('Заполните дату, время и место');
+      return;
+    }
+
+    if (payload.playerIds.length < 2) {
+      showToast('Добавьте минимум двух игроков');
+      return;
+    }
+
+    state.manualGameConfirm = payload;
+    renderModal();
+    return;
+  }
+
   if (event.target.id === 'ratingForm') {
     event.preventDefault();
     try {

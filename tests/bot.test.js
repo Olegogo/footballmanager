@@ -375,3 +375,128 @@ test('handleAnnouncement sends lineup image with details button when snapshot is
   assert.ok(Buffer.isBuffer(photos[0].photo));
   assert.equal(photos[0].options.replyMarkup.inline_keyboard[0][0].text, 'Детали игры');
 });
+
+test('notifyPlayersAboutManualGame sends private invites with decline button', async () => {
+  const store = {
+    state: {
+      chats: {},
+      games: {}
+    },
+    getGameById() {
+      return {
+        id: 'game_9',
+        chatId: '-1009',
+        organizerPlayerId: 'player_1',
+        dateLabel: '30 мая',
+        time: '16:00',
+        location: 'Сокольники, поле 10',
+        playerIds: ['player_1', 'player_2', 'player_3']
+      };
+    },
+    getPlayerById(playerId) {
+      return {
+        player_1: {
+          id: 'player_1',
+          displayName: 'Organizer',
+          privateChatId: '111'
+        },
+        player_2: {
+          id: 'player_2',
+          displayName: 'Invited',
+          privateChatId: '222'
+        },
+        player_3: {
+          id: 'player_3',
+          displayName: 'No private'
+        }
+      }[playerId];
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+  const sent = [];
+
+  bot.sendText = async (chatId, text, options = {}) => {
+    sent.push({ chatId, text, options });
+    return { message_id: 300 };
+  };
+
+  await bot.notifyPlayersAboutManualGame('game_9');
+
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].chatId, '222');
+  assert.match(sent[0].text, /Тебя пригласили на игру/);
+  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'К игре');
+  assert.equal(sent[0].options.replyMarkup.inline_keyboard[1][0].text, 'Не смогу');
+  assert.equal(sent[0].options.replyMarkup.inline_keyboard[1][0].callback_data, 'decline_game:game_9');
+});
+
+test('handleCallbackQuery removes declined player and notifies organizer', async () => {
+  const calls = [];
+  const store = {
+    state: {
+      chats: {},
+      games: {}
+    },
+    getPlayerByTelegramUserId(telegramUserId) {
+      assert.equal(telegramUserId, 888);
+      return {
+        id: 'player_2',
+        displayName: 'Invited',
+        username: 'invited'
+      };
+    },
+    async removePlayerFromGame(payload) {
+      assert.deepEqual(payload, {
+        gameId: 'game_9',
+        playerId: 'player_2'
+      });
+
+      return {
+        removed: true,
+        player: {
+          displayName: 'Invited',
+          username: 'invited'
+        },
+        organizer: {
+          privateChatId: '111'
+        },
+        game: {
+          dateLabel: '30 мая',
+          time: '16:00'
+        }
+      };
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+
+  bot.answerCallbackQuery = async (id, text) => {
+    calls.push({ type: 'answer', id, text });
+  };
+  bot.sendText = async (chatId, text) => {
+    calls.push({ type: 'text', chatId, text });
+    return { message_id: 301 };
+  };
+
+  await bot.handleCallbackQuery({
+    id: 'callback_1',
+    data: 'decline_game:game_9',
+    from: {
+      id: 888
+    }
+  });
+
+  assert.deepEqual(calls[0], {
+    type: 'answer',
+    id: 'callback_1',
+    text: 'Ок, убрал тебя из игры'
+  });
+  assert.equal(calls[1].type, 'text');
+  assert.equal(calls[1].chatId, '111');
+  assert.match(calls[1].text, /Invited не сможет сыграть/);
+});

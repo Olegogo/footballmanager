@@ -199,6 +199,13 @@ export class TelegramBot {
     });
   }
 
+  async answerCallbackQuery(callbackQueryId, text = '') {
+    return this.callApi('answerCallbackQuery', {
+      callback_query_id: callbackQueryId,
+      text
+    });
+  }
+
   async sendPhoto(chatId, photo, options = {}) {
     const formData = new FormData();
     formData.set('chat_id', String(chatId));
@@ -253,6 +260,99 @@ export class TelegramBot {
       buttonText: 'Детали игры',
       buttonOnly: true
     });
+  }
+
+  buildManualInviteKeyboard(chatId, gameId) {
+    const miniAppUrl = this.buildMiniAppUrl(chatId);
+
+    if (!miniAppUrl) {
+      return {
+        inline_keyboard: [
+          [
+            {
+              text: 'Не смогу',
+              callback_data: `decline_game:${gameId}`
+            }
+          ]
+        ]
+      };
+    }
+
+    return {
+      inline_keyboard: [
+        [
+          {
+            text: 'К игре',
+            web_app: {
+              url: miniAppUrl
+            }
+          }
+        ],
+        [
+          {
+            text: 'Не смогу',
+            callback_data: `decline_game:${gameId}`
+          }
+        ]
+      ]
+    };
+  }
+
+  formatGameInvite(game) {
+    return [
+      'Тебя пригласили на игру',
+      '',
+      `${game.dateLabel} в ${game.time}`,
+      game.location ? `Место: ${game.location}` : '',
+      '',
+      'Открой miniapp, чтобы посмотреть состав и расстановку.'
+    ].filter(Boolean).join('\n');
+  }
+
+  async notifyPlayersAboutManualGame(gameId) {
+    const game = this.store.getGameById?.(gameId);
+
+    if (!game) {
+      return;
+    }
+
+    for (const playerId of game.playerIds) {
+      if (playerId === game.organizerPlayerId) {
+        continue;
+      }
+
+      const player = this.store.getPlayerById?.(playerId);
+
+      if (!player?.privateChatId) {
+        continue;
+      }
+
+      try {
+        await this.sendText(player.privateChatId, this.formatGameInvite(game), {
+          replyMarkup: this.buildManualInviteKeyboard(game.chatId, game.id)
+        });
+      } catch (error) {
+        console.error(`Unable to send manual game invite to ${player.id}:`, error.message);
+      }
+    }
+  }
+
+  async isUserMemberOfChat(chatId, telegramUserId) {
+    if (!this.enabled || !chatId || !telegramUserId) {
+      return false;
+    }
+
+    try {
+      const member = await this.callApi('getChatMember', {
+        chat_id: chatId,
+        user_id: telegramUserId
+      });
+
+      return ['creator', 'administrator', 'member', 'restricted'].includes(member?.status);
+    } catch (error) {
+      console.error('Unable to verify chat membership:', error.message);
+      return false;
+    }
   }
 
   clearPromptTimer(gameId) {
@@ -463,6 +563,43 @@ export class TelegramBot {
     }
   }
 
+  async handleCallbackQuery(callbackQuery) {
+    const data = String(callbackQuery?.data ?? '');
+
+    if (!data.startsWith('decline_game:')) {
+      return;
+    }
+
+    const gameId = data.split(':')[1];
+    const player = this.store.getPlayerByTelegramUserId?.(callbackQuery.from?.id);
+
+    if (!player) {
+      await this.answerCallbackQuery(callbackQuery.id, 'Не нашел твою карточку игрока');
+      return;
+    }
+
+    try {
+      const result = await this.store.removePlayerFromGame({
+        gameId,
+        playerId: player.id
+      });
+
+      await this.answerCallbackQuery(
+        callbackQuery.id,
+        result.removed ? 'Ок, убрал тебя из игры' : 'Ты уже не в списке игроков'
+      );
+
+      if (result.removed && result.organizer?.privateChatId) {
+        await this.sendText(
+          result.organizer.privateChatId,
+          `${result.player.displayName || `@${result.player.username}`} не сможет сыграть ${result.game.dateLabel} в ${result.game.time}. Нужно искать замену.`
+        );
+      }
+    } catch (error) {
+      await this.answerCallbackQuery(callbackQuery.id, error.message || 'Не получилось обновить игру');
+    }
+  }
+
   async handleUpdate(update) {
     if (update.message) {
       await this.handleMessage(update.message, { isEdited: false });
@@ -470,6 +607,8 @@ export class TelegramBot {
       await this.handleMessage(update.edited_message, { isEdited: true });
     } else if (update.my_chat_member) {
       await this.handleChatMember(update.my_chat_member);
+    } else if (update.callback_query) {
+      await this.handleCallbackQuery(update.callback_query);
     }
   }
 
@@ -495,7 +634,7 @@ export class TelegramBot {
         const updates = await this.callApi('getUpdates', {
           offset: this.offset,
           timeout: 25,
-          allowed_updates: ['message', 'edited_message', 'my_chat_member']
+          allowed_updates: ['message', 'edited_message', 'my_chat_member', 'callback_query']
         });
 
         for (const update of updates) {

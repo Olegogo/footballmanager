@@ -348,6 +348,24 @@ p {
   white-space: nowrap;
 }
 
+.floating-create-button {
+  position: fixed;
+  left: 50%;
+  bottom: calc(90px + env(safe-area-inset-bottom));
+  z-index: 42;
+  width: min(420px, calc(100vw - 32px));
+  padding: 16px 20px;
+  border: 0;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #ffe495, #d89d18);
+  color: #251700;
+  font-size: 17px;
+  font-weight: 900;
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.36);
+  transform: translateX(-50%);
+  cursor: pointer;
+}
+
 .game-player-list {
   display: grid;
   gap: 10px;
@@ -1024,6 +1042,166 @@ input[type="range"] {
   background: rgba(255, 255, 255, 0.08);
   cursor: pointer;
   z-index: 2;
+}
+
+.modal-backdrop--full {
+  place-items: center;
+  padding: 16px 12px calc(94px + env(safe-area-inset-bottom));
+}
+
+.create-game-modal {
+  width: min(100%, 760px);
+  max-height: calc(100dvh - 116px);
+  padding: 20px;
+}
+
+.create-game-modal h2,
+.confirm-card h2 {
+  margin: 2px 46px 16px 0;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.manual-game-form,
+.manual-fields,
+.manual-player-grid,
+.manual-section-title {
+  display: grid;
+  gap: 12px;
+}
+
+.manual-fields {
+  grid-template-columns: 1fr 1fr;
+}
+
+.manual-field-wide {
+  grid-column: 1 / -1;
+}
+
+.manual-fields label {
+  display: grid;
+  gap: 7px;
+}
+
+.manual-fields span {
+  color: rgba(255, 240, 209, 0.68);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.manual-fields input {
+  width: 100%;
+  border: 1px solid rgba(241, 207, 114, 0.34);
+  border-radius: 16px;
+  padding: 14px 15px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.manual-section-title {
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  margin-top: 4px;
+}
+
+.manual-section-title h3 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.manual-section-title span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.manual-player-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.manual-player-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid rgba(255, 235, 170, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.manual-player-card.is-selected {
+  border-color: rgba(241, 207, 114, 0.78);
+  background: rgba(241, 207, 114, 0.14);
+}
+
+.manual-player-info,
+.manual-player-meta {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.manual-player-info strong,
+.manual-player-info small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manual-player-info small,
+.manual-player-meta small {
+  color: rgba(255, 240, 209, 0.66);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.manual-player-meta {
+  justify-items: end;
+}
+
+.manual-player-meta strong {
+  color: #ffe28b;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.manual-preview-empty {
+  box-shadow: none;
+}
+
+.manual-submit {
+  margin-top: 4px;
+}
+
+.confirm-card {
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+}
+
+.confirm-card p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.ghost-action {
+  border: 1px solid rgba(255, 235, 170, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-weight: 900;
+  cursor: pointer;
 }
 
 .editor-overlay {
