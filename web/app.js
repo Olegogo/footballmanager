@@ -1073,6 +1073,15 @@ function renderProfileTab() {
             ? renderSelfProfileForm(player, selfProfileDefaults)
             : renderPositionSelector('Позиция', effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title)
         }
+        ${
+          hasCareerRatings
+            ? ''
+            : `
+              <section class="profile-rating-note">
+                У тебя пока нет рейтинга. Он формируется на основе оценок тиммейтов после игр с твоим участием
+              </section>
+            `
+        }
         <div class="profile-card-metrics">
           <div class="metric-grid metric-grid--summary ${overviewCells.length === 1 ? 'metric-grid--single' : ''}">
             ${overviewCells.map((cell) => renderMetricCell(cell.label, cell.value, cell)).join('')}

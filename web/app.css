@@ -1285,7 +1285,7 @@ input[type="range"] {
 
 .profile-screen {
   width: 100%;
-  min-height: calc(100dvh - 110px - env(safe-area-inset-bottom));
+  min-height: calc(100dvh - env(safe-area-inset-bottom));
   margin: 0 auto;
   overflow: hidden;
   border: 0;
@@ -1299,7 +1299,8 @@ input[type="range"] {
 
 .profile-body {
   gap: 20px;
-  padding: 26px 20px 34px;
+  min-height: calc(100dvh - clamp(330px, 42dvh, 450px));
+  padding: 26px 20px calc(150px + env(safe-area-inset-bottom));
 }
 
 .profile-card-metrics {
@@ -1316,6 +1317,17 @@ input[type="range"] {
   margin-top: 6px;
 }
 
+.profile-rating-note {
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: rgba(255, 231, 153, 0.13);
+  border: 1px solid rgba(241, 207, 114, 0.24);
+  color: rgba(255, 240, 209, 0.82);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .profile-achievements {
   display: grid;
   gap: 16px;
@@ -1323,7 +1335,7 @@ input[type="range"] {
 }
 
 .profile-achievements h2 {
-  font-size: clamp(30px, 7vw, 38px);
+  font-size: clamp(24px, 5.8vw, 30px);
   line-height: 1;
   letter-spacing: -0.03em;
 }
