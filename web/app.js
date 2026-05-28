@@ -195,6 +195,16 @@ async function api(path, options = {}) {
   const data = await response.json();
 
   if (!response.ok) {
+    if (response.status === 401 && !options.skipAuthRetry && path !== '/api/auth/telegram' && tg?.initData) {
+      state.token = '';
+      localStorage.removeItem(storageKey());
+      const authenticated = await authenticateTelegram().catch(() => false);
+
+      if (authenticated) {
+        return api(path, { ...options, skipAuthRetry: true });
+      }
+    }
+
     throw new Error(data.error || 'Request failed');
   }
 

@@ -560,7 +560,7 @@ export class TelegramBot {
       this.schedulePromptForGame(result.game);
     }
 
-    if (result && (result.created || result.updated)) {
+    if (result?.game) {
       await this.sendGameDetailsEntry(message.chat.id, message.chat.type, targetChatId, result.game);
       return;
     }
@@ -578,8 +578,23 @@ export class TelegramBot {
     const announcement = parseAnnouncementText(rawText, new Date((message.date ?? Math.floor(Date.now() / 1000)) * 1000));
 
     if (!announcement) {
+      if (rawText.includes('89295991499')) {
+        console.warn('Telegram announcement-like message was not parsed', {
+          chatId: message.chat.id,
+          messageId: message.message_id,
+          preview: rawText.slice(0, 160)
+        });
+      }
       return;
     }
+
+    console.info('Telegram game announcement parsed', {
+      chatId: message.chat.id,
+      messageId: message.message_id,
+      date: announcement.date,
+      time: announcement.time,
+      players: announcement.playerUsernames.length
+    });
 
     const result = await this.store.recordGameFromAnnouncement({
       chatId: message.chat.id,

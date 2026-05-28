@@ -882,3 +882,21 @@ test('super admin can update and delete any manual game', async () => {
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
+
+test('sessions survive store restart', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const player = await store.upsertPlayerByUsername('-1001', 'O_legacy');
+    const token = await store.createSession(player.id, '-1001');
+    const restarted = new AppStore(path.join(directory, 'db.json'));
+
+    await restarted.init();
+
+    const session = restarted.getSession(token);
+    assert.equal(session.playerId, player.id);
+    assert.equal(session.chatId, '-1001');
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});

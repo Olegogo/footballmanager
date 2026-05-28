@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { TelegramBot } from './bot/telegram.js';
 import { config } from './config.js';
+import { isSuperAdminPlayer } from './lib/admins.js';
 import { verifyTelegramInitData } from './lib/auth.js';
 import { AppStore } from './lib/store.js';
 import { getBearerToken, notFound, readJsonBody, sendJson, sendText, serveStaticFile, setCorsHeaders } from './lib/utils.js';
@@ -25,6 +26,34 @@ function getChatIdFromRequest(url) {
 function getViewerSession(req) {
   const token = getBearerToken(req);
   return store.getSession(token);
+}
+
+function isFootballChat(chat) {
+  return chat && chat.type !== 'private';
+}
+
+function resolveFootballChatId(sessionChatId, player) {
+  const requestedChatId = String(sessionChatId || '');
+  const requestedChat = store.state.chats[requestedChatId];
+
+  if (isFootballChat(requestedChat)) {
+    return requestedChatId;
+  }
+
+  const defaultChat = config.defaultChatId ? store.state.chats[String(config.defaultChatId)] : null;
+
+  if (isFootballChat(defaultChat)) {
+    return String(config.defaultChatId);
+  }
+
+  const playerChatId = (player?.chatIds ?? []).find((chatId) => isFootballChat(store.state.chats[String(chatId)]));
+
+  if (playerChatId) {
+    return String(playerChatId);
+  }
+
+  const fallbackChat = Object.values(store.state.chats).find((chat) => isFootballChat(chat));
+  return fallbackChat?.id ? String(fallbackChat.id) : '';
 }
 
 const server = http.createServer(async (req, res) => {
@@ -102,7 +131,7 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      const token = store.createSession(player.id, chatId);
+      const token = await store.createSession(player.id, chatId);
       const snapshot = store.getSnapshot(chatId, player.id);
 
       sendJson(res, 200, {
@@ -214,18 +243,30 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      if (bot.enabled && organizer.telegramUserId) {
-        const isMember = await bot.isUserMemberOfChat(session.chatId, organizer.telegramUserId);
+      const targetChatId = resolveFootballChatId(session.chatId, organizer);
 
-        if (!isMember) {
+      if (!targetChatId) {
+        sendJson(res, 403, { error: 'Не нашел футбольный чат для создания игры. Добавьте бота в чат и откройте приложение из кнопки бота.' });
+        return;
+      }
+
+      if (bot.enabled && organizer.telegramUserId && !isSuperAdminPlayer(organizer)) {
+        const isMember = await bot.isUserMemberOfChat(targetChatId, organizer.telegramUserId);
+        const wasSeenInChat = (organizer.chatIds ?? []).includes(String(targetChatId));
+
+        if (!isMember && !wasSeenInChat) {
           sendJson(res, 403, { error: 'Создавать игры могут только участники чата, где добавлен бот' });
           return;
+        }
+
+        if (!isMember) {
+          console.warn(`Unable to verify Telegram membership for ${organizer.id} in ${targetChatId}; allowing because the player was already seen in this chat.`);
         }
       }
 
       const body = await readJsonBody(req);
       const result = await store.createManualGame({
-        chatId: session.chatId,
+        chatId: targetChatId,
         organizerPlayerId: session.playerId,
         date: body.date,
         time: body.time,
@@ -240,7 +281,7 @@ const server = http.createServer(async (req, res) => {
         await bot.notifyPlayersAboutManualGame(result.game.id);
       }
 
-      const snapshot = store.getSnapshot(session.chatId, session.playerId);
+      const snapshot = store.getSnapshot(targetChatId, session.playerId);
       sendJson(res, 200, {
         game: { id: result.game.id },
         snapshot
@@ -272,7 +313,7 @@ const server = http.createServer(async (req, res) => {
 
       bot.schedulePromptForGame(result.game);
 
-      const snapshot = store.getSnapshot(session.chatId, session.playerId);
+      const snapshot = store.getSnapshot(result.game.chatId, session.playerId);
       sendJson(res, 200, {
         game: { id: result.game.id },
         snapshot
@@ -290,12 +331,13 @@ const server = http.createServer(async (req, res) => {
 
       const gameId = decodeURIComponent(url.pathname.split('/')[3]);
       const existingGame = store.getGameById(gameId);
+      const snapshotChatId = existingGame?.chatId ?? session.chatId;
       await store.deleteGame({
-        chatId: existingGame?.chatId ?? session.chatId,
+        chatId: snapshotChatId,
         gameId,
         requesterPlayerId: session.playerId
       });
-      const snapshot = store.getSnapshot(session.chatId, session.playerId);
+      const snapshot = store.getSnapshot(snapshotChatId, session.playerId);
       sendJson(res, 200, { snapshot });
       return;
     }
@@ -310,6 +352,7 @@ const server = http.createServer(async (req, res) => {
 
       const body = await readJsonBody(req);
       const gameId = url.pathname.split('/')[3];
+      const existingGame = store.getGameById(gameId);
       await store.submitRating({
         chatId: session.chatId,
         gameId,
@@ -317,7 +360,7 @@ const server = http.createServer(async (req, res) => {
         targetPlayerId: body.targetPlayerId,
         payload: body
       });
-      const snapshot = store.getSnapshot(session.chatId, session.playerId);
+      const snapshot = store.getSnapshot(existingGame?.chatId ?? session.chatId, session.playerId);
       sendJson(res, 200, { snapshot });
       return;
     }

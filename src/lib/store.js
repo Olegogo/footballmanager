@@ -23,7 +23,8 @@ function defaultState() {
     chats: {},
     players: {},
     games: {},
-    ratings: {}
+    ratings: {},
+    sessions: {}
   };
 }
 
@@ -38,6 +39,19 @@ function findPlayerById(state, playerId) {
 function findPlayerByUsername(state, username) {
   const normalized = normalizeUsername(username);
   return Object.values(state.players).find((player) => player.username === normalized) ?? null;
+}
+
+function createSessionRecord(token, playerId, chatId) {
+  return {
+    token,
+    playerId,
+    chatId: String(chatId),
+    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000
+  };
+}
+
+function isSessionValid(session) {
+  return Boolean(session?.token && session?.playerId && session.expiresAt >= Date.now());
 }
 
 function ensureChatState(state, chat) {
@@ -440,8 +454,15 @@ export class AppStore {
         meta: {
           ...defaultState().meta,
           ...(parsed?.meta ?? {})
-        }
+        },
+        sessions: parsed?.sessions ?? {}
       };
+      this.sessions = new Map(
+        Object.entries(this.state.sessions)
+          .filter(([, session]) => isSessionValid(session))
+          .map(([token, session]) => [token, session])
+      );
+      this.state.sessions = Object.fromEntries(this.sessions);
     } catch (error) {
       if (error.code !== 'ENOENT') {
         throw error;
@@ -981,15 +1002,14 @@ export class AppStore {
     });
   }
 
-  createSession(playerId, chatId) {
+  async createSession(playerId, chatId) {
     const token = createSessionToken();
-    this.sessions.set(token, {
-      token,
-      playerId,
-      chatId: String(chatId),
-      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000
+    return this.mutate((state) => {
+      const session = createSessionRecord(token, playerId, chatId);
+      state.sessions[token] = session;
+      this.sessions.set(token, session);
+      return token;
     });
-    return token;
   }
 
   getSession(token) {
@@ -1005,6 +1025,8 @@ export class AppStore {
 
     if (session.expiresAt < Date.now()) {
       this.sessions.delete(token);
+      delete this.state.sessions[token];
+      void this.persist();
       return null;
     }
 
@@ -1012,10 +1034,18 @@ export class AppStore {
   }
 
   cleanupSessions() {
+    let changed = false;
+
     for (const [token, session] of this.sessions.entries()) {
       if (session.expiresAt < Date.now()) {
         this.sessions.delete(token);
+        delete this.state.sessions[token];
+        changed = true;
       }
+    }
+
+    if (changed) {
+      void this.persist();
     }
   }
 
@@ -1033,12 +1063,9 @@ export class AppStore {
       attachPlayerToChat(state, chatId, player.id);
       const token = createSessionToken();
 
-      this.sessions.set(token, {
-        token,
-        playerId: player.id,
-        chatId: String(chatId),
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000
-      });
+      const session = createSessionRecord(token, player.id, chatId);
+      state.sessions[token] = session;
+      this.sessions.set(token, session);
 
       return { player, token };
     });
