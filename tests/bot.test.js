@@ -75,7 +75,7 @@ test('processPendingRatingPrompts falls back to plain link when keyboard send fa
   bot.sendText = async (chatId, text, options = {}) => {
     sent.push({ chatId, text, options });
 
-    if (options.replyMarkup) {
+    if (options.replyMarkup?.inline_keyboard?.[0]?.[0]?.login_url) {
       throw new Error('Telegram rejected keyboard');
     }
 
@@ -85,7 +85,11 @@ test('processPendingRatingPrompts falls back to plain link when keyboard send fa
   await bot.processPendingRatingPrompts();
 
   assert.equal(sent.length, 2);
-  assert.match(sent[1].text, /https:\/\/app\.example\/\?chatId=-1002&view=game/);
+  assert.equal(sent[1].text, 'Не забудьте оценить игру тиммейтов');
+  assert.equal(
+    sent[1].options.replyMarkup.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=game_chat_-1002'
+  );
   assert.deepEqual(marked, [{ gameId: 'game_2', messageId: 88 }]);
 });
 
@@ -101,7 +105,7 @@ test('/open falls back to plain link when Telegram rejects keyboard', async () =
   bot.sendText = async (chatId, text, options = {}) => {
     sent.push({ chatId, text, options });
 
-    if (options.replyMarkup) {
+    if (options.replyMarkup?.inline_keyboard?.[0]?.[0]?.login_url) {
       throw new Error('Telegram rejected keyboard');
     }
 
@@ -119,7 +123,11 @@ test('/open falls back to plain link when Telegram rejects keyboard', async () =
   assert.equal(sent.length, 2);
   assert.equal(sent[0].chatId, -1003);
   assert.equal(sent[1].chatId, -1003);
-  assert.match(sent[1].text, /https:\/\/app\.example\/\?chatId=-1003&view=game/);
+  assert.equal(sent[1].text, '\u2060');
+  assert.equal(
+    sent[1].options.replyMarkup.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=game_chat_-1003'
+  );
 });
 
 test('/open sends only button text with custom label when keyboard works', async () => {
@@ -147,6 +155,36 @@ test('/open sends only button text with custom label when keyboard works', async
   assert.equal(sent.length, 1);
   assert.equal(sent[0].text, '\u2060');
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть футбольчик');
+});
+
+test('/open in private chats opens the games list by default', async () => {
+  const { store } = createBotStore([]);
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example',
+    defaultChatId: '-1001'
+  }, store);
+  const sent = [];
+
+  bot.botUsername = 'football_test_bot';
+  bot.sendText = async (chatId, text, options = {}) => {
+    sent.push({ chatId, text, options });
+    return { message_id: 103 };
+  };
+
+  await bot.handleCommand({
+    text: '/open',
+    chat: {
+      id: 123,
+      type: 'private'
+    }
+  });
+
+  assert.equal(sent.length, 1);
+  assert.equal(
+    sent[0].options.replyMarkup.inline_keyboard[0][0].web_app.url,
+    'https://app.example/?chatId=-1001'
+  );
 });
 
 test('/start sends onboarding copy with app button', async () => {

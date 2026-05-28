@@ -181,7 +181,26 @@ export class TelegramBot {
       return publicUrl || this.buildMainMiniAppLink(chatId, options) || '';
     }
 
-    return publicUrl || this.buildMainMiniAppLink(chatId, options) || '';
+    return this.buildMainMiniAppLink(chatId, options) || publicUrl || '';
+  }
+
+  buildFallbackUrlKeyboard(chatId = '', chatType = 'private', buttonText = 'Открыть миниапп', options = {}) {
+    const fallbackUrl = this.getMiniAppFallbackUrl(chatId, chatType, options);
+
+    if (!fallbackUrl) {
+      return undefined;
+    }
+
+    return {
+      inline_keyboard: [
+        [
+          {
+            text: buttonText,
+            url: fallbackUrl
+          }
+        ]
+      ]
+    };
   }
 
   async sendMiniAppEntry(chatId, chatType, targetChatId, options = {}) {
@@ -192,6 +211,7 @@ export class TelegramBot {
     };
     const replyMarkup = this.buildMiniAppKeyboard(chatType, targetChatId, buttonText, linkOptions);
     const fallbackUrl = this.getMiniAppFallbackUrl(targetChatId, chatType, linkOptions);
+    const fallbackReplyMarkup = this.buildFallbackUrlKeyboard(targetChatId, chatType, buttonText, linkOptions);
     const buttonOnly = options.buttonOnly ?? false;
     const fallbackText = buttonOnly ? fallbackUrl : `${primaryText}\n\n${fallbackUrl}`;
 
@@ -199,6 +219,12 @@ export class TelegramBot {
       if (!fallbackUrl) {
         await this.sendText(chatId, 'Сначала укажите PUBLIC_BASE_URL, чтобы miniapp можно было открыть из Telegram.');
         return;
+      }
+
+      if (fallbackReplyMarkup) {
+        return await this.sendText(chatId, primaryText, {
+          replyMarkup: fallbackReplyMarkup
+        });
       }
 
       await this.sendText(chatId, fallbackText);
@@ -212,6 +238,16 @@ export class TelegramBot {
     } catch (error) {
       if (!fallbackUrl) {
         throw error;
+      }
+
+      if (fallbackReplyMarkup) {
+        try {
+          return await this.sendText(chatId, primaryText, {
+            replyMarkup: fallbackReplyMarkup
+          });
+        } catch {
+          return await this.sendText(chatId, fallbackText);
+        }
       }
 
       return await this.sendText(chatId, fallbackText);
@@ -522,7 +558,7 @@ export class TelegramBot {
         primaryText: BUTTON_ONLY_TEXT,
         buttonText: 'Открыть футбольчик',
         buttonOnly: true,
-        initialView: 'game'
+        initialView: message.chat.type === 'private' ? '' : 'game'
       });
       return;
     }
