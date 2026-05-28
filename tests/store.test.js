@@ -819,3 +819,66 @@ test('updateManualGame and deleteGame manage organizer games', async () => {
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
+
+test('super admin can update and delete any manual game', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const organizer = await store.rememberTelegramUser(777, {
+      id: 777,
+      username: 'organizer',
+      first_name: 'Org'
+    }, {
+      chatType: 'private'
+    });
+    const admin = await store.rememberTelegramUser(888, {
+      id: 888,
+      username: 'O_legacy',
+      first_name: 'Oleg'
+    }, {
+      chatType: 'private'
+    });
+    await store.ensureChat({
+      id: '-1001',
+      title: 'Football Chat',
+      type: 'supergroup'
+    });
+    const first = await store.upsertPlayerByUsername('-1001', 'first');
+    const second = await store.upsertPlayerByUsername('-1001', 'second');
+    const third = await store.upsertPlayerByUsername('-1001', 'third');
+    const created = await store.createManualGame({
+      chatId: '-1001',
+      organizerPlayerId: organizer.id,
+      date: '2099-05-30',
+      time: '16:00',
+      location: 'Сокольники',
+      playerIds: [first.id, second.id],
+      timezoneOffset: '+03:00'
+    });
+
+    const updated = await store.updateManualGame({
+      chatId: '-1001',
+      gameId: created.game.id,
+      requesterPlayerId: admin.id,
+      date: '2099-05-31',
+      time: '18:15',
+      location: 'Полежаевская',
+      playerIds: [first.id, third.id],
+      timezoneOffset: '+03:00'
+    });
+
+    assert.equal(updated.game.organizerPlayerId, organizer.id);
+    assert.equal(updated.game.location, 'Полежаевская');
+
+    const deleted = await store.deleteGame({
+      chatId: '-1001',
+      gameId: created.game.id,
+      requesterPlayerId: admin.id
+    });
+
+    assert.equal(deleted.deleted, true);
+    assert.equal(store.state.games[created.game.id], undefined);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});

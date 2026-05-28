@@ -1,3 +1,4 @@
+import { isSuperAdminPlayer } from './admins.js';
 import { round } from './utils.js';
 
 export const STAT_KEYS = ['pace', 'dribbling', 'shooting', 'defense', 'passing', 'physical'];
@@ -650,7 +651,10 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       canViewerRate: ratingWindowOpen && viewerIsParticipant,
       ratingsPromptSent: Boolean(game.ratingsOpenedAt),
       organizerPlayerId: game.organizerPlayerId ?? null,
-      canViewerManage: Boolean(viewerPlayerId && game.organizerPlayerId === viewerPlayerId),
+      canViewerManage: Boolean(
+        viewerPlayerId &&
+        (game.organizerPlayerId === viewerPlayerId || isSuperAdminPlayer(viewerPlayer))
+      ),
       participants: game.playerIds
         .map((playerId) => {
           const profile = playerCards.find((player) => player.id === playerId);

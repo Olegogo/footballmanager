@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { isSuperAdminPlayer } from './admins.js';
 import { createSessionToken } from './auth.js';
 import { parseAnnouncementTextLog, parseTelegramExportGames } from './parser.js';
 import { POSITION_OPTIONS, STAT_KEYS, buildChatSnapshot, buildGlobalCareerIndex, isRatingWindowOpen } from './stats.js';
@@ -231,7 +232,13 @@ function applyManualFieldsToGame(state, game, {
   return game;
 }
 
-function assertCanManageGame(game, requesterPlayerId) {
+function assertCanManageGame(state, game, requesterPlayerId) {
+  const requester = findPlayerById(state, requesterPlayerId);
+
+  if (isSuperAdminPlayer(requester)) {
+    return;
+  }
+
   if (game.organizerPlayerId && game.organizerPlayerId === requesterPlayerId) {
     return;
   }
@@ -725,7 +732,7 @@ export class AppStore {
         throw new Error('Игра не найдена');
       }
 
-      assertCanManageGame(game, requesterPlayerId);
+      assertCanManageGame(state, game, requesterPlayerId);
 
       if (!isGameEditableBeforeStart(game, new Date())) {
         throw new Error('Игру уже нельзя редактировать');
@@ -754,7 +761,7 @@ export class AppStore {
         throw new Error('Игра не найдена');
       }
 
-      assertCanManageGame(game, requesterPlayerId);
+      assertCanManageGame(state, game, requesterPlayerId);
 
       for (const ratingId of Object.keys(state.ratings)) {
         if (state.ratings[ratingId].gameId === gameId) {

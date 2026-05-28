@@ -10,6 +10,14 @@ function normalizeCommand(text) {
   return command.split('@')[0].toLowerCase();
 }
 
+function getMessageText(message) {
+  return message?.text || message?.caption || '';
+}
+
+function stripCommandPayload(text) {
+  return String(text ?? '').replace(/^\/[a-z0-9_]+(?:@\w+)?\s*/i, '').trim();
+}
+
 function normalizeHttpUrl(value) {
   const raw = String(value ?? '').trim();
 
@@ -438,7 +446,7 @@ export class TelegramBot {
   }
 
   async handleCommand(message) {
-    const command = normalizeCommand(message.text);
+    const command = normalizeCommand(getMessageText(message));
     const chatId = message.chat.id;
     const targetChatId =
       message.chat.type === 'private' ? this.config.defaultChatId || chatId : chatId;
@@ -465,6 +473,11 @@ export class TelegramBot {
       return;
     }
 
+    if (['/game', '/addgame', '/parse'].includes(command)) {
+      await this.handleGameParseCommand(message, targetChatId);
+      return;
+    }
+
     if (command === '/chatid') {
       await this.sendText(
         chatId,
@@ -474,8 +487,77 @@ export class TelegramBot {
     }
   }
 
+  getGameParseSource(message) {
+    const directPayload = stripCommandPayload(getMessageText(message));
+
+    if (directPayload) {
+      return {
+        rawText: directPayload,
+        sourceMessage: message
+      };
+    }
+
+    const replyText = getMessageText(message.reply_to_message);
+
+    if (replyText) {
+      return {
+        rawText: replyText,
+        sourceMessage: message.reply_to_message
+      };
+    }
+
+    return null;
+  }
+
+  async handleGameParseCommand(message, targetChatId) {
+    const source = this.getGameParseSource(message);
+
+    if (!source) {
+      await this.sendText(
+        message.chat.id,
+        'Пришли /game ответом на анонс игры или отправь /game и текст анонса в одном сообщении.'
+      );
+      return;
+    }
+
+    const sourceDate = new Date((source.sourceMessage?.date ?? message.date ?? Math.floor(Date.now() / 1000)) * 1000);
+    const announcement = parseAnnouncementText(source.rawText, sourceDate);
+
+    if (!announcement) {
+      await this.sendText(
+        message.chat.id,
+        'Не смог распознать игру. Проверь, что в анонсе есть дата, время, игроки и блок оплаты с 89295991499 / Альфа, Тинь, Сбер.'
+      );
+      return;
+    }
+
+    const targetChatType = message.chat.type === 'private' ? 'supergroup' : message.chat.type;
+    const targetChatTitle = message.chat.type === 'private' ? '' : message.chat.title ?? '';
+    const result = await this.store.recordGameFromAnnouncement({
+      chatId: targetChatId,
+      chatTitle: targetChatTitle,
+      chatType: targetChatType,
+      messageId: source.sourceMessage?.message_id ?? message.message_id,
+      rawText: source.rawText,
+      announcement,
+      source: 'telegram-command',
+      sourceDate
+    });
+
+    if (result?.game) {
+      this.schedulePromptForGame(result.game);
+    }
+
+    if (result && (result.created || result.updated)) {
+      await this.sendGameDetailsEntry(message.chat.id, message.chat.type, targetChatId, result.game);
+      return;
+    }
+
+    await this.sendText(message.chat.id, 'Такая игра уже есть или её уже нельзя обновить после старта.');
+  }
+
   async handleAnnouncement(message, options = {}) {
-    const rawText = message.text || message.caption || '';
+    const rawText = getMessageText(message);
 
     if (!rawText || message.chat.type === 'private') {
       return;
@@ -523,7 +605,7 @@ export class TelegramBot {
       await this.maybeRefreshPlayerPhoto(message.chat.id, player);
     }
 
-    if (message.text?.startsWith('/')) {
+    if (getMessageText(message).trim().startsWith('/')) {
       await this.handleCommand(message);
       return;
     }

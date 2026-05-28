@@ -585,3 +585,63 @@ test('buildChatSnapshot reads games globally even when stored outside a football
   assert.ok(snapshot.games.some((game) => game.id === 'game_private_future'));
   assert.equal(snapshot.players.find((player) => player.id === 'player_1').overall, 77);
 });
+
+test('buildChatSnapshot lets O_legacy manage any game', () => {
+  const state = {
+    version: 1,
+    meta: {},
+    chats: {
+      '-1001': {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        username: '',
+        currentGameId: 'game_1',
+        playerIds: ['player_admin', 'player_organizer']
+      }
+    },
+    players: {
+      player_admin: {
+        id: 'player_admin',
+        telegramUserId: 1,
+        username: 'O_legacy',
+        displayName: 'Oleg',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001']
+      },
+      player_organizer: {
+        id: 'player_organizer',
+        telegramUserId: 2,
+        username: 'organizer',
+        displayName: 'Organizer',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001']
+      }
+    },
+    games: {
+      game_1: {
+        id: 'game_1',
+        chatId: '-1001',
+        organizerPlayerId: 'player_organizer',
+        dateLabel: '30 мая',
+        location: 'Поле 10',
+        time: '16:00',
+        scheduledAt: '2099-05-30T16:00:00.000Z',
+        playerIds: ['player_admin', 'player_organizer'],
+        paymentLines: [],
+        priceLine: ''
+      }
+    },
+    ratings: {}
+  };
+
+  const snapshot = buildChatSnapshot(state, '-1001', 'player_admin', new Date('2099-05-29T12:00:00.000Z'));
+
+  assert.equal(snapshot.currentGame.canViewerManage, true);
+});
