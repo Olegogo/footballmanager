@@ -160,15 +160,21 @@ export class TelegramBot {
     return this.buildMiniAppKeyboard(chatType, chatId, buttonText)?.inline_keyboard?.[0]?.[0] ?? null;
   }
 
-  getMiniAppFallbackUrl(chatId = '') {
-    return this.buildMainMiniAppLink(chatId) || this.buildMiniAppUrl(chatId) || '';
+  getMiniAppFallbackUrl(chatId = '', chatType = 'private') {
+    const publicUrl = this.buildMiniAppUrl(chatId);
+
+    if (chatType === 'private') {
+      return publicUrl || this.buildMainMiniAppLink(chatId) || '';
+    }
+
+    return this.buildMainMiniAppLink(chatId) || publicUrl || '';
   }
 
   async sendMiniAppEntry(chatId, chatType, targetChatId, options = {}) {
     const primaryText = options.primaryText ?? BUTTON_ONLY_TEXT;
     const buttonText = options.buttonText ?? 'Открыть миниапп';
     const replyMarkup = this.buildMiniAppKeyboard(chatType, targetChatId, buttonText);
-    const fallbackUrl = this.getMiniAppFallbackUrl(targetChatId);
+    const fallbackUrl = this.getMiniAppFallbackUrl(targetChatId, chatType);
     const buttonOnly = options.buttonOnly ?? false;
     const fallbackText = buttonOnly ? fallbackUrl : `${primaryText}\n\n${fallbackUrl}`;
 

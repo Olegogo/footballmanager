@@ -1729,6 +1729,7 @@ async function submitManualGame(notifyPlayers) {
       ? payload
       : {
           ...payload,
+          chatId: state.snapshot?.chat?.id || state.chatId,
           notifyPlayers
         }
   });

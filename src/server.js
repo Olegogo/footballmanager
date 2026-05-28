@@ -243,7 +243,9 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      const targetChatId = resolveFootballChatId(session.chatId, organizer);
+      const body = await readJsonBody(req);
+      const requestedGameChatId = String(body.chatId || '');
+      const targetChatId = resolveFootballChatId(requestedGameChatId || session.chatId, organizer);
 
       if (!targetChatId) {
         sendJson(res, 403, { error: 'Не нашел футбольный чат для создания игры. Добавьте бота в чат и откройте приложение из кнопки бота.' });
@@ -264,7 +266,6 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
-      const body = await readJsonBody(req);
       const result = await store.createManualGame({
         chatId: targetChatId,
         organizerPlayerId: session.playerId,
