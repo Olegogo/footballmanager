@@ -303,6 +303,33 @@ p {
   line-height: 1.35;
 }
 
+.notice-banner--rating-live {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.notice-banner--rating-live span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(20, 13, 2, 0.72);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.notice-banner--rating-live strong {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 9px 11px;
+  background: rgba(20, 13, 2, 0.15);
+  color: #140d02;
+  font-size: 16px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
 .games-filter-row {
   padding: 2px 0;
 }
@@ -1118,7 +1145,7 @@ input[type="range"] {
 }
 
 .manual-fields {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .manual-field-wide {
@@ -1801,6 +1828,46 @@ input[type="range"] {
 
   .game-venue {
     display: grid;
+  }
+
+  .create-game-modal {
+    padding-inline: 14px;
+  }
+
+  .manual-game-form,
+  .manual-fields,
+  .manual-section-title {
+    gap: 9px;
+  }
+
+  .manual-fields {
+    gap: 8px;
+  }
+
+  .manual-fields label {
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .manual-fields span {
+    font-size: 12px;
+  }
+
+  .manual-fields input {
+    min-width: 0;
+    border-radius: 14px;
+    padding: 11px 9px;
+    font-size: 14px;
+  }
+
+  .manual-fields input[type="date"],
+  .manual-fields input[type="time"] {
+    padding-inline: 7px;
+    font-size: 13px;
+  }
+
+  .notice-banner--rating-live {
+    align-items: flex-start;
   }
 
   .fifa-card-hero {

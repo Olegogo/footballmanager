@@ -552,6 +552,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
   const chat = state.chats[String(chatId)];
 
   const scopedChatIds = getSnapshotChatIds(state, chatId);
+  const fallbackChat = scopedChatIds.map((id) => state.chats[id]).find(Boolean) ?? null;
 
   if (!chat && !scopedChatIds.length) {
     return {
@@ -645,6 +646,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       hasStarted,
       isFinished: status === 'finished',
       ratingWindowOpen,
+      ratingWindowEndsAt: getRatingWindowEnd(game).toISOString(),
       viewerIsParticipant,
       canViewerRate: ratingWindowOpen && viewerIsParticipant,
       ratingsPromptSent: Boolean(game.ratingsOpenedAt),
@@ -687,8 +689,8 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
 
   return {
     chat: {
-      id: chat?.id ?? String(chatId),
-      title: chat?.title ?? '',
+      id: chat?.id ?? fallbackChat?.id ?? String(chatId),
+      title: chat?.title ?? fallbackChat?.title ?? '',
       currentGameId: currentGame?.id ?? null
     },
     viewerPlayerId,

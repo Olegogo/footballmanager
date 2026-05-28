@@ -19,7 +19,7 @@ setInterval(() => {
 }, config.schedulerIntervalMs).unref();
 
 function getChatIdFromRequest(url) {
-  return url.searchParams.get('chatId') || config.defaultChatId || '';
+  return url.searchParams.get('chatId') || config.defaultChatId || 'global';
 }
 
 function getViewerSession(req) {
@@ -64,12 +64,6 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/api/bootstrap') {
       const chatId = getChatIdFromRequest(url);
-
-      if (!chatId) {
-        sendJson(res, 400, { error: 'chatId is required' });
-        return;
-      }
-
       const session = getViewerSession(req);
       const snapshot = store.getSnapshot(chatId, session?.playerId ?? null);
       sendJson(res, 200, {
@@ -81,12 +75,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/auth/telegram') {
       const body = await readJsonBody(req);
-      const chatId = String(body.chatId || config.defaultChatId || '');
-
-      if (!chatId) {
-        sendJson(res, 400, { error: 'chatId is required' });
-        return;
-      }
+      const requestedChatId = String(body.chatId || config.defaultChatId || '');
 
       const auth = verifyTelegramInitData(
         body.initData,
@@ -99,9 +88,10 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      const chatId = requestedChatId || String(auth.user.id);
       const player = await store.rememberTelegramUser(chatId, auth.user, {
         photoUrl: auth.user.photo_url ?? '',
-        chatType: 'supergroup'
+        chatType: requestedChatId ? 'supergroup' : 'private'
       });
       const token = store.createSession(player.id, chatId);
       const snapshot = store.getSnapshot(chatId, player.id);

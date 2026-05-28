@@ -117,9 +117,10 @@ const closeGameButtonNode = document.getElementById('closeGameButton');
 const modalRoot = document.getElementById('modalRoot');
 const toastNode = document.getElementById('toast');
 let refreshTimer = null;
+let countdownTimer = null;
 
 function storageKey() {
-  return `fifa-miniapp-token:${state.chatId || 'default'}`;
+  return 'fifa-miniapp-token:global';
 }
 
 function escapeHtml(value) {
@@ -390,6 +391,25 @@ function getGameDateShort(dateLabel = '') {
   }
 
   return String(dateLabel || '');
+}
+
+function formatCountdown(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return [hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':');
+}
+
+function getRatingCountdownLabel(endAt) {
+  const endTime = new Date(endAt).getTime();
+
+  if (!Number.isFinite(endTime)) {
+    return '';
+  }
+
+  return formatCountdown(endTime - Date.now());
 }
 
 function sortPlayers(players) {
@@ -715,10 +735,32 @@ function renderGameHeader(game) {
 }
 
 function renderRatingBanner(game) {
-  let message = 'Оцените игроков после начала игры до следующего игрового дня';
+  if (game.ratingWindowOpen) {
+    const countdownLabel = getRatingCountdownLabel(game.ratingWindowEndsAt);
 
-  if (game.canViewerRate && game.isFinished) {
-    message = 'Игра завершена. Оценить игроков можно до следующего игрового дня.';
+    return `
+      <section class="notice-banner notice-banner--rating-live">
+        <div>
+          <p>Оценка стартовала</p>
+          ${
+            game.viewerIsParticipant
+              ? ''
+              : '<span>Оценивать могут только участники текущего матча.</span>'
+          }
+        </div>
+        ${
+          countdownLabel
+            ? `<strong data-rating-countdown="${escapeHtml(game.ratingWindowEndsAt)}">${escapeHtml(countdownLabel)}</strong>`
+            : ''
+        }
+      </section>
+    `;
+  }
+
+  let message = 'Оцените игроков после начала игры';
+
+  if (game.hasStarted && !game.ratingWindowOpen) {
+    message = 'Оценка завершена';
   } else if (game.hasStarted && !game.viewerIsParticipant) {
     message = 'Оценивать могут только участники текущего матча.';
   }
@@ -1581,17 +1623,6 @@ function render() {
   appShellNode?.classList.toggle('app-shell--profile', state.activeTab === 'profile');
   syncTabbar();
 
-  if (!state.chatId) {
-    contentNode.innerHTML = `
-      <section class="empty-state">
-        <h2>Нужен chatId</h2>
-        <p>Откройте miniapp из сообщения бота в групповом чате или добавьте <code>?chatId=-100...</code> в URL.</p>
-      </section>
-    `;
-    renderModal();
-    return;
-  }
-
   if (!state.snapshot?.chat) {
     contentNode.innerHTML = `
       ${renderLoginPanel()}
@@ -1701,10 +1732,6 @@ async function deleteCurrentGame() {
 }
 
 async function refreshSnapshot({ silent = false } = {}) {
-  if (!state.chatId) {
-    return;
-  }
-
   try {
     const activeRatingForm = document.getElementById('ratingForm');
     if (activeRatingForm) {
@@ -1736,9 +1763,19 @@ function setupAutoRefresh() {
     clearInterval(refreshTimer);
   }
 
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+  }
+
   refreshTimer = setInterval(() => {
     void refreshSnapshot({ silent: true });
   }, 30000);
+
+  countdownTimer = setInterval(() => {
+    document.querySelectorAll('[data-rating-countdown]').forEach((node) => {
+      node.textContent = getRatingCountdownLabel(node.dataset.ratingCountdown);
+    });
+  }, 1000);
 }
 
 function updateStepper(form, name, delta) {

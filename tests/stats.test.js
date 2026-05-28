@@ -354,6 +354,7 @@ test('buildChatSnapshot keeps rating window open for 24 hours after kickoff', ()
   const laterSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T19:00:00.000Z'));
 
   assert.equal(openSnapshot.currentGame.canViewerRate, true);
+  assert.equal(openSnapshot.currentGame.ratingWindowEndsAt, '2026-05-11T19:00:00.000Z');
   assert.equal(laterSnapshot.currentGame.canViewerRate, false);
 });
 
@@ -487,4 +488,9 @@ test('buildChatSnapshot merges viewer games and career ratings across football c
   assert.equal(privateSnapshot.players.find((item) => item.id === 'player_1').overall, 78);
   assert.ok(privateSnapshot.games.some((game) => game.id === 'game_old'));
   assert.ok(privateSnapshot.games.some((game) => game.id === 'game_future'));
+
+  const globalSnapshot = buildChatSnapshot(state, 'global', 'player_4', new Date('2026-05-27T12:00:00.000Z'));
+  assert.equal(globalSnapshot.chat.id, '-1001');
+  assert.equal(globalSnapshot.currentGame.id, 'game_future');
+  assert.equal(globalSnapshot.players.find((item) => item.id === 'player_1').overall, 78);
 });
