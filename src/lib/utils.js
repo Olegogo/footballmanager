@@ -103,7 +103,8 @@ export function serveStaticFile(res, filePath) {
   }
 
   res.writeHead(200, {
-    'Content-Type': getContentType(filePath)
+    'Content-Type': getContentType(filePath),
+    'Cache-Control': 'no-store'
   });
 
   fs.createReadStream(filePath).pipe(res);

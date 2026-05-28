@@ -550,11 +550,12 @@ function pickCurrentGame(games, now = new Date()) {
 
 export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = new Date()) {
   const chat = state.chats[String(chatId)];
-
   const scopedChatIds = getSnapshotChatIds(state, chatId);
   const fallbackChat = scopedChatIds.map((id) => state.chats[id]).find(Boolean) ?? null;
+  const allGames = Object.values(state.games).sort(compareByDate);
+  const players = Object.values(state.players);
 
-  if (!chat && !scopedChatIds.length) {
+  if (!chat && !fallbackChat && !allGames.length && !players.length) {
     return {
       chat: null,
       currentGame: null,
@@ -568,10 +569,8 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     };
   }
 
-  const scopedGames = getGamesForChatIds(state, scopedChatIds);
-  const players = Object.values(state.players);
   const globalCareer = buildGlobalCareerIndex(state, now);
-  const latestMvp = getLatestMvpForGames(state, scopedGames, now);
+  const latestMvp = getLatestMvpForGames(state, allGames, now);
   const buildPlayerCard = (player, playerCareer, isMvp = false) => {
     const careerEntry = playerCareer ?? {
       games: 0,
@@ -621,7 +620,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     .sort(comparePlayers);
   const viewerPlayer = viewerPlayerId ? state.players[viewerPlayerId] : null;
 
-  const currentGame = pickCurrentGame(scopedGames, now);
+  const currentGame = pickCurrentGame(allGames, now);
   const buildGameDayView = (game) => {
     const aggregation = buildGameAggregation(state, game.id);
     const status = getGameStatus(game, now);
@@ -682,7 +681,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
   };
 
   const currentGameView = currentGame ? buildGameDayView(currentGame) : null;
-  const gameDays = scopedGames
+  const gameDays = allGames
     .slice(-2)
     .map((game) => buildGameDayView(game))
     .sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt));
@@ -698,7 +697,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     viewerCanCreateGames: Boolean(viewerPlayer?.privateChatId),
     currentGame: currentGameView,
     gameDays,
-    games: buildGamesView(state, scopedGames, playerCards, now),
+    games: buildGamesView(state, allGames, playerCards, now),
     players: playerCards,
     availablePlayers
   };

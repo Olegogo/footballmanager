@@ -79,19 +79,26 @@ export class TelegramBot {
     const publicUrl = this.buildMiniAppUrl(chatId);
     const directMiniAppLink = this.buildMainMiniAppLink(chatId);
 
-    if (chatType !== 'private') {
-      const url = directMiniAppLink || publicUrl;
-
-      if (!url) {
-        return undefined;
-      }
-
+    if (directMiniAppLink) {
       return {
         inline_keyboard: [
           [
             {
               text: buttonText,
-              url
+              url: directMiniAppLink
+            }
+          ]
+        ]
+      };
+    }
+
+    if (chatType !== 'private' && publicUrl) {
+      return {
+        inline_keyboard: [
+          [
+            {
+              text: buttonText,
+              url: publicUrl
             }
           ]
         ]
@@ -114,6 +121,10 @@ export class TelegramBot {
         ]
       ]
     };
+  }
+
+  buildMiniAppButton(chatType = 'private', chatId = '', buttonText = 'Открыть миниапп') {
+    return this.buildMiniAppKeyboard(chatType, chatId, buttonText)?.inline_keyboard?.[0]?.[0] ?? null;
   }
 
   getMiniAppFallbackUrl(chatId = '') {
@@ -263,39 +274,21 @@ export class TelegramBot {
   }
 
   buildManualInviteKeyboard(chatId, gameId) {
-    const miniAppUrl = this.buildMiniAppUrl(chatId);
+    const miniAppButton = this.buildMiniAppButton('private', chatId, 'К игре');
+    const inlineKeyboard = [];
 
-    if (!miniAppUrl) {
-      return {
-        inline_keyboard: [
-          [
-            {
-              text: 'Не смогу',
-              callback_data: `decline_game:${gameId}`
-            }
-          ]
-        ]
-      };
+    if (miniAppButton) {
+      inlineKeyboard.push([miniAppButton]);
     }
 
-    return {
-      inline_keyboard: [
-        [
-          {
-            text: 'К игре',
-            web_app: {
-              url: miniAppUrl
-            }
-          }
-        ],
-        [
-          {
-            text: 'Не смогу',
-            callback_data: `decline_game:${gameId}`
-          }
-        ]
-      ]
-    };
+    inlineKeyboard.push([
+      {
+        text: 'Не смогу',
+        callback_data: `decline_game:${gameId}`
+      }
+    ]);
+
+    return { inline_keyboard: inlineKeyboard };
   }
 
   formatGameInvite(game) {
