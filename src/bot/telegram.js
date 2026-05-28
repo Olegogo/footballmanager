@@ -97,7 +97,22 @@ export class TelegramBot {
     const publicUrl = this.buildMiniAppUrl(chatId);
     const directMiniAppLink = this.buildMainMiniAppLink(chatId);
 
-    if (directMiniAppLink) {
+    if (chatType === 'private' && publicUrl) {
+      return {
+        inline_keyboard: [
+          [
+            {
+              text: buttonText,
+              web_app: {
+                url: publicUrl
+              }
+            }
+          ]
+        ]
+      };
+    }
+
+    if (chatType !== 'private' && directMiniAppLink) {
       return {
         inline_keyboard: [
           [
@@ -128,14 +143,14 @@ export class TelegramBot {
     }
 
     return {
-        inline_keyboard: [
-          [
-            {
-              text: buttonText,
-              web_app: {
-                url: publicUrl
-              }
+      inline_keyboard: [
+        [
+          {
+            text: buttonText,
+            web_app: {
+              url: publicUrl
             }
+          }
         ]
       ]
     };

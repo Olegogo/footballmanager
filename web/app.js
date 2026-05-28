@@ -118,6 +118,7 @@ const modalRoot = document.getElementById('modalRoot');
 const toastNode = document.getElementById('toast');
 let refreshTimer = null;
 let countdownTimer = null;
+let lastAuthError = '';
 
 function storageKey() {
   return 'fifa-miniapp-token:global';
@@ -213,21 +214,30 @@ async function api(path, options = {}) {
 
 async function authenticateTelegram() {
   if (!tg?.initData) {
+    lastAuthError = 'Telegram не передал initData. Открой приложение кнопкой бота в личке, не обычной ссылкой.';
     return false;
   }
 
-  const data = await api('/api/auth/telegram', {
-    method: 'POST',
-    body: {
-      chatId: state.chatId,
-      initData: tg.initData
-    }
-  });
+  let data = null;
+
+  try {
+    data = await api('/api/auth/telegram', {
+      method: 'POST',
+      body: {
+        chatId: state.chatId,
+        initData: tg.initData
+      }
+    });
+  } catch (error) {
+    lastAuthError = `Telegram-авторизация не прошла: ${error.message}`;
+    return false;
+  }
 
   state.token = data.token;
   state.snapshot = data.snapshot;
   state.chatId = state.chatId || data.snapshot?.chat?.id || '';
   localStorage.setItem(storageKey(), state.token);
+  lastAuthError = '';
   return true;
 }
 
@@ -1868,7 +1878,7 @@ document.addEventListener('click', async (event) => {
       const authenticated = await authenticateTelegram().catch(() => false);
 
       if (!authenticated) {
-        showToast('Открой miniapp из Telegram, чтобы создать игру');
+        showToast(lastAuthError || 'Открой miniapp из Telegram, чтобы создать игру');
         return;
       }
     }

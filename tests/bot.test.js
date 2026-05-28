@@ -175,7 +175,7 @@ test('/start sends onboarding copy with app button', async () => {
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть приложение');
 });
 
-test('/start uses the main miniapp link when bot username is known', async () => {
+test('/start uses direct web_app url in private chats', async () => {
   const { store } = createBotStore([]);
   const bot = new TelegramBot({
     telegramBotToken: 'token',
@@ -199,11 +199,11 @@ test('/start uses the main miniapp link when bot username is known', async () =>
   });
 
   assert.equal(sent.length, 1);
+  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].url, undefined);
   assert.equal(
-    sent[0].options.replyMarkup.inline_keyboard[0][0].url,
-    'https://t.me/football_test_bot?startapp=chat_-1001'
+    sent[0].options.replyMarkup.inline_keyboard[0][0].web_app.url,
+    'https://app.example/?chatId=-1001'
   );
-  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].web_app, undefined);
 });
 
 test('buildManualInviteKeyboard uses the same main miniapp entry when possible', () => {
@@ -217,7 +217,8 @@ test('buildManualInviteKeyboard uses the same main miniapp entry when possible',
   const keyboard = bot.buildManualInviteKeyboard('-1009', 'game_9');
 
   assert.equal(keyboard.inline_keyboard[0][0].text, 'К игре');
-  assert.equal(keyboard.inline_keyboard[0][0].url, 'https://t.me/football_test_bot?startapp=chat_-1009');
+  assert.equal(keyboard.inline_keyboard[0][0].url, undefined);
+  assert.equal(keyboard.inline_keyboard[0][0].web_app.url, 'https://app.example/?chatId=-1009');
   assert.equal(keyboard.inline_keyboard[1][0].callback_data, 'decline_game:game_9');
 });
 
