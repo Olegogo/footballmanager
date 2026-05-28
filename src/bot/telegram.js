@@ -98,9 +98,30 @@ export class TelegramBot {
     return url.toString();
   }
 
+  buildTelegramLoginUrl(chatId = '', options = {}) {
+    const baseUrl = normalizeHttpUrl(this.config.publicBaseUrl);
+
+    if (!baseUrl) {
+      return '';
+    }
+
+    const url = new URL('/auth/telegram-login', baseUrl);
+
+    if (chatId) {
+      url.searchParams.set('chatId', String(chatId));
+    }
+
+    if (options.initialView) {
+      url.searchParams.set('view', options.initialView);
+    }
+
+    return url.toString();
+  }
+
   buildMiniAppKeyboard(chatType = 'private', chatId = '', buttonText = 'Открыть миниапп', options = {}) {
     const publicUrl = this.buildMiniAppUrl(chatId, options);
     const directMiniAppLink = this.buildMainMiniAppLink(chatId, options);
+    const loginUrl = this.buildTelegramLoginUrl(chatId, options);
 
     if (chatType === 'private' && publicUrl) {
       return {
@@ -117,7 +138,23 @@ export class TelegramBot {
       };
     }
 
-    if (chatType !== 'private' && directMiniAppLink) {
+    if (chatType !== 'private' && loginUrl) {
+      return {
+        inline_keyboard: [
+          [
+            {
+              text: buttonText,
+              login_url: {
+                url: loginUrl,
+                request_write_access: true
+              }
+            }
+          ]
+        ]
+      };
+    }
+
+    if (directMiniAppLink) {
       return {
         inline_keyboard: [
           [
@@ -130,35 +167,7 @@ export class TelegramBot {
       };
     }
 
-    if (chatType !== 'private' && publicUrl) {
-      return {
-        inline_keyboard: [
-          [
-            {
-              text: buttonText,
-              url: publicUrl
-            }
-          ]
-        ]
-      };
-    }
-
-    if (!publicUrl) {
-      return undefined;
-    }
-
-    return {
-      inline_keyboard: [
-        [
-          {
-            text: buttonText,
-            web_app: {
-              url: publicUrl
-            }
-          }
-        ]
-      ]
-    };
+    return undefined;
   }
 
   buildMiniAppButton(chatType = 'private', chatId = '', buttonText = 'Открыть миниапп', options = {}) {
@@ -172,7 +181,7 @@ export class TelegramBot {
       return publicUrl || this.buildMainMiniAppLink(chatId, options) || '';
     }
 
-    return this.buildMainMiniAppLink(chatId, options) || publicUrl || '';
+    return publicUrl || this.buildMainMiniAppLink(chatId, options) || '';
   }
 
   async sendMiniAppEntry(chatId, chatType, targetChatId, options = {}) {

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { TelegramBot } from './bot/telegram.js';
 import { config } from './config.js';
 import { isSuperAdminPlayer } from './lib/admins.js';
-import { verifyTelegramInitData } from './lib/auth.js';
+import { verifyTelegramInitData, verifyTelegramLoginData } from './lib/auth.js';
 import { AppStore } from './lib/store.js';
 import { getBearerToken, notFound, readJsonBody, sendJson, sendText, serveStaticFile, setCorsHeaders } from './lib/utils.js';
 
@@ -28,6 +28,27 @@ function getViewerSession(req) {
 
 function getGlobalSnapshot(viewerPlayerId = null) {
   return store.getSnapshot(GLOBAL_SNAPSHOT_CHAT_ID, viewerPlayerId);
+}
+
+function redirect(res, location) {
+  res.writeHead(302, {
+    Location: location,
+    'Cache-Control': 'no-store'
+  });
+  res.end();
+}
+
+function buildAppUrl(req, params = {}) {
+  const baseUrl = config.publicBaseUrl || `https://${req.headers.host || ''}`;
+  const appUrl = new URL(baseUrl);
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      appUrl.searchParams.set(key, String(value));
+    }
+  }
+
+  return appUrl.toString();
 }
 
 function isFootballChat(chat) {
@@ -80,6 +101,46 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
       serveStaticFile(res, path.join(config.webDir, 'index.html'));
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/auth/telegram-login') {
+      const auth = verifyTelegramLoginData(
+        url.searchParams,
+        config.telegramBotToken,
+        config.authMaxAgeSeconds
+      );
+      const chatId = String(url.searchParams.get('chatId') || config.defaultChatId || '');
+      const view = url.searchParams.get('view') || '';
+
+      if (!auth.ok) {
+        redirect(res, buildAppUrl(req, {
+          chatId,
+          view,
+          authError: auth.reason
+        }));
+        return;
+      }
+
+      const privateChatId = String(auth.user.id);
+      let player = await store.rememberTelegramUser(privateChatId, auth.user, {
+        photoUrl: auth.user.photo_url ?? '',
+        chatType: 'private'
+      });
+
+      if (chatId && chatId !== privateChatId) {
+        player = await store.rememberTelegramUser(chatId, auth.user, {
+          photoUrl: auth.user.photo_url ?? '',
+          chatType: 'supergroup'
+        });
+      }
+
+      const token = await store.createSession(player.id, GLOBAL_SNAPSHOT_CHAT_ID);
+      redirect(res, buildAppUrl(req, {
+        chatId,
+        view,
+        session: token
+      }));
       return;
     }
 

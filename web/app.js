@@ -148,6 +148,20 @@ function storageKey() {
   return 'fifa-miniapp-token:global';
 }
 
+function consumeSessionTokenFromUrl() {
+  const url = new URL(window.location.href);
+  const sessionToken = url.searchParams.get('session') || '';
+  const authError = url.searchParams.get('authError') || '';
+
+  if (sessionToken || authError) {
+    url.searchParams.delete('session');
+    url.searchParams.delete('authError');
+    window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  return { sessionToken, authError };
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -888,13 +902,14 @@ function renderGamePlayerRow(player) {
       <div class="game-player-main">
         <strong>${escapeHtml(player.displayName)}</strong>
         <span>${escapeHtml(positionLabel === '—' ? 'Позиция не выбрана' : positionLabel)}</span>
-        ${isUnrated ? '<span class="game-player-unrated">Не оценён</span>' : ''}
       </div>
       ${
         ratingLabel
           ? `<div class="game-player-rating">${escapeHtml(ratingLabel)}</div>`
           : player.canRateTarget
             ? `<button type="button" class="primary-button game-player-action" data-open-player="${escapeHtml(player.id)}">Оценить</button>`
+            : isUnrated
+              ? '<div class="game-player-unrated">Не оценён</div>'
             : ''
       }
     </article>
@@ -2266,11 +2281,21 @@ async function init() {
   }
 
   state.token = localStorage.getItem(storageKey()) || '';
+  const { sessionToken, authError } = consumeSessionTokenFromUrl();
+
+  if (sessionToken) {
+    state.token = sessionToken;
+    localStorage.setItem(storageKey(), sessionToken);
+  }
 
   try {
-    const authenticated = await authenticateTelegram().catch(() => false);
-    if (!authenticated) {
+    if (sessionToken) {
       await loadSnapshot();
+    } else {
+      const authenticated = await authenticateTelegram().catch(() => false);
+      if (!authenticated) {
+        await loadSnapshot();
+      }
     }
   } catch (error) {
     contentNode.innerHTML = `<section class="empty-state"><h2>Ошибка</h2><p>${escapeHtml(error.message)}</p></section>`;
@@ -2278,6 +2303,9 @@ async function init() {
   }
 
   render();
+  if (authError) {
+    showToast(`Telegram-авторизация не прошла: ${authError}`);
+  }
   setupAutoRefresh();
 }
 
