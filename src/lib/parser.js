@@ -23,6 +23,10 @@ const TIME_REGEX = /\b([01]?\d|2[0-3]):([0-5]\d)\b/;
 const PLAYER_LINE_REGEX = /^\s*(?:(?:\d{1,2}\.)|[-•])?\s*@([A-Za-z0-9_]{3,32})\b/;
 const REQUIRED_PAYMENT_PHONE = '89295991499';
 
+function formatDateLabel(dateMatch) {
+  return `${Number(dateMatch[2])} ${dateMatch[3].toLowerCase()}`;
+}
+
 export function flattenTelegramExportText(text) {
   if (typeof text === 'string') {
     return text;
@@ -161,13 +165,14 @@ export function parseAnnouncementText(rawText, referenceDate = new Date()) {
     return null;
   }
 
+  const inlineTimeLocation = timeLine.replace(TIME_REGEX, '').replace(/^[\s.,:;-]+/, '').trim();
   const location = headerLines.find((line) => {
     if (line === dateLine || line === timeLine) {
       return false;
     }
 
     return !PLAYER_LINE_REGEX.test(line);
-  }) ?? '';
+  }) ?? inlineTimeLocation;
 
   const footerWithoutPlayers = footerLines.filter((line) => !PLAYER_LINE_REGEX.test(line));
   const priceLine = footerWithoutPlayers.find((line) => /\d/.test(line) && /(р|руб)/i.test(line)) ?? '';
@@ -182,7 +187,7 @@ export function parseAnnouncementText(rawText, referenceDate = new Date()) {
 
   return {
     rawText: String(rawText ?? '').trim(),
-    dateLabel: dateLine,
+    dateLabel: formatDateLabel(dateMatch),
     location,
     timeLabel: timeMatch[0],
     priceLine,

@@ -12,6 +12,21 @@ const FALLBACK_STATS = {
   passing: 50,
   physical: 50
 };
+const DATE_LABEL_MONTHS = [
+  'января',
+  'февраля',
+  'марта',
+  'апреля',
+  'мая',
+  'июня',
+  'июля',
+  'августа',
+  'сентября',
+  'октября',
+  'ноября',
+  'декабря'
+];
+const DATE_LABEL_REGEX = new RegExp(`\\b(\\d{1,2})\\s+(${DATE_LABEL_MONTHS.join('|')})\\b`, 'i');
 
 function compareByDate(left, right) {
   return new Date(left.scheduledAt) - new Date(right.scheduledAt);
@@ -186,9 +201,7 @@ function getPlayersForChatIds(state, chatIds) {
 }
 
 function getSelectablePlayers(state) {
-  return Object.values(state.players).filter((player) =>
-    (player.chatIds ?? []).some((chatId) => state.chats[chatId]?.type !== 'private')
-  );
+  return Object.values(state.players);
 }
 
 export function getGamesForChat(state, chatId) {
@@ -419,6 +432,17 @@ function getGameStatus(game, now) {
   return 'live';
 }
 
+function normalizeDateLabel(dateLabel = '') {
+  const normalized = String(dateLabel || '').replaceAll(',', ' ');
+  const match = normalized.match(DATE_LABEL_REGEX);
+
+  if (!match) {
+    return String(dateLabel || '');
+  }
+
+  return `${Number(match[1])} ${match[2].toLowerCase()}`;
+}
+
 function buildGamesView(state, games, playerCards, now) {
   const mvpIndex = buildGameMvpIndexForGames(state, games, now);
   const playersById = new Map(playerCards.map((player) => [player.id, player]));
@@ -465,7 +489,7 @@ function buildGamesView(state, games, playerCards, now) {
 
       return {
         id: game.id,
-        dateLabel: game.dateLabel,
+        dateLabel: normalizeDateLabel(game.dateLabel),
         location: game.location,
         time: game.time,
         scheduledAt: game.scheduledAt,
@@ -495,35 +519,17 @@ function buildGamesView(state, games, playerCards, now) {
     .sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt));
 }
 
-function getSnapshotChatIds(state, chatId, viewerPlayerId = null) {
-  const requestedChatId = String(chatId);
-  const requestedChat = state.chats[requestedChatId];
-  const viewerPlayer = viewerPlayerId ? state.players[viewerPlayerId] : null;
-  const chatIds = new Set();
+function getSnapshotChatIds(state, chatId) {
+  const footballChatIds = Object.values(state.chats)
+    .filter((chat) => chat.type !== 'private')
+    .map((chat) => String(chat.id));
 
-  if (requestedChat && requestedChat.type !== 'private') {
-    chatIds.add(requestedChatId);
+  if (footballChatIds.length) {
+    return footballChatIds;
   }
 
-  if (viewerPlayer) {
-    for (const playerChatId of viewerPlayer.chatIds ?? []) {
-      const chat = state.chats[playerChatId];
-
-      if (chat && chat.type !== 'private') {
-        chatIds.add(String(playerChatId));
-      }
-    }
-  }
-
-  if (!chatIds.size && requestedChat?.type === 'private') {
-    for (const chat of Object.values(state.chats)) {
-      if (chat.type !== 'private') {
-        chatIds.add(String(chat.id));
-      }
-    }
-  }
-
-  return [...chatIds];
+  const requestedChat = state.chats[String(chatId)];
+  return requestedChat && requestedChat.type !== 'private' ? [String(chatId)] : [];
 }
 
 function pickCurrentGame(games, now = new Date()) {
@@ -545,7 +551,7 @@ function pickCurrentGame(games, now = new Date()) {
 export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = new Date()) {
   const chat = state.chats[String(chatId)];
 
-  const scopedChatIds = getSnapshotChatIds(state, chatId, viewerPlayerId);
+  const scopedChatIds = getSnapshotChatIds(state, chatId);
 
   if (!chat && !scopedChatIds.length) {
     return {
@@ -562,7 +568,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
   }
 
   const scopedGames = getGamesForChatIds(state, scopedChatIds);
-  const players = getPlayersForChatIds(state, scopedChatIds);
+  const players = Object.values(state.players);
   const globalCareer = buildGlobalCareerIndex(state, now);
   const latestMvp = getLatestMvpForGames(state, scopedGames, now);
   const buildPlayerCard = (player, playerCareer, isMvp = false) => {
@@ -629,7 +635,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
 
     return {
       id: game.id,
-      dateLabel: game.dateLabel,
+      dateLabel: normalizeDateLabel(game.dateLabel),
       location: game.location,
       time: game.time,
       scheduledAt: game.scheduledAt,

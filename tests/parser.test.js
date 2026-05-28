@@ -31,6 +31,7 @@ test('parseAnnouncementText extracts date, location, time and players', () => {
   const parsed = parseAnnouncementText(text, new Date('2026-05-17T10:00:00+04:00'));
 
   assert.ok(parsed);
+  assert.equal(parsed.dateLabel, '17 мая');
   assert.equal(parsed.location, 'Полежаевская');
   assert.equal(parsed.time, '19:30');
   assert.equal(parsed.date, '2026-05-17');
@@ -85,6 +86,31 @@ ${requiredPaymentBlock()}
   assert.equal(parsed.time, '19:30');
   assert.equal(parsed.playerUsernames.length, 6);
   assert.deepEqual(parsed.playerUsernames.slice(0, 3), ['guttt', 'gutoperchivyi', 'o_legacy']);
+});
+
+test('parseAnnouncementText removes weekday when it follows the date', () => {
+  const text = `
+30 мая, суббота
+
+16:00. Поле 10
+
+1. @teterko
+2. @Mot0strelok
+3. @AlekseyYaselsky
+4. @O_legacy
+5. @alex_leb999
+6. @totArkady
+
+1000р
+89295991499
+Альфа, Тинь, Сбер
+  `;
+  const parsed = parseAnnouncementText(text, new Date('2026-05-27T10:00:00+03:00'));
+
+  assert.ok(parsed);
+  assert.equal(parsed.dateLabel, '30 мая');
+  assert.equal(parsed.location, 'Поле 10');
+  assert.equal(parsed.time, '16:00');
 });
 
 test('parseAnnouncementText ignores messages without required payment block', () => {

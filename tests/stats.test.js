@@ -377,6 +377,14 @@ test('buildChatSnapshot merges viewer games and career ratings across football c
         username: '',
         currentGameId: 'game_future',
         playerIds: ['player_1', 'player_3']
+      },
+      '777': {
+        id: '777',
+        title: 'Oleg private',
+        type: 'private',
+        username: '',
+        currentGameId: null,
+        playerIds: ['player_4']
       }
     },
     players: {
@@ -413,6 +421,18 @@ test('buildChatSnapshot merges viewer games and career ratings across football c
         photoUrl: '',
         defaultPosition: 'N/A',
         chatIds: ['-2002']
+      },
+      player_4: {
+        id: 'player_4',
+        telegramUserId: 4,
+        username: 'private_only',
+        displayName: 'Private Only',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        privateChatId: '777',
+        chatIds: ['777']
       }
     },
     games: {
@@ -459,4 +479,12 @@ test('buildChatSnapshot merges viewer games and career ratings across football c
   assert.equal(player.overall, 78);
   assert.equal(player.position, 'ST');
   assert.equal(player.ratedGames, 1);
+  assert.ok(snapshot.players.some((item) => item.id === 'player_4'));
+  assert.ok(snapshot.availablePlayers.some((item) => item.id === 'player_4'));
+
+  const privateSnapshot = buildChatSnapshot(state, '777', 'player_4', new Date('2026-05-27T12:00:00.000Z'));
+  assert.equal(privateSnapshot.currentGame.id, 'game_future');
+  assert.equal(privateSnapshot.players.find((item) => item.id === 'player_1').overall, 78);
+  assert.ok(privateSnapshot.games.some((game) => game.id === 'game_old'));
+  assert.ok(privateSnapshot.games.some((game) => game.id === 'game_future'));
 });

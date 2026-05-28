@@ -59,6 +59,8 @@ const GAME_FILTERS = [
   { key: 'current', label: 'Текущие' },
   { key: 'finished', label: 'Завершенные' }
 ];
+const MONTH_NAME_PATTERN = 'января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря';
+const GAME_DATE_REGEX = new RegExp(`\\b(\\d{1,2})\\s+(${MONTH_NAME_PATTERN})\\b`, 'i');
 function readChatIdFromStartParam() {
   const urlChatId = new URLSearchParams(window.location.search).get('chatId') || '';
   const startParam =
@@ -381,10 +383,10 @@ function getPlayerOverallLabel(player, currentStats = null) {
 }
 
 function getGameDateShort(dateLabel = '') {
-  const parts = String(dateLabel).trim().split(/\s+/).filter(Boolean);
+  const match = String(dateLabel || '').replaceAll(',', ' ').match(GAME_DATE_REGEX);
 
-  if (parts.length >= 3 && /^\D+$/.test(parts[0]) && /^\d{1,2}$/.test(parts[1])) {
-    return parts.slice(1).join(' ');
+  if (match) {
+    return `${Number(match[1])} ${match[2].toLowerCase()}`;
   }
 
   return String(dateLabel || '');
@@ -681,7 +683,7 @@ function renderGameHeader(game) {
     <section class="panel">
       <div class="game-summary">
         <div>
-          <h2>${escapeHtml(game.dateLabel)}</h2>
+          <h2>${escapeHtml(getGameDateShort(game.dateLabel))}</h2>
           <p class="game-location">${escapeHtml(game.location || 'Не указано')}</p>
         </div>
         <span class="status-pill ${escapeHtml(game.status)}">${escapeHtml(statusText)}</span>
@@ -921,12 +923,14 @@ function getManualSelectedPlayers() {
 
 function getManualFilteredPlayers() {
   const query = normalizeUsername(state.manualPlayerSearch).replace(/\s+/g, '');
+  const selectedIds = new Set(state.manualGameDraft.playerIds);
+  const availablePlayers = getAvailablePlayers().filter((player) => !selectedIds.has(player.id));
 
   if (!query) {
-    return getAvailablePlayers();
+    return availablePlayers;
   }
 
-  return getAvailablePlayers().filter((player) => {
+  return availablePlayers.filter((player) => {
     const username = normalizeUsername(player.username);
     const displayName = normalizeUsername(player.displayName).replace(/\s+/g, '');
     return username.includes(query) || displayName.includes(query);
@@ -934,15 +938,14 @@ function getManualFilteredPlayers() {
 }
 
 function renderManualPlayerCard(player) {
-  const selected = state.manualGameDraft.playerIds.includes(player.id);
   const rating = getPlayerOverallLabel(player);
   const position = getPositionMeta(player.position).short;
 
   return `
     <button
       type="button"
-      class="manual-player-card ${selected ? 'is-selected' : ''}"
-      data-toggle-manual-player="${escapeHtml(player.id)}"
+      class="manual-player-card"
+      data-add-manual-player="${escapeHtml(player.id)}"
     >
       <span class="game-player-avatar">${renderMiniAvatar(player)}</span>
       <span class="manual-player-info">
@@ -968,7 +971,7 @@ function renderManualSelectedPlayers() {
     <div class="manual-selected-row">
       ${selectedPlayers
         .map((player) => `
-          <button type="button" class="manual-selected-chip" data-toggle-manual-player="${escapeHtml(player.id)}">
+          <button type="button" class="manual-selected-chip" data-remove-manual-player="${escapeHtml(player.id)}">
             <span>${escapeHtml(player.displayName)}</span>
             <strong>×</strong>
           </button>
@@ -1854,29 +1857,44 @@ document.addEventListener('click', (event) => {
   const manualSearchInput = event.target.closest('[data-manual-player-search]');
 
   if (manualSearchInput) {
-    state.manualPlayerPickerOpen = true;
-    renderModal();
-    setTimeout(() => {
-      document.querySelector('[data-manual-player-search]')?.focus();
-    }, 0);
+    if (!state.manualPlayerPickerOpen) {
+      state.manualPlayerPickerOpen = true;
+      renderModal();
+      setTimeout(() => {
+        document.querySelector('[data-manual-player-search]')?.focus();
+      }, 0);
+    }
     return;
   }
 
-  const manualPlayerButton = event.target.closest('[data-toggle-manual-player]');
+  const removeManualPlayerButton = event.target.closest('[data-remove-manual-player]');
+
+  if (removeManualPlayerButton) {
+    const form = document.getElementById('manualGameForm');
+    saveManualGameDraft(form);
+    const playerId = removeManualPlayerButton.dataset.removeManualPlayer;
+    const selected = new Set(state.manualGameDraft.playerIds);
+    selected.delete(playerId);
+    state.manualGameDraft.playerIds = [...selected];
+    renderModal();
+    return;
+  }
+
+  const manualPlayerButton = event.target.closest('[data-add-manual-player]');
 
   if (manualPlayerButton) {
     const form = document.getElementById('manualGameForm');
     saveManualGameDraft(form);
-    const playerId = manualPlayerButton.dataset.toggleManualPlayer;
+    const playerId = manualPlayerButton.dataset.addManualPlayer;
     const selected = new Set(state.manualGameDraft.playerIds);
 
-    if (selected.has(playerId)) {
-      selected.delete(playerId);
-    } else {
+    if (!selected.has(playerId)) {
       selected.add(playerId);
     }
 
     state.manualGameDraft.playerIds = [...selected];
+    state.manualPlayerSearch = '';
+    state.manualPlayerPickerOpen = false;
     renderModal();
     return;
   }
