@@ -645,3 +645,87 @@ test('buildChatSnapshot lets O_legacy manage any game', () => {
 
   assert.equal(snapshot.currentGame.canViewerManage, true);
 });
+
+test('buildChatSnapshot finalizes ratings when a started game is closed by the next game', () => {
+  const state = {
+    version: 1,
+    meta: {},
+    chats: {
+      '-1001': {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        username: '',
+        currentGameId: 'game_next',
+        playerIds: ['player_1', 'player_2']
+      }
+    },
+    players: {
+      player_1: {
+        id: 'player_1',
+        telegramUserId: 1,
+        username: 'oleg',
+        displayName: 'Oleg',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001']
+      },
+      player_2: {
+        id: 'player_2',
+        telegramUserId: 2,
+        username: 'rater',
+        displayName: 'Rater',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001']
+      }
+    },
+    games: {
+      game_closed: {
+        id: 'game_closed',
+        chatId: '-1001',
+        dateLabel: '28 мая',
+        location: 'Старое поле',
+        time: '10:00',
+        scheduledAt: '2026-05-28T07:00:00.000Z',
+        closedAt: '2026-05-28T08:30:00.000Z',
+        playerIds: ['player_1', 'player_2'],
+        paymentLines: [],
+        priceLine: ''
+      },
+      game_next: {
+        id: 'game_next',
+        chatId: '-1001',
+        dateLabel: '29 мая',
+        location: 'Новое поле',
+        time: '16:00',
+        scheduledAt: '2026-05-29T13:00:00.000Z',
+        playerIds: ['player_1', 'player_2'],
+        paymentLines: [],
+        priceLine: ''
+      }
+    },
+    ratings: {
+      rating_1: {
+        id: 'rating_1',
+        chatId: '-1001',
+        gameId: 'game_closed',
+        raterPlayerId: 'player_2',
+        targetPlayerId: 'player_1',
+        ...rating({ overall: 82, position: 'ST', goals: 2 })
+      }
+    }
+  };
+
+  const snapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-28T09:00:00.000Z'));
+  const player = snapshot.players.find((item) => item.id === 'player_1');
+
+  assert.equal(player.ratedGames, 1);
+  assert.equal(player.overall, 82);
+  assert.equal(snapshot.games.find((game) => game.id === 'game_closed').status, 'finished');
+  assert.deepEqual(snapshot.gameDays.map((game) => game.id), ['game_next', 'game_closed']);
+});

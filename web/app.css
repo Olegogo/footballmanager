@@ -586,6 +586,25 @@ p {
   border-bottom: 0;
 }
 
+.field-empty {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: min(82%, 360px);
+  transform: translate(-50%, -50%);
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: rgba(5, 17, 11, 0.82);
+  border: 1px solid rgba(255, 231, 165, 0.24);
+  color: rgba(255, 247, 220, 0.86);
+  font-weight: 900;
+  line-height: 1.35;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(12px);
+}
+
 .field-team {
   position: absolute;
   inset: 0;
@@ -1185,6 +1204,14 @@ input[type="range"] {
   gap: 12px;
 }
 
+.create-game-details .game-summary {
+  margin-bottom: 12px;
+}
+
+.create-game-details .game-summary h2 {
+  font-size: 25px;
+}
+
 .manual-fields {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -1196,6 +1223,11 @@ input[type="range"] {
 .manual-fields label {
   display: grid;
   gap: 7px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .manual-fields span {
@@ -1206,11 +1238,14 @@ input[type="range"] {
 
 .manual-fields input {
   width: 100%;
-  border: 1px solid rgba(241, 207, 114, 0.34);
-  border-radius: 16px;
-  padding: 14px 15px;
-  background: rgba(255, 255, 255, 0.06);
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 0 0;
+  background: transparent;
   color: var(--text);
+  font-size: 18px;
+  font-weight: 900;
+  outline: none;
 }
 
 .manual-section-title {
@@ -1341,6 +1376,14 @@ input[type="range"] {
 
 .manual-preview-empty {
   box-shadow: none;
+}
+
+.manual-field-panel {
+  padding: 14px;
+}
+
+.manual-field-panel .field {
+  min-height: 560px;
 }
 
 .manual-submit {
@@ -1896,15 +1939,15 @@ input[type="range"] {
 
   .manual-fields input {
     min-width: 0;
-    border-radius: 14px;
-    padding: 11px 9px;
-    font-size: 14px;
+    border-radius: 0;
+    padding: 8px 0 0;
+    font-size: 16px;
   }
 
   .manual-fields input[type="date"],
   .manual-fields input[type="time"] {
-    padding-inline: 7px;
-    font-size: 13px;
+    padding-inline: 0;
+    font-size: 15px;
   }
 
   .notice-banner--rating-live {

@@ -38,11 +38,22 @@ function getRatingWindowEnd(game) {
 }
 
 export function isRatingWindowOpen(game, now = new Date()) {
+  if (game?.closedAt) {
+    return false;
+  }
+
   const scheduledAt = new Date(game.scheduledAt);
   return now >= scheduledAt && now < getRatingWindowEnd(game);
 }
 
 function isFinalizedForCareer(game, now = new Date()) {
+  const scheduledAt = new Date(game.scheduledAt);
+  const closedAt = game.closedAt ? new Date(game.closedAt) : null;
+
+  if (closedAt && closedAt >= scheduledAt) {
+    return true;
+  }
+
   return now >= getRatingWindowEnd(game);
 }
 
@@ -426,6 +437,10 @@ function getGameStatus(game, now) {
     return 'upcoming';
   }
 
+  if (game.closedAt) {
+    return 'finished';
+  }
+
   if (now >= finishedAt) {
     return 'finished';
   }
@@ -547,6 +562,30 @@ function pickCurrentGame(games, now = new Date()) {
   }
 
   return [...games].sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt))[0];
+}
+
+function pickGameDayGames(games, currentGame, now = new Date()) {
+  const selected = [];
+  const addGame = (game) => {
+    if (game && !selected.some((item) => item.id === game.id)) {
+      selected.push(game);
+    }
+  };
+  const byNewest = [...games].sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt));
+  const latestFinished = byNewest.find((game) => getGameStatus(game, now) === 'finished');
+
+  addGame(currentGame);
+  addGame(latestFinished);
+
+  for (const game of byNewest) {
+    if (selected.length >= 2) {
+      break;
+    }
+
+    addGame(game);
+  }
+
+  return selected.sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt));
 }
 
 export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = new Date()) {
@@ -685,8 +724,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
   };
 
   const currentGameView = currentGame ? buildGameDayView(currentGame) : null;
-  const gameDays = allGames
-    .slice(-2)
+  const gameDays = pickGameDayGames(allGames, currentGame, now)
     .map((game) => buildGameDayView(game))
     .sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt));
 

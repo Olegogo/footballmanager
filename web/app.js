@@ -796,16 +796,19 @@ function renderRatingBanner(game) {
   `;
 }
 
-function renderField(game) {
-  const teams = splitBalancedTeams(game.participants);
+function renderField(game, options = {}) {
+  const participants = game.participants ?? [];
+  const teams = splitBalancedTeams(participants);
+  const emptyMessage = !participants.length ? options.emptyMessage : '';
 
   return `
-    <section class="panel field-panel">
+    <section class="panel field-panel ${options.className ? escapeHtml(options.className) : ''}">
       <div class="field">
         <div class="field-line mid"></div>
         <div class="field-circle"></div>
         <div class="field-box top"></div>
         <div class="field-box bottom"></div>
+        ${emptyMessage ? `<div class="field-empty">${escapeHtml(emptyMessage)}</div>` : ''}
         ${teams
           .map((team) => {
             const assignments = buildTeamFieldAssignments(team.players, team.key);
@@ -1081,20 +1084,15 @@ function refreshManualPlayerPicker() {
 function renderManualFieldPreview() {
   const selectedPlayers = getManualSelectedPlayers();
 
-  if (selectedPlayers.length < 2) {
-    return `
-      <section class="subtle-panel manual-preview-empty">
-        <p>Добавьте игроков, и здесь появится баланс команд и расстановка по позициям.</p>
-      </section>
-    `;
-  }
-
   return renderField({
     participants: selectedPlayers.map((player) => ({
       ...player,
       canRateTarget: false,
       currentGameStats: null
     }))
+  }, {
+    className: 'manual-field-panel',
+    emptyMessage: 'Добавьте игроков, и здесь появится баланс команд и расстановка по позициям.'
   });
 }
 
@@ -1155,37 +1153,47 @@ function renderCreateGameScreen() {
         <button class="create-game-close" type="button" data-close-create-game="true" aria-label="Закрыть">×</button>
       </header>
       <form id="manualGameForm" class="manual-game-form">
-        <div class="manual-fields">
-          <label>
-            <span>Дата</span>
-            <input type="date" name="date" value="${escapeHtml(state.manualGameDraft.date)}" required>
-          </label>
-          <label>
-            <span>Время</span>
-            <input type="time" name="time" value="${escapeHtml(state.manualGameDraft.time)}" required>
-          </label>
-          <label class="manual-field-wide">
-            <span>Место</span>
-            <input type="text" name="location" value="${escapeHtml(state.manualGameDraft.location)}" placeholder="Например: Сокольники, поле 10" required>
-          </label>
-        </div>
-        <div class="manual-section-title">
-          <h3>Игроки</h3>
-          <span>${escapeHtml(state.manualGameDraft.playerIds.length)} выбрано</span>
-        </div>
-        <div class="manual-player-search-wrap">
-          <input
-            type="search"
-            class="manual-player-search"
-            name="playerSearch"
-            value="${escapeHtml(state.manualPlayerSearch)}"
-            placeholder="Поиск по имени или @нику"
-            autocomplete="off"
-            data-manual-player-search="true"
-          >
-          ${renderManualPlayerPicker()}
-        </div>
-        ${renderManualSelectedPlayers()}
+        <section class="panel create-game-details">
+          <div class="game-summary">
+            <div>
+              <h2>Детали игры</h2>
+              <p class="game-location">Дата, время и место матча</p>
+            </div>
+          </div>
+          <div class="manual-fields">
+            <label>
+              <span>Дата</span>
+              <input type="date" name="date" value="${escapeHtml(state.manualGameDraft.date)}" required>
+            </label>
+            <label>
+              <span>Время</span>
+              <input type="time" name="time" value="${escapeHtml(state.manualGameDraft.time)}" required>
+            </label>
+            <label class="manual-field-wide">
+              <span>Место</span>
+              <input type="text" name="location" value="${escapeHtml(state.manualGameDraft.location)}" placeholder="Например: Сокольники, поле 10" required>
+            </label>
+          </div>
+        </section>
+        <section class="panel manual-player-panel">
+          <div class="manual-section-title">
+            <h3>Игроки</h3>
+            <span>${escapeHtml(state.manualGameDraft.playerIds.length)} выбрано</span>
+          </div>
+          <div class="manual-player-search-wrap">
+            <input
+              type="search"
+              class="manual-player-search"
+              name="playerSearch"
+              value="${escapeHtml(state.manualPlayerSearch)}"
+              placeholder="Поиск по имени или @нику"
+              autocomplete="off"
+              data-manual-player-search="true"
+            >
+            ${renderManualPlayerPicker()}
+          </div>
+          ${renderManualSelectedPlayers()}
+        </section>
         ${renderManualFieldPreview()}
         <button type="submit" class="primary-button card-action manual-submit">${isEditing ? 'Сохранить' : 'Создать'}</button>
       </form>
