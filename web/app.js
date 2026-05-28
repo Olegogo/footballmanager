@@ -137,6 +137,10 @@ function normalizeUsername(value = '') {
 }
 
 function getScreenTitle() {
+  if (state.manualGameOpen) {
+    return '';
+  }
+
   if (state.activeTab === 'game') {
     return '';
   }
@@ -343,7 +347,7 @@ function resetManualGameState() {
 function openManualGameCreate() {
   resetManualGameState();
   state.manualGameOpen = true;
-  renderModal();
+  render();
 }
 
 function openManualGameEdit(game) {
@@ -360,7 +364,7 @@ function openManualGameEdit(game) {
     location: game.location || '',
     playerIds: game.participants.map((player) => player.id)
   };
-  renderModal();
+  render();
 }
 
 function getRatingDraftKey(gameId, playerId) {
@@ -1113,6 +1117,10 @@ function renderCreateGameModal() {
     `;
   }
 
+  return '';
+}
+
+function renderCreateGameScreen() {
   if (!state.manualGameOpen) {
     return '';
   }
@@ -1121,47 +1129,47 @@ function renderCreateGameModal() {
   const isEditing = state.manualGameMode === 'edit';
 
   return `
-    <div class="modal-backdrop modal-backdrop--full" data-create-backdrop="true">
-      <section class="modal-card create-game-modal" role="dialog" aria-modal="true" aria-label="${isEditing ? 'Редактировать игру' : 'Создать игру'}">
-        <button class="modal-close" type="button" data-close-create-game="true">×</button>
-        <h2>${isEditing ? 'Редактировать игру' : 'Создать игру'}</h2>
-        <form id="manualGameForm" class="manual-game-form">
-          <div class="manual-fields">
-            <label>
-              <span>Дата</span>
-              <input type="date" name="date" value="${escapeHtml(state.manualGameDraft.date)}" required>
-            </label>
-            <label>
-              <span>Время</span>
-              <input type="time" name="time" value="${escapeHtml(state.manualGameDraft.time)}" required>
-            </label>
-            <label class="manual-field-wide">
-              <span>Место</span>
-              <input type="text" name="location" value="${escapeHtml(state.manualGameDraft.location)}" placeholder="Например: Сокольники, поле 10" required>
-            </label>
-          </div>
-          <div class="manual-section-title">
-            <h3>Игроки</h3>
-            <span>${escapeHtml(state.manualGameDraft.playerIds.length)} выбрано</span>
-          </div>
-          <div class="manual-player-search-wrap">
-            <input
-              type="search"
-              class="manual-player-search"
-              name="playerSearch"
-              value="${escapeHtml(state.manualPlayerSearch)}"
-              placeholder="Поиск по имени или @нику"
-              autocomplete="off"
-              data-manual-player-search="true"
-            >
-            ${renderManualPlayerPicker()}
-          </div>
-          ${renderManualSelectedPlayers()}
-          ${renderManualFieldPreview()}
-          <button type="submit" class="primary-button card-action manual-submit">${isEditing ? 'Сохранить' : 'Создать'}</button>
-        </form>
-      </section>
-    </div>
+    <section class="create-game-screen" aria-label="${isEditing ? 'Редактировать игру' : 'Новая игра'}">
+      <header class="create-game-header">
+        <h2>${isEditing ? 'Редактировать игру' : 'Новая игра'}</h2>
+        <button class="create-game-close" type="button" data-close-create-game="true" aria-label="Закрыть">×</button>
+      </header>
+      <form id="manualGameForm" class="manual-game-form">
+        <div class="manual-fields">
+          <label>
+            <span>Дата</span>
+            <input type="date" name="date" value="${escapeHtml(state.manualGameDraft.date)}" required>
+          </label>
+          <label>
+            <span>Время</span>
+            <input type="time" name="time" value="${escapeHtml(state.manualGameDraft.time)}" required>
+          </label>
+          <label class="manual-field-wide">
+            <span>Место</span>
+            <input type="text" name="location" value="${escapeHtml(state.manualGameDraft.location)}" placeholder="Например: Сокольники, поле 10" required>
+          </label>
+        </div>
+        <div class="manual-section-title">
+          <h3>Игроки</h3>
+          <span>${escapeHtml(state.manualGameDraft.playerIds.length)} выбрано</span>
+        </div>
+        <div class="manual-player-search-wrap">
+          <input
+            type="search"
+            class="manual-player-search"
+            name="playerSearch"
+            value="${escapeHtml(state.manualPlayerSearch)}"
+            placeholder="Поиск по имени или @нику"
+            autocomplete="off"
+            data-manual-player-search="true"
+          >
+          ${renderManualPlayerPicker()}
+        </div>
+        ${renderManualSelectedPlayers()}
+        ${renderManualFieldPreview()}
+        <button type="submit" class="primary-button card-action manual-submit">${isEditing ? 'Сохранить' : 'Создать'}</button>
+      </form>
+    </section>
   `;
 }
 
@@ -1603,7 +1611,7 @@ function renderModal() {
 
 function syncTabbar() {
   document.querySelectorAll('.tab-button').forEach((button) => {
-    const activeTab = state.activeTab === 'game' ? '' : state.activeTab;
+    const activeTab = state.manualGameOpen || state.activeTab === 'game' ? '' : state.activeTab;
     button.classList.toggle('active', button.dataset.tab === activeTab);
   });
 }
@@ -1614,13 +1622,14 @@ function render() {
   topbarNode?.classList.toggle('topbar--titleless', !screenTitle);
   topbarNode?.classList.toggle('topbar--game', state.activeTab === 'game');
   if (gameTopActionsNode) {
-    gameTopActionsNode.hidden = state.activeTab !== 'game';
+    gameTopActionsNode.hidden = state.manualGameOpen || state.activeTab !== 'game';
   }
   if (gameMenuButtonNode) {
     const game = getCurrentGame();
-    gameMenuButtonNode.hidden = !(state.activeTab === 'game' && game?.canViewerManage);
+    gameMenuButtonNode.hidden = state.manualGameOpen || !(state.activeTab === 'game' && game?.canViewerManage);
   }
   appShellNode?.classList.toggle('app-shell--profile', state.activeTab === 'profile');
+  appShellNode?.classList.toggle('app-shell--manual', state.manualGameOpen);
   syncTabbar();
 
   if (!state.snapshot?.chat) {
@@ -1637,7 +1646,7 @@ function render() {
 
   contentNode.innerHTML = `
     ${renderLoginPanel()}
-    ${renderActiveTab()}
+    ${state.manualGameOpen ? renderCreateGameScreen() : renderActiveTab()}
   `;
 
   renderModal();
@@ -1818,6 +1827,10 @@ document.querySelector('.tabbar').addEventListener('click', (event) => {
     return;
   }
 
+  if (state.manualGameOpen) {
+    resetManualGameState();
+  }
+
   state.activeTab = button.dataset.tab;
   if (state.activeTab !== 'game') {
     state.selectedGameId = '';
@@ -1829,7 +1842,7 @@ document.querySelector('.tabbar').addEventListener('click', (event) => {
   render();
 });
 
-document.addEventListener('click', (event) => {
+document.addEventListener('click', async (event) => {
   const editSelfProfileButton = event.target.closest('[data-edit-self-profile]');
 
   if (editSelfProfileButton) {
@@ -1842,8 +1855,12 @@ document.addEventListener('click', (event) => {
 
   if (openCreateButton) {
     if (!state.token) {
-      showToast('Открой miniapp из Telegram, чтобы создать игру');
-      return;
+      const authenticated = await authenticateTelegram().catch(() => false);
+
+      if (!authenticated) {
+        showToast('Открой miniapp из Telegram, чтобы создать игру');
+        return;
+      }
     }
 
     if (!state.snapshot?.viewerCanCreateGames && !state.allowDevLogin) {
@@ -1859,7 +1876,7 @@ document.addEventListener('click', (event) => {
 
   if (closeCreateButton || event.target.matches('[data-create-backdrop]')) {
     resetManualGameState();
-    renderModal();
+    render();
     return;
   }
 

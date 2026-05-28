@@ -88,11 +88,20 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      const chatId = requestedChatId || String(auth.user.id);
-      const player = await store.rememberTelegramUser(chatId, auth.user, {
+      const privateChatId = String(auth.user.id);
+      const chatId = requestedChatId || privateChatId;
+      let player = await store.rememberTelegramUser(privateChatId, auth.user, {
         photoUrl: auth.user.photo_url ?? '',
-        chatType: requestedChatId ? 'supergroup' : 'private'
+        chatType: 'private'
       });
+
+      if (requestedChatId && requestedChatId !== privateChatId) {
+        player = await store.rememberTelegramUser(requestedChatId, auth.user, {
+          photoUrl: auth.user.photo_url ?? '',
+          chatType: 'supergroup'
+        });
+      }
+
       const token = store.createSession(player.id, chatId);
       const snapshot = store.getSnapshot(chatId, player.id);
 

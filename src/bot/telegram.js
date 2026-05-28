@@ -14,6 +14,16 @@ function getMessageText(message) {
   return message?.text || message?.caption || '';
 }
 
+function getReplyTextSourceCandidates(message) {
+  return [
+    message?.reply_to_message,
+    message?.external_reply,
+    message?.external_reply?.message,
+    message?.quote,
+    message?.text_quote
+  ].filter(Boolean);
+}
+
 function stripCommandPayload(text) {
   return String(text ?? '').replace(/^\/[a-z0-9_]+(?:@\w+)?\s*/i, '').trim();
 }
@@ -497,13 +507,15 @@ export class TelegramBot {
       };
     }
 
-    const replyText = getMessageText(message.reply_to_message);
+    for (const candidate of getReplyTextSourceCandidates(message)) {
+      const replyText = getMessageText(candidate);
 
-    if (replyText) {
-      return {
-        rawText: replyText,
-        sourceMessage: message.reply_to_message
-      };
+      if (replyText) {
+        return {
+          rawText: replyText,
+          sourceMessage: candidate
+        };
+      }
     }
 
     return null;
@@ -515,7 +527,7 @@ export class TelegramBot {
     if (!source) {
       await this.sendText(
         message.chat.id,
-        'Пришли /game ответом на анонс игры или отправь /game и текст анонса в одном сообщении.'
+        'Я вижу команду /game, но Telegram не передал мне текст анонса. Скопируй анонс после /game в одном сообщении или отключи Privacy Mode у бота через BotFather.'
       );
       return;
     }

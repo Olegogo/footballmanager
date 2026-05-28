@@ -66,6 +66,14 @@ p {
   gap: 0;
 }
 
+.app-shell--manual .topbar {
+  display: none;
+}
+
+.app-shell--manual .content {
+  gap: 0;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -1135,6 +1143,39 @@ input[type="range"] {
   margin: 2px 46px 16px 0;
   font-size: 30px;
   line-height: 1;
+}
+
+.create-game-screen {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+  padding: 4px 0 18px;
+}
+
+.create-game-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.create-game-header h2 {
+  font-size: clamp(36px, 9vw, 56px);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.create-game-close {
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.92);
+  color: #050906;
+  font-size: 36px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .manual-game-form,
