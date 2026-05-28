@@ -1157,7 +1157,6 @@ function renderCreateGameScreen() {
           <div class="game-summary">
             <div>
               <h2>Детали игры</h2>
-              <p class="game-location">Дата, время и место матча</p>
             </div>
           </div>
           <div class="manual-fields">

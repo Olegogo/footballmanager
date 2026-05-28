@@ -729,3 +729,83 @@ test('buildChatSnapshot finalizes ratings when a started game is closed by the n
   assert.equal(snapshot.games.find((game) => game.id === 'game_closed').status, 'finished');
   assert.deepEqual(snapshot.gameDays.map((game) => game.id), ['game_next', 'game_closed']);
 });
+
+test('buildChatSnapshot includes imported career seed in global player ratings', () => {
+  const state = {
+    version: 1,
+    meta: {},
+    chats: {
+      '-1001': {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        username: '',
+        currentGameId: 'game_next',
+        playerIds: ['player_1', 'player_2']
+      }
+    },
+    players: {
+      player_1: {
+        id: 'player_1',
+        telegramUserId: 1,
+        username: 'oleg',
+        displayName: 'Oleg',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001'],
+        careerSeed: {
+          ratedGames: 1,
+          goals: 3,
+          assists: 2,
+          position: 'ST',
+          stats: {
+            pace: 70,
+            dribbling: 72,
+            shooting: 74,
+            defense: 68,
+            passing: 73,
+            physical: 75
+          }
+        }
+      },
+      player_2: {
+        id: 'player_2',
+        telegramUserId: 2,
+        username: 'teammate',
+        displayName: 'Teammate',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001']
+      }
+    },
+    games: {
+      game_next: {
+        id: 'game_next',
+        chatId: '-1001',
+        dateLabel: '30 мая',
+        location: 'Поле 10',
+        time: '16:00',
+        scheduledAt: '2026-05-30T13:00:00.000Z',
+        playerIds: ['player_1', 'player_2'],
+        paymentLines: [],
+        priceLine: ''
+      }
+    },
+    ratings: {}
+  };
+
+  const snapshot = buildChatSnapshot(state, 'global', 'player_1', new Date('2026-05-29T09:00:00.000Z'));
+  const player = snapshot.players.find((item) => item.id === 'player_1');
+  const gamePlayer = snapshot.currentGame.participants.find((item) => item.id === 'player_1');
+
+  assert.equal(player.ratedGames, 1);
+  assert.equal(player.overall, 72);
+  assert.equal(player.goals, 3);
+  assert.equal(player.assists, 2);
+  assert.equal(player.position, 'ST');
+  assert.equal(gamePlayer.overall, 72);
+});

@@ -132,6 +132,28 @@ function sanitizeProfilePosition(position) {
   return POSITION_OPTIONS.includes(position) ? position : 'N/A';
 }
 
+function sanitizeCareerSeed(player) {
+  const ratedGames = Math.round(clamp(Number(player.ratedGames ?? 0), 0, 10000));
+
+  if (!ratedGames) {
+    return null;
+  }
+
+  const fallbackStat = clamp(Number(player.overall ?? 50), 1, 99);
+
+  return {
+    ratedGames,
+    goals: Math.round(clamp(Number(player.goals ?? 0), 0, 10000)),
+    assists: Math.round(clamp(Number(player.assists ?? 0), 0, 10000)),
+    position: sanitizeProfilePosition(player.position),
+    stats: Object.fromEntries(
+      STAT_KEYS.map((key) => [key, clamp(Number(player.stats?.[key] ?? fallbackStat), 1, 99)])
+    ),
+    source: player.source || 'career-seed-import',
+    updatedAt: new Date().toISOString()
+  };
+}
+
 function isGameEditableBeforeStart(game, now) {
   if (!game) {
     return false;
@@ -887,6 +909,43 @@ export class AppStore {
         importedGames,
         totalFound: items.length
       };
+    });
+  }
+
+  async importCareerSeed({ players }) {
+    if (!Array.isArray(players)) {
+      throw new Error('players must be an array');
+    }
+
+    return this.mutate((state) => {
+      let importedPlayers = 0;
+
+      for (const item of players) {
+        const username = normalizeUsername(item.username);
+        const seed = sanitizeCareerSeed(item);
+
+        if (!username || !seed) {
+          continue;
+        }
+
+        let player = findPlayerByUsername(state, username);
+
+        if (!player) {
+          player = createPlayerRecord(state, username);
+        }
+
+        player.username = username;
+        player.displayName = item.displayName || player.displayName || `@${username}`;
+        player.firstName = item.firstName || player.firstName;
+        player.lastName = item.lastName || player.lastName;
+        player.photoUrl = item.photoUrl || player.photoUrl;
+        player.careerSeed = seed;
+        player.updatedAt = new Date().toISOString();
+        applyPlayerDefaults(player, username);
+        importedPlayers += 1;
+      }
+
+      return { importedPlayers };
     });
   }
 

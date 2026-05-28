@@ -14,18 +14,20 @@ await store.init();
 const bot = new TelegramBot(config, store);
 void bot.startPolling();
 
+const GLOBAL_SNAPSHOT_CHAT_ID = 'global';
+
 setInterval(() => {
   store.cleanupSessions();
   void bot.processPendingRatingPrompts();
 }, config.schedulerIntervalMs).unref();
 
-function getChatIdFromRequest(url) {
-  return url.searchParams.get('chatId') || config.defaultChatId || 'global';
-}
-
 function getViewerSession(req) {
   const token = getBearerToken(req);
   return store.getSession(token);
+}
+
+function getGlobalSnapshot(viewerPlayerId = null) {
+  return store.getSnapshot(GLOBAL_SNAPSHOT_CHAT_ID, viewerPlayerId);
 }
 
 function isFootballChat(chat) {
@@ -92,9 +94,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/bootstrap') {
-      const chatId = getChatIdFromRequest(url);
       const session = getViewerSession(req);
-      const snapshot = store.getSnapshot(chatId, session?.playerId ?? null);
+      const snapshot = getGlobalSnapshot(session?.playerId ?? null);
       sendJson(res, 200, {
         snapshot,
         allowDevLogin: config.allowDevLogin
@@ -131,8 +132,8 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      const token = await store.createSession(player.id, chatId);
-      const snapshot = store.getSnapshot(chatId, player.id);
+      const token = await store.createSession(player.id, GLOBAL_SNAPSHOT_CHAT_ID);
+      const snapshot = getGlobalSnapshot(player.id);
 
       sendJson(res, 200, {
         token,
@@ -156,7 +157,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const result = await store.loginDevUser(chatId, body.username, body.displayName || '');
-      const snapshot = store.getSnapshot(chatId, result.player.id);
+      const snapshot = getGlobalSnapshot(result.player.id);
 
       sendJson(res, 200, {
         token: result.token,
@@ -223,6 +224,25 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'POST' && url.pathname === '/api/admin/import-career-seed') {
+      if (!config.adminImportToken) {
+        sendJson(res, 403, { error: 'Admin import is disabled' });
+        return;
+      }
+
+      if (req.headers['x-admin-token'] !== config.adminImportToken) {
+        sendJson(res, 401, { error: 'Invalid admin token' });
+        return;
+      }
+
+      const body = await readJsonBody(req);
+      const result = await store.importCareerSeed({
+        players: body.players
+      });
+      sendJson(res, 200, result);
+      return;
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/games') {
       const session = getViewerSession(req);
 
@@ -282,7 +302,7 @@ const server = http.createServer(async (req, res) => {
         await bot.notifyPlayersAboutManualGame(result.game.id);
       }
 
-      const snapshot = store.getSnapshot(targetChatId, session.playerId);
+      const snapshot = getGlobalSnapshot(session.playerId);
       sendJson(res, 200, {
         game: { id: result.game.id },
         snapshot
@@ -314,7 +334,7 @@ const server = http.createServer(async (req, res) => {
 
       bot.schedulePromptForGame(result.game);
 
-      const snapshot = store.getSnapshot(result.game.chatId, session.playerId);
+      const snapshot = getGlobalSnapshot(session.playerId);
       sendJson(res, 200, {
         game: { id: result.game.id },
         snapshot
@@ -338,7 +358,7 @@ const server = http.createServer(async (req, res) => {
         gameId,
         requesterPlayerId: session.playerId
       });
-      const snapshot = store.getSnapshot(snapshotChatId, session.playerId);
+      const snapshot = getGlobalSnapshot(session.playerId);
       sendJson(res, 200, { snapshot });
       return;
     }
@@ -361,7 +381,7 @@ const server = http.createServer(async (req, res) => {
         targetPlayerId: body.targetPlayerId,
         payload: body
       });
-      const snapshot = store.getSnapshot(existingGame?.chatId ?? session.chatId, session.playerId);
+      const snapshot = getGlobalSnapshot(session.playerId);
       sendJson(res, 200, { snapshot });
       return;
     }
@@ -380,7 +400,7 @@ const server = http.createServer(async (req, res) => {
         playerId: session.playerId,
         payload: body
       });
-      const snapshot = store.getSnapshot(session.chatId, session.playerId);
+      const snapshot = getGlobalSnapshot(session.playerId);
       sendJson(res, 200, { snapshot });
       return;
     }

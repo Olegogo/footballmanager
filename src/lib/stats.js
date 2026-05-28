@@ -111,6 +111,37 @@ function createEmptyCareerEntry() {
   };
 }
 
+function normalizeSeedStat(value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return 50;
+  }
+
+  return Math.max(1, Math.min(99, number));
+}
+
+function applyCareerSeedToEntry(entry, seed) {
+  const ratedGames = Math.max(0, Math.round(Number(seed?.ratedGames ?? 0)));
+
+  if (!ratedGames) {
+    return;
+  }
+
+  entry.ratedGames += ratedGames;
+  entry.goals += Math.max(0, Math.round(Number(seed.goals ?? 0)));
+  entry.assists += Math.max(0, Math.round(Number(seed.assists ?? 0)));
+
+  const position = POSITION_OPTIONS.includes(seed.position) ? seed.position : 'N/A';
+  if (position !== 'N/A') {
+    entry.positionCounts[position] = (entry.positionCounts[position] ?? 0) + ratedGames;
+  }
+
+  for (const key of STAT_KEYS) {
+    entry.statSums[key] += normalizeSeedStat(seed.stats?.[key]) * ratedGames;
+  }
+}
+
 function finalizeSummary(summary) {
   if (!summary.count) {
     return {
@@ -276,7 +307,9 @@ function buildCareerIndexForPlayersAndGames(state, players, games, now = new Dat
   const career = new Map();
 
   for (const player of players) {
-    career.set(player.id, createEmptyCareerEntry());
+    const entry = createEmptyCareerEntry();
+    applyCareerSeedToEntry(entry, player.careerSeed);
+    career.set(player.id, entry);
   }
 
   for (const game of games.filter((item) => isFinalizedForCareer(item, now))) {
@@ -313,6 +346,15 @@ export function buildGlobalCareerIndex(state, now = new Date()) {
 function buildGameMvpIndexForGames(state, games, now = new Date()) {
   const career = new Map();
   const mvpIndex = new Map();
+
+  for (const player of Object.values(state.players)) {
+    const entry = createEmptyCareerEntry();
+    applyCareerSeedToEntry(entry, player.careerSeed);
+
+    if (entry.ratedGames > 0) {
+      career.set(player.id, entry);
+    }
+  }
 
   for (const game of games.sort(compareByDate)) {
     if (!isFinalizedForCareer(game, now)) {

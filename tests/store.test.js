@@ -900,3 +900,49 @@ test('sessions survive store restart', async () => {
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
+
+test('importCareerSeed stores old volume ratings by username', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    await store.ensureChat({
+      id: '-1001',
+      title: 'Football Chat',
+      type: 'supergroup'
+    });
+    await store.upsertPlayerByUsername('-1001', 'O_legacy');
+
+    const result = await store.importCareerSeed({
+      players: [
+        {
+          username: 'O_legacy',
+          displayName: 'Oleg Koreshkov',
+          ratedGames: 1,
+          goals: 2,
+          assists: 1,
+          position: 'ST',
+          overall: 70,
+          stats: {
+            pace: 70,
+            dribbling: 70,
+            shooting: 70,
+            defense: 70,
+            passing: 70,
+            physical: 70
+          }
+        }
+      ]
+    });
+
+    const snapshot = store.getSnapshot('global', null);
+    const player = snapshot.players.find((item) => item.username === 'o_legacy');
+
+    assert.equal(result.importedPlayers, 1);
+    assert.equal(player.ratedGames, 1);
+    assert.equal(player.overall, 70);
+    assert.equal(player.goals, 2);
+    assert.equal(player.assists, 1);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
