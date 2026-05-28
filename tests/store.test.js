@@ -296,6 +296,57 @@ test('recordGameFromAnnouncement updates edited announcement with same message i
   }
 });
 
+test('recordGameFromAnnouncement creates game from compact field announcement', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const rawText = `
+30 мая, суббота
+
+16:00. Поле 10
+
+1. @teterko
+2. @Mot0strelok
+3. @AlekseyYaselsky
+4. @O_legacy
+5. @alex_leb999 🤡
+6. @totArkady
+7. @Birarov
+8. @KudryaIvan
+9. @goodkidmaadcity88
+10. Alexandr 🤡
+11. @dimasharovv
+12. @itschiffa 🤡
+
+1000р
+89295991499
+Альфа, Тинь, Сбер
+    `;
+    const announcement = parseAnnouncementText(rawText, new Date('2026-05-28T12:00:00+03:00'));
+
+    assert.ok(announcement);
+
+    const result = await store.recordGameFromAnnouncement({
+      chatId: '-1001',
+      chatTitle: 'Football Chat',
+      rawText,
+      messageId: 30,
+      announcement,
+      sourceDate: new Date('2026-05-28T12:00:00+03:00')
+    });
+
+    assert.equal(result.created, true);
+    assert.equal(result.game.location, 'Поле 10');
+    assert.equal(result.game.playerIds.length, 12);
+
+    const barePlayer = Object.values(store.state.players).find((player) => player.username === 'alexandr');
+    assert.ok(barePlayer);
+    assert.equal(barePlayer.displayName, 'Alexandr');
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('submitRating stores goalkeeper goals and assists as zero', async () => {
   const { directory, store } = await createStore();
   const startedAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();

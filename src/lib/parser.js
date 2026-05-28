@@ -21,10 +21,46 @@ const DATE_REGEX = new RegExp(
 );
 const TIME_REGEX = /\b([01]?\d|2[0-3]):([0-5]\d)\b/;
 const PLAYER_LINE_REGEX = /^\s*(?:(?:\d{1,2}\.)|[-•])?\s*@([A-Za-z0-9_]{3,32})\b/;
+const BARE_PLAYER_LINE_REGEX = /^\s*(?:(?:\d{1,2}\.)|[-•])\s*(?!@)(.+?)\s*$/u;
 const REQUIRED_PAYMENT_PHONE = '89295991499';
 
 function formatDateLabel(dateMatch) {
   return `${Number(dateMatch[2])} ${dateMatch[3].toLowerCase()}`;
+}
+
+function parsePlayerLine(line) {
+  const usernameMatch = line.match(PLAYER_LINE_REGEX);
+
+  if (usernameMatch) {
+    const username = normalizeUsername(usernameMatch[1]);
+    return {
+      username,
+      displayName: username ? `@${username}` : ''
+    };
+  }
+
+  const bareMatch = line.match(BARE_PLAYER_LINE_REGEX);
+
+  if (!bareMatch) {
+    return null;
+  }
+
+  const displayName = bareMatch[1]
+    .replace(/[^\p{L}\p{N}_\s-]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const username = normalizeUsername(displayName)
+    .replace(/\s+/g, '_')
+    .replace(/[^\p{L}\p{N}_]/gu, '');
+
+  if (username.length < 3 || !/[^\d_]/u.test(username)) {
+    return null;
+  }
+
+  return {
+    username,
+    displayName
+  };
 }
 
 export function flattenTelegramExportText(text) {
@@ -122,12 +158,18 @@ export function parseAnnouncementText(rawText, referenceDate = new Date()) {
 
   const playerLines = lines
     .map((line, index) => {
-      const match = line.match(PLAYER_LINE_REGEX);
-      return match ? { index, username: normalizeUsername(match[1]) } : null;
+      const player = parsePlayerLine(line);
+      return player ? { index, ...player } : null;
     })
     .filter(Boolean);
 
   const usernames = unique(playerLines.map((item) => item.username));
+  const playerRefs = playerLines.filter(
+    (item, index, collection) => collection.findIndex((candidate) => candidate.username === item.username) === index
+  ).map((item) => ({
+    username: item.username,
+    displayName: item.displayName
+  }));
 
   if (usernames.length < 5) {
     return null;
@@ -171,10 +213,10 @@ export function parseAnnouncementText(rawText, referenceDate = new Date()) {
       return false;
     }
 
-    return !PLAYER_LINE_REGEX.test(line);
+    return !parsePlayerLine(line);
   }) ?? inlineTimeLocation;
 
-  const footerWithoutPlayers = footerLines.filter((line) => !PLAYER_LINE_REGEX.test(line));
+  const footerWithoutPlayers = footerLines.filter((line) => !parsePlayerLine(line));
   const priceLine = footerWithoutPlayers.find((line) => /\d/.test(line) && /(р|руб)/i.test(line)) ?? '';
   const paymentLines = footerWithoutPlayers.filter((line) => line !== priceLine);
   const monthIndex = MONTHS[dateMatch[3].toLowerCase()];
@@ -193,6 +235,7 @@ export function parseAnnouncementText(rawText, referenceDate = new Date()) {
     priceLine,
     paymentLines,
     playerUsernames: usernames,
+    playerRefs,
     scheduledAt: scheduledAt.toISOString(),
     date: scheduledAt.toISOString().slice(0, 10),
     time: timeMatch[0],

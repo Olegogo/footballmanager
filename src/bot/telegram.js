@@ -475,11 +475,13 @@ export class TelegramBot {
   }
 
   async handleAnnouncement(message, options = {}) {
-    if (!message.text || message.chat.type === 'private') {
+    const rawText = message.text || message.caption || '';
+
+    if (!rawText || message.chat.type === 'private') {
       return;
     }
 
-    const announcement = parseAnnouncementText(message.text, new Date((message.date ?? Math.floor(Date.now() / 1000)) * 1000));
+    const announcement = parseAnnouncementText(rawText, new Date((message.date ?? Math.floor(Date.now() / 1000)) * 1000));
 
     if (!announcement) {
       return;
@@ -490,7 +492,7 @@ export class TelegramBot {
       chatTitle: message.chat.title ?? '',
       chatType: message.chat.type,
       messageId: message.message_id,
-      rawText: message.text,
+      rawText,
       announcement,
       source: 'telegram-message',
       sourceDate: new Date((message.date ?? Math.floor(Date.now() / 1000)) * 1000)

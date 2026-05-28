@@ -256,15 +256,55 @@ function setCurrentGame(chat, game, nowIso, previousGame = null) {
   chat.updatedAt = nowIso;
 }
 
-function resolveAnnouncementPlayerIds(state, chatId, usernames) {
-  return usernames.map((username) => {
-    let player = findPlayerByUsername(state, username);
+function normalizePlayerRef(ref) {
+  if (typeof ref === 'string') {
+    return {
+      username: normalizeUsername(ref),
+      displayName: ''
+    };
+  }
+
+  return {
+    username: normalizeUsername(ref?.username),
+    displayName: String(ref?.displayName ?? '').trim(),
+    telegramUserId: ref?.telegramUserId ?? null,
+    firstName: ref?.firstName ?? '',
+    lastName: ref?.lastName ?? '',
+    photoUrl: ref?.photoUrl ?? ''
+  };
+}
+
+function getAnnouncementPlayerRefs(announcement) {
+  return Array.isArray(announcement.playerRefs) && announcement.playerRefs.length
+    ? announcement.playerRefs
+    : announcement.playerUsernames;
+}
+
+function resolveAnnouncementPlayerIds(state, chatId, playerRefs) {
+  return playerRefs.map((item) => {
+    const ref = normalizePlayerRef(item);
+    let player =
+      (ref.telegramUserId ? findPlayerByTelegramUserId(state, ref.telegramUserId) : null) ??
+      findPlayerByUsername(state, ref.username);
 
     if (!player) {
-      player = createPlayerRecord(state, username);
+      player = createPlayerRecord(state, ref.username);
     }
 
-    applyPlayerDefaults(player, username);
+    if (ref.telegramUserId) {
+      player.telegramUserId = ref.telegramUserId;
+    }
+
+    player.username = ref.username || player.username;
+    player.firstName = ref.firstName || player.firstName;
+    player.lastName = ref.lastName || player.lastName;
+    player.photoUrl = ref.photoUrl || player.photoUrl;
+
+    if (ref.displayName && (!player.displayName || player.displayName === `@${player.username}` || player.displayName === 'Игрок')) {
+      player.displayName = ref.displayName;
+    }
+
+    applyPlayerDefaults(player, ref.username);
 
     attachPlayerToChat(state, chatId, player.id);
     return player.id;
@@ -280,7 +320,7 @@ function applyAnnouncementToGame(state, game, {
   sourceDate,
   nowIso
 }) {
-  const playerIds = resolveAnnouncementPlayerIds(state, chatId, announcement.playerUsernames);
+  const playerIds = resolveAnnouncementPlayerIds(state, chatId, getAnnouncementPlayerRefs(announcement));
 
   game.messageId = messageId;
   game.rawText = rawText;
@@ -295,6 +335,7 @@ function applyAnnouncementToGame(state, game, {
   game.priceLine = announcement.priceLine;
   game.paymentLines = announcement.paymentLines;
   game.playerUsernames = announcement.playerUsernames;
+  game.playerRefs = getAnnouncementPlayerRefs(announcement).map((item) => normalizePlayerRef(item));
   game.playerIds = playerIds;
   game.updatedAt = nowIso;
 
@@ -337,16 +378,7 @@ function mergeImportedAnnouncements(state, {
       continue;
     }
 
-    const playerIds = item.announcement.playerUsernames.map((username) => {
-      let player = findPlayerByUsername(state, username);
-
-      if (!player) {
-        player = createPlayerRecord(state, username);
-      }
-
-      attachPlayerToChat(state, chatId, player.id);
-      return player.id;
-    });
+    const playerIds = resolveAnnouncementPlayerIds(state, chatId, getAnnouncementPlayerRefs(item.announcement));
 
     const gameId = `game_${state.meta.nextGameId++}`;
     const now = new Date().toISOString();
@@ -366,6 +398,7 @@ function mergeImportedAnnouncements(state, {
       priceLine: item.announcement.priceLine,
       paymentLines: item.announcement.paymentLines,
       playerUsernames: item.announcement.playerUsernames,
+      playerRefs: getAnnouncementPlayerRefs(item.announcement).map((item) => normalizePlayerRef(item)),
       playerIds,
       ratingsOpenedAt: null,
       ratingsPromptMessageId: null,
@@ -574,7 +607,7 @@ export class AppStore {
         return { created: false, updated: false, game: existingByKey };
       }
 
-      const playerIds = resolveAnnouncementPlayerIds(state, chatId, announcement.playerUsernames);
+      const playerIds = resolveAnnouncementPlayerIds(state, chatId, getAnnouncementPlayerRefs(announcement));
       const gameId = `game_${state.meta.nextGameId++}`;
       const game = {
         id: gameId,
@@ -592,6 +625,7 @@ export class AppStore {
         priceLine: announcement.priceLine,
         paymentLines: announcement.paymentLines,
         playerUsernames: announcement.playerUsernames,
+        playerRefs: getAnnouncementPlayerRefs(announcement).map((item) => normalizePlayerRef(item)),
         playerIds,
         ratingsOpenedAt: null,
         ratingsPromptMessageId: null,

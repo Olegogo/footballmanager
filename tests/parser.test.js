@@ -113,6 +113,39 @@ test('parseAnnouncementText removes weekday when it follows the date', () => {
   assert.equal(parsed.time, '16:00');
 });
 
+test('parseAnnouncementText keeps numbered players without telegram usernames', () => {
+  const text = `
+30 мая, суббота
+
+16:00. Поле 10
+
+1. @teterko
+2. @Mot0strelok
+3. @AlekseyYaselsky
+4. @O_legacy
+5. @alex_leb999 🤡
+6. @totArkady
+7. @Birarov
+8. @KudryaIvan
+9. @goodkidmaadcity88
+10. Alexandr 🤡
+11. @dimasharovv
+12. @itschiffa 🤡
+
+1000р
+89295991499
+Альфа, Тинь, Сбер
+  `;
+  const parsed = parseAnnouncementText(text, new Date('2026-05-28T12:00:00+03:00'));
+
+  assert.ok(parsed);
+  assert.equal(parsed.dateLabel, '30 мая');
+  assert.equal(parsed.location, 'Поле 10');
+  assert.equal(parsed.playerUsernames.length, 12);
+  assert.equal(parsed.playerUsernames[9], 'alexandr');
+  assert.equal(parsed.playerRefs[9].displayName, 'Alexandr');
+});
+
 test('parseAnnouncementText ignores messages without required payment block', () => {
   const text = `
 18 мая
