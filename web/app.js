@@ -61,27 +61,51 @@ const GAME_FILTERS = [
 ];
 const MONTH_NAME_PATTERN = 'января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря';
 const GAME_DATE_REGEX = new RegExp(`\\b(\\d{1,2})\\s+(${MONTH_NAME_PATTERN})\\b`, 'i');
-function readChatIdFromStartParam() {
-  const urlChatId = new URLSearchParams(window.location.search).get('chatId') || '';
+function readLaunchContext() {
+  const searchParams = new URLSearchParams(window.location.search);
+  const urlChatId = searchParams.get('chatId') || '';
+  const view = searchParams.get('view') || '';
   const startParam =
-    new URLSearchParams(window.location.search).get('tgWebAppStartParam') ||
+    searchParams.get('tgWebAppStartParam') ||
     window.Telegram?.WebApp?.initDataUnsafe?.start_param ||
     '';
 
-  if (urlChatId) {
-    return urlChatId;
+  const chatMatch =
+    String(startParam).match(/^game_chat_(-?\d+)$/) ||
+    String(startParam).match(/^chat_(-?\d+)$/);
+
+  return {
+    chatId: urlChatId || chatMatch?.[1] || '',
+    initialTab: view === 'game' || /^game($|_)/.test(String(startParam)) || /^chat_-?\d+$/.test(String(startParam))
+      ? 'game'
+      : 'games'
+  };
+}
+
+const launchContext = readLaunchContext();
+
+function readChatIdFromStartParam() {
+  return readLaunchContext().chatId;
+}
+
+function readInitialTabFromLaunch() {
+  return launchContext.initialTab;
+}
+
+function getSafeActiveTab(tab) {
+  if (['game', 'games', 'players', 'profile'].includes(tab)) {
+    return tab;
   }
 
-  const match = String(startParam).match(/^chat_(-?\d+)$/);
-  return match ? match[1] : '';
+  return 'games';
 }
 
 const state = {
-  chatId: readChatIdFromStartParam(),
+  chatId: launchContext.chatId,
   token: '',
   snapshot: null,
   allowDevLogin: false,
-  activeTab: 'games',
+  activeTab: getSafeActiveTab(readInitialTabFromLaunch()),
   activeSort: 'overall',
   gamesFilter: 'all',
   positionFilter: '',
@@ -848,6 +872,7 @@ function renderGamePlayerRow(player) {
   const currentStats = player.currentGameStats;
   const isRatedInGame = Boolean(currentStats?.hasRatings);
   const hasCareerRating = player.ratedGames > 0;
+  const isUnrated = !isRatedInGame && !hasCareerRating;
   const position = isRatedInGame ? currentStats.position : player.position;
   const positionLabel = getPositionMeta(position).short;
   const openAttribute = player.canRateTarget ? ` data-open-player="${escapeHtml(player.id)}"` : '';
@@ -863,6 +888,7 @@ function renderGamePlayerRow(player) {
       <div class="game-player-main">
         <strong>${escapeHtml(player.displayName)}</strong>
         <span>${escapeHtml(positionLabel === '—' ? 'Позиция не выбрана' : positionLabel)}</span>
+        ${isUnrated ? '<span class="game-player-unrated">Не оценён</span>' : ''}
       </div>
       ${
         ratingLabel
@@ -1941,7 +1967,7 @@ document.addEventListener('click', async (event) => {
   if (manualSearchInput) {
     if (!state.manualPlayerPickerOpen) {
       state.manualPlayerPickerOpen = true;
-      renderModal();
+      render();
       setTimeout(() => {
         document.querySelector('[data-manual-player-search]')?.focus();
       }, 0);
@@ -1958,7 +1984,7 @@ document.addEventListener('click', async (event) => {
     const selected = new Set(state.manualGameDraft.playerIds);
     selected.delete(playerId);
     state.manualGameDraft.playerIds = [...selected];
-    renderModal();
+    render();
     return;
   }
 
@@ -1977,7 +2003,19 @@ document.addEventListener('click', async (event) => {
     state.manualGameDraft.playerIds = [...selected];
     state.manualPlayerSearch = '';
     state.manualPlayerPickerOpen = false;
-    renderModal();
+    render();
+    return;
+  }
+
+  if (
+    state.manualGameOpen &&
+    state.manualPlayerPickerOpen &&
+    !event.target.closest('.manual-player-search-wrap')
+  ) {
+    const form = document.getElementById('manualGameForm');
+    saveManualGameDraft(form);
+    state.manualPlayerPickerOpen = false;
+    render();
     return;
   }
 

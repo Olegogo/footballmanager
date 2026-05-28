@@ -61,7 +61,7 @@ export class TelegramBot {
     return Boolean(this.config.telegramBotToken);
   }
 
-  buildMiniAppUrl(chatId = '') {
+  buildMiniAppUrl(chatId = '', options = {}) {
     const baseUrl = normalizeHttpUrl(this.config.publicBaseUrl);
 
     if (!baseUrl) {
@@ -74,28 +74,33 @@ export class TelegramBot {
       url.searchParams.set('chatId', String(chatId));
     }
 
+    if (options.initialView) {
+      url.searchParams.set('view', options.initialView);
+    }
+
     return url.toString();
   }
 
-  buildMainMiniAppLink(chatId = '') {
+  buildMainMiniAppLink(chatId = '', options = {}) {
     if (!this.botUsername) {
       return '';
     }
 
     const url = new URL(`https://t.me/${this.botUsername}`);
+    const view = options.initialView || '';
 
     if (chatId) {
-      url.searchParams.set('startapp', `chat_${chatId}`);
+      url.searchParams.set('startapp', view === 'game' ? `game_chat_${chatId}` : `chat_${chatId}`);
       return url.toString();
     }
 
-    url.search = 'startapp';
+    url.searchParams.set('startapp', view || 'app');
     return url.toString();
   }
 
-  buildMiniAppKeyboard(chatType = 'private', chatId = '', buttonText = 'Открыть миниапп') {
-    const publicUrl = this.buildMiniAppUrl(chatId);
-    const directMiniAppLink = this.buildMainMiniAppLink(chatId);
+  buildMiniAppKeyboard(chatType = 'private', chatId = '', buttonText = 'Открыть миниапп', options = {}) {
+    const publicUrl = this.buildMiniAppUrl(chatId, options);
+    const directMiniAppLink = this.buildMainMiniAppLink(chatId, options);
 
     if (chatType === 'private' && publicUrl) {
       return {
@@ -156,25 +161,28 @@ export class TelegramBot {
     };
   }
 
-  buildMiniAppButton(chatType = 'private', chatId = '', buttonText = 'Открыть миниапп') {
-    return this.buildMiniAppKeyboard(chatType, chatId, buttonText)?.inline_keyboard?.[0]?.[0] ?? null;
+  buildMiniAppButton(chatType = 'private', chatId = '', buttonText = 'Открыть миниапп', options = {}) {
+    return this.buildMiniAppKeyboard(chatType, chatId, buttonText, options)?.inline_keyboard?.[0]?.[0] ?? null;
   }
 
-  getMiniAppFallbackUrl(chatId = '', chatType = 'private') {
-    const publicUrl = this.buildMiniAppUrl(chatId);
+  getMiniAppFallbackUrl(chatId = '', chatType = 'private', options = {}) {
+    const publicUrl = this.buildMiniAppUrl(chatId, options);
 
     if (chatType === 'private') {
-      return publicUrl || this.buildMainMiniAppLink(chatId) || '';
+      return publicUrl || this.buildMainMiniAppLink(chatId, options) || '';
     }
 
-    return this.buildMainMiniAppLink(chatId) || publicUrl || '';
+    return this.buildMainMiniAppLink(chatId, options) || publicUrl || '';
   }
 
   async sendMiniAppEntry(chatId, chatType, targetChatId, options = {}) {
     const primaryText = options.primaryText ?? BUTTON_ONLY_TEXT;
     const buttonText = options.buttonText ?? 'Открыть миниапп';
-    const replyMarkup = this.buildMiniAppKeyboard(chatType, targetChatId, buttonText);
-    const fallbackUrl = this.getMiniAppFallbackUrl(targetChatId, chatType);
+    const linkOptions = {
+      initialView: options.initialView || ''
+    };
+    const replyMarkup = this.buildMiniAppKeyboard(chatType, targetChatId, buttonText, linkOptions);
+    const fallbackUrl = this.getMiniAppFallbackUrl(targetChatId, chatType, linkOptions);
     const buttonOnly = options.buttonOnly ?? false;
     const fallbackText = buttonOnly ? fallbackUrl : `${primaryText}\n\n${fallbackUrl}`;
 
@@ -288,7 +296,9 @@ export class TelegramBot {
   }
 
   async sendGameDetailsEntry(chatId, chatType, targetChatId, game) {
-    const replyMarkup = this.buildMiniAppKeyboard(chatType, targetChatId, 'Детали игры');
+    const replyMarkup = this.buildMiniAppKeyboard(chatType, targetChatId, 'Детали игры', {
+      initialView: 'game'
+    });
 
     if (replyMarkup && game?.id) {
       try {
@@ -308,12 +318,15 @@ export class TelegramBot {
     return this.sendMiniAppEntry(chatId, chatType, targetChatId, {
       primaryText: BUTTON_ONLY_TEXT,
       buttonText: 'Детали игры',
-      buttonOnly: true
+      buttonOnly: true,
+      initialView: 'game'
     });
   }
 
   buildManualInviteKeyboard(chatId, gameId) {
-    const miniAppButton = this.buildMiniAppButton('private', chatId, 'К игре');
+    const miniAppButton = this.buildMiniAppButton('private', chatId, 'К игре', {
+      initialView: 'game'
+    });
     const inlineKeyboard = [];
 
     if (miniAppButton) {
@@ -499,7 +512,8 @@ export class TelegramBot {
       await this.sendMiniAppEntry(chatId, message.chat.type, targetChatId, {
         primaryText: BUTTON_ONLY_TEXT,
         buttonText: 'Открыть футбольчик',
-        buttonOnly: true
+        buttonOnly: true,
+        initialView: 'game'
       });
       return;
     }
@@ -789,7 +803,8 @@ export class TelegramBot {
       try {
         const message = await this.sendMiniAppEntry(game.chatId, 'supergroup', game.chatId, {
           primaryText: promptText,
-          buttonText: 'Оценить'
+          buttonText: 'Оценить',
+          initialView: 'game'
         });
 
         await this.store.markRatingsPromptSent(game.id, message.message_id);

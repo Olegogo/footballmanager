@@ -50,7 +50,7 @@ test('processPendingRatingPrompts sends a rating prompt with miniapp link', asyn
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Оценить');
   assert.equal(
     sent[0].options.replyMarkup.inline_keyboard[0][0].url,
-    'https://t.me/football_test_bot?startapp=chat_-1001'
+    'https://t.me/football_test_bot?startapp=game_chat_-1001'
   );
   assert.deepEqual(marked, [{ gameId: 'game_1', messageId: 77 }]);
 });
@@ -84,7 +84,7 @@ test('processPendingRatingPrompts falls back to plain link when keyboard send fa
   await bot.processPendingRatingPrompts();
 
   assert.equal(sent.length, 2);
-  assert.match(sent[1].text, /https:\/\/t\.me\/football_test_bot\?startapp=chat_-1002/);
+  assert.match(sent[1].text, /https:\/\/t\.me\/football_test_bot\?startapp=game_chat_-1002/);
   assert.deepEqual(marked, [{ gameId: 'game_2', messageId: 88 }]);
 });
 
@@ -118,7 +118,7 @@ test('/open falls back to plain link when Telegram rejects keyboard', async () =
   assert.equal(sent.length, 2);
   assert.equal(sent[0].chatId, -1003);
   assert.equal(sent[1].chatId, -1003);
-  assert.match(sent[1].text, /https:\/\/t\.me\/football_test_bot\?startapp=chat_-1003/);
+  assert.match(sent[1].text, /https:\/\/t\.me\/football_test_bot\?startapp=game_chat_-1003/);
 });
 
 test('/open sends only button text with custom label when keyboard works', async () => {
@@ -218,7 +218,7 @@ test('buildManualInviteKeyboard uses the same main miniapp entry when possible',
 
   assert.equal(keyboard.inline_keyboard[0][0].text, 'К игре');
   assert.equal(keyboard.inline_keyboard[0][0].url, undefined);
-  assert.equal(keyboard.inline_keyboard[0][0].web_app.url, 'https://app.example/?chatId=-1009');
+  assert.equal(keyboard.inline_keyboard[0][0].web_app.url, 'https://app.example/?chatId=-1009&view=game');
   assert.equal(keyboard.inline_keyboard[1][0].callback_data, 'decline_game:game_9');
 });
 
@@ -247,7 +247,7 @@ test('/open tolerates PUBLIC_BASE_URL without scheme in group chats', async () =
   assert.equal(sent.length, 1);
   assert.equal(
     sent[0].options.replyMarkup.inline_keyboard[0][0].url,
-    'https://t.me/football_test_bot?startapp=chat_-1004'
+    'https://t.me/football_test_bot?startapp=game_chat_-1004'
   );
 });
 
