@@ -126,7 +126,7 @@ test('/open falls back to plain link when Telegram rejects keyboard', async () =
   assert.equal(sent[1].text, '\u2060');
   assert.equal(
     sent[1].options.replyMarkup.inline_keyboard[0][0].url,
-    'https://t.me/football_test_bot?startapp=game_chat_-1003'
+    'https://t.me/football_test_bot?startapp=chat_-1003'
   );
 });
 
@@ -155,6 +155,10 @@ test('/open sends only button text with custom label when keyboard works', async
   assert.equal(sent.length, 1);
   assert.equal(sent[0].text, '\u2060');
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть футбольчик');
+  assert.equal(
+    sent[0].options.replyMarkup.inline_keyboard[0][0].login_url.url,
+    'https://app.example/auth/telegram-login?chatId=-1006'
+  );
 });
 
 test('/open in private chats opens the games list by default', async () => {
@@ -287,7 +291,7 @@ test('/open tolerates PUBLIC_BASE_URL without scheme in group chats', async () =
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].url, undefined);
   assert.equal(
     sent[0].options.replyMarkup.inline_keyboard[0][0].login_url.url,
-    'https://footballmanager-production.up.railway.app/auth/telegram-login?chatId=-1004&view=game'
+    'https://footballmanager-production.up.railway.app/auth/telegram-login?chatId=-1004'
   );
 });
 

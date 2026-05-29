@@ -73,12 +73,11 @@ function readLaunchContext() {
   const chatMatch =
     String(startParam).match(/^game_chat_(-?\d+)$/) ||
     String(startParam).match(/^chat_(-?\d+)$/);
+  const shouldOpenGame = view === 'game' || /^game($|_)/.test(String(startParam));
 
   return {
     chatId: urlChatId || chatMatch?.[1] || '',
-    initialTab: view === 'game' || /^game($|_)/.test(String(startParam)) || /^chat_-?\d+$/.test(String(startParam))
-      ? 'game'
-      : 'games'
+    initialTab: shouldOpenGame ? 'game' : 'games'
   };
 }
 

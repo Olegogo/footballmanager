@@ -557,8 +557,7 @@ export class TelegramBot {
       await this.sendMiniAppEntry(chatId, message.chat.type, targetChatId, {
         primaryText: BUTTON_ONLY_TEXT,
         buttonText: 'Открыть футбольчик',
-        buttonOnly: true,
-        initialView: message.chat.type === 'private' ? '' : 'game'
+        buttonOnly: true
       });
       return;
     }
