@@ -27,7 +27,7 @@ const DATE_LABEL_MONTHS = [
   'ноября',
   'декабря'
 ];
-const DATE_LABEL_REGEX = new RegExp(`\\b(\\d{1,2})\\s+(${DATE_LABEL_MONTHS.join('|')})\\b`, 'i');
+const DATE_LABEL_REGEX = new RegExp(`(\\d{1,2})\\s+(${DATE_LABEL_MONTHS.join('|')})`, 'i');
 
 function compareByDate(left, right) {
   return new Date(left.scheduledAt) - new Date(right.scheduledAt);
@@ -579,7 +579,7 @@ function buildGamesView(state, games, playerCards, now) {
 
 function getSnapshotChatIds(state, chatId) {
   const footballChatIds = Object.values(state.chats)
-    .filter((chat) => chat.type !== 'private')
+    .filter((chat) => chat.type !== 'private' && chat.type !== 'global')
     .map((chat) => String(chat.id));
 
   if (footballChatIds.length) {
@@ -778,7 +778,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     },
     viewerPlayerId,
     latestMvpPlayerId: latestMvp?.playerId ?? null,
-    viewerCanCreateGames: Boolean(viewerPlayer?.privateChatId),
+    viewerCanCreateGames: Boolean(viewerPlayer),
     currentGame: currentGameView,
     gameDays,
     games: buildGamesView(state, allGames, playerCards, now),

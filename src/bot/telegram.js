@@ -546,7 +546,7 @@ export class TelegramBot {
         '',
         'Я создал тебе карточку, можешь найти ее в приложении. Заполни ее на своё усмотрение и получай объективную оценку от тиммейтов после игр. Надеюсь это поможет тебе рости 💪.'
       ];
-      await this.sendMiniAppEntry(chatId, message.chat.type, targetChatId, {
+      await this.sendMiniAppEntry(chatId, message.chat.type, '', {
         primaryText: lines.join('\n'),
         buttonText: 'Открыть приложение'
       });
@@ -554,7 +554,7 @@ export class TelegramBot {
     }
 
     if (command === '/open') {
-      await this.sendMiniAppEntry(chatId, message.chat.type, targetChatId, {
+      await this.sendMiniAppEntry(chatId, message.chat.type, '', {
         primaryText: BUTTON_ONLY_TEXT,
         buttonText: 'Открыть футбольчик',
         buttonOnly: true

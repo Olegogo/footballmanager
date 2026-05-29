@@ -60,7 +60,7 @@ const GAME_FILTERS = [
   { key: 'finished', label: 'Завершенные' }
 ];
 const MONTH_NAME_PATTERN = 'января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря';
-const GAME_DATE_REGEX = new RegExp(`\\b(\\d{1,2})\\s+(${MONTH_NAME_PATTERN})\\b`, 'i');
+const GAME_DATE_REGEX = new RegExp(`(\\d{1,2})\\s+(${MONTH_NAME_PATTERN})`, 'i');
 function readLaunchContext() {
   const searchParams = new URLSearchParams(window.location.search);
   const urlChatId = searchParams.get('chatId') || '';
@@ -297,8 +297,7 @@ async function loginDev(username, displayName = '') {
 }
 
 async function loadSnapshot() {
-  const query = state.chatId ? `?chatId=${encodeURIComponent(state.chatId)}` : '';
-  const data = await api(`/api/bootstrap${query}`);
+  const data = await api('/api/bootstrap');
   state.snapshot = data.snapshot;
   state.allowDevLogin = data.allowDevLogin;
   state.chatId = state.chatId || data.snapshot?.chat?.id || '';
@@ -1776,7 +1775,6 @@ async function submitManualGame(notifyPlayers) {
       ? payload
       : {
           ...payload,
-          chatId: state.snapshot?.chat?.id || state.chatId,
           notifyPlayers
         }
   });

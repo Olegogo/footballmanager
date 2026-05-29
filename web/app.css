@@ -1268,6 +1268,11 @@ input[type="range"] {
   font-size: 18px;
   font-weight: 900;
   outline: none;
+  text-align: left;
+}
+
+.manual-fields input::-webkit-date-and-time-value {
+  text-align: left;
 }
 
 .manual-section-title {

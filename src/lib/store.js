@@ -953,7 +953,7 @@ export class AppStore {
     return Object.values(this.state.games).filter((game) => {
       const chat = this.state.chats[game.chatId];
 
-      if (!chat || chat.currentGameId !== game.id || game.ratingsOpenedAt) {
+      if (!chat || chat.type === 'private' || chat.type === 'global' || chat.currentGameId !== game.id || game.ratingsOpenedAt) {
         return false;
       }
 

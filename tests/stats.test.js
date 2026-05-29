@@ -143,6 +143,7 @@ test('buildChatSnapshot aggregates ratings, games and MVP', () => {
   assert.equal(snapshot.players[0].goals, 2);
   assert.equal(snapshot.games.length, 2);
   assert.equal(snapshot.games[0].id, 'game_2');
+  assert.equal(snapshot.games[0].dateLabel, '17 мая');
   assert.equal(snapshot.games[0].status, 'finished');
   assert.equal(snapshot.games[0].mvp.playerId, 'player_2');
   assert.equal(snapshot.games[0].topScorer.playerId, 'player_2');
@@ -171,6 +172,8 @@ test('buildChatSnapshot aggregates ratings, games and MVP', () => {
     false
   );
   assert.equal(snapshot.currentGame.isFinished, true);
+  assert.equal(snapshot.currentGame.dateLabel, '17 мая');
+  assert.equal(snapshot.viewerCanCreateGames, true);
   assert.equal(snapshot.players.find((player) => player.id === 'player_3').position, 'GK');
 });
 

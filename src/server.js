@@ -3,18 +3,22 @@ import path from 'node:path';
 
 import { TelegramBot } from './bot/telegram.js';
 import { config } from './config.js';
-import { isSuperAdminPlayer } from './lib/admins.js';
 import { verifyTelegramInitData, verifyTelegramLoginData } from './lib/auth.js';
 import { AppStore } from './lib/store.js';
 import { getBearerToken, notFound, readJsonBody, sendJson, sendText, serveStaticFile, setCorsHeaders } from './lib/utils.js';
 
+const GLOBAL_SNAPSHOT_CHAT_ID = 'global';
+
 const store = new AppStore(config.dataFile);
 await store.init();
+await store.ensureChat({
+  id: GLOBAL_SNAPSHOT_CHAT_ID,
+  title: 'Все игры',
+  type: 'global'
+});
 
 const bot = new TelegramBot(config, store);
 void bot.startPolling();
-
-const GLOBAL_SNAPSHOT_CHAT_ID = 'global';
 
 setInterval(() => {
   store.cleanupSessions();
@@ -49,34 +53,6 @@ function buildAppUrl(req, params = {}) {
   }
 
   return appUrl.toString();
-}
-
-function isFootballChat(chat) {
-  return chat && chat.type !== 'private';
-}
-
-function resolveFootballChatId(sessionChatId, player) {
-  const requestedChatId = String(sessionChatId || '');
-  const requestedChat = store.state.chats[requestedChatId];
-
-  if (isFootballChat(requestedChat)) {
-    return requestedChatId;
-  }
-
-  const defaultChat = config.defaultChatId ? store.state.chats[String(config.defaultChatId)] : null;
-
-  if (isFootballChat(defaultChat)) {
-    return String(config.defaultChatId);
-  }
-
-  const playerChatId = (player?.chatIds ?? []).find((chatId) => isFootballChat(store.state.chats[String(chatId)]));
-
-  if (playerChatId) {
-    return String(playerChatId);
-  }
-
-  const fallbackChat = Object.values(store.state.chats).find((chat) => isFootballChat(chat));
-  return fallbackChat?.id ? String(fallbackChat.id) : '';
 }
 
 const server = http.createServer(async (req, res) => {
@@ -319,36 +295,10 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      if (!organizer.privateChatId && !config.allowDevLogin) {
-        sendJson(res, 403, { error: 'Сначала запустите бота в личке командой /start' });
-        return;
-      }
-
       const body = await readJsonBody(req);
-      const requestedGameChatId = String(body.chatId || '');
-      const targetChatId = resolveFootballChatId(requestedGameChatId || session.chatId, organizer);
-
-      if (!targetChatId) {
-        sendJson(res, 403, { error: 'Не нашел футбольный чат для создания игры. Добавьте бота в чат и откройте приложение из кнопки бота.' });
-        return;
-      }
-
-      if (bot.enabled && organizer.telegramUserId && !isSuperAdminPlayer(organizer)) {
-        const isMember = await bot.isUserMemberOfChat(targetChatId, organizer.telegramUserId);
-        const wasSeenInChat = (organizer.chatIds ?? []).includes(String(targetChatId));
-
-        if (!isMember && !wasSeenInChat) {
-          sendJson(res, 403, { error: 'Создавать игры могут только участники чата, где добавлен бот' });
-          return;
-        }
-
-        if (!isMember) {
-          console.warn(`Unable to verify Telegram membership for ${organizer.id} in ${targetChatId}; allowing because the player was already seen in this chat.`);
-        }
-      }
 
       const result = await store.createManualGame({
-        chatId: targetChatId,
+        chatId: GLOBAL_SNAPSHOT_CHAT_ID,
         organizerPlayerId: session.playerId,
         date: body.date,
         time: body.time,
