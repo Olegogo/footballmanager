@@ -288,6 +288,170 @@ function findLatestGameForChat(state, chatId) {
     .sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt))[0] ?? null;
 }
 
+function findGameBySchedule(state, game) {
+  const scheduledAt = String(game?.scheduledAt || '');
+  const location = String(game?.location || '').trim().toLowerCase();
+
+  if (!scheduledAt) {
+    return null;
+  }
+
+  return Object.values(state.games).find((item) => {
+    const sameSchedule = String(item.scheduledAt || '') === scheduledAt;
+    const sameTime = String(item.time || '') === String(game.time || '');
+    const sameLocation = String(item.location || '').trim().toLowerCase() === location;
+    return sameSchedule && sameTime && sameLocation;
+  }) ?? null;
+}
+
+function mergeExternalPlayer(state, externalPlayer) {
+  const username = normalizeUsername(externalPlayer?.username);
+  let player =
+    (externalPlayer?.telegramUserId ? findPlayerByTelegramUserId(state, externalPlayer.telegramUserId) : null) ??
+    (username ? findPlayerByUsername(state, username) : null);
+
+  if (!player) {
+    player = createPlayerRecord(state, username);
+  }
+
+  player.telegramUserId = externalPlayer?.telegramUserId ?? player.telegramUserId;
+  player.username = username || player.username;
+  player.displayName = externalPlayer?.displayName || player.displayName;
+  player.firstName = externalPlayer?.firstName || player.firstName;
+  player.lastName = externalPlayer?.lastName || player.lastName;
+  player.photoUrl = externalPlayer?.photoUrl || player.photoUrl;
+  player.defaultPosition = externalPlayer?.defaultPosition || player.defaultPosition;
+  player.privateChatId = externalPlayer?.privateChatId || player.privateChatId;
+  player.privateStartedAt = externalPlayer?.privateStartedAt || player.privateStartedAt;
+  player.selfProfile = player.selfProfile || externalPlayer?.selfProfile;
+  player.chatIds = unique([...(player.chatIds ?? []), ...(externalPlayer?.chatIds ?? []).map(String)]);
+  player.updatedAt = new Date().toISOString();
+  applyPlayerDefaults(player, player.username);
+  return player;
+}
+
+function copyExternalGameFields(targetGame, externalGame, playerIdMap, nowIso) {
+  const playerIds = (externalGame.playerIds ?? [])
+    .map((playerId) => playerIdMap.get(String(playerId)))
+    .filter(Boolean);
+
+  targetGame.chatId = String(externalGame.chatId || targetGame.chatId || 'global');
+  targetGame.messageId = externalGame.messageId ?? targetGame.messageId ?? null;
+  targetGame.rawText = externalGame.rawText ?? targetGame.rawText ?? '';
+  targetGame.key = externalGame.key || targetGame.key || '';
+  targetGame.source = externalGame.source || targetGame.source || 'state-merge';
+  targetGame.sourceDate = externalGame.sourceDate || targetGame.sourceDate || nowIso;
+  targetGame.dateLabel = externalGame.dateLabel || targetGame.dateLabel || '';
+  targetGame.location = externalGame.location || targetGame.location || '';
+  targetGame.time = externalGame.time || targetGame.time || '';
+  targetGame.scheduledAt = externalGame.scheduledAt || targetGame.scheduledAt || '';
+  targetGame.date = externalGame.date || targetGame.date || String(targetGame.scheduledAt || '').slice(0, 10);
+  targetGame.priceLine = externalGame.priceLine || targetGame.priceLine || '';
+  targetGame.paymentLines = Array.isArray(externalGame.paymentLines) ? externalGame.paymentLines : targetGame.paymentLines || [];
+  targetGame.playerUsernames = Array.isArray(externalGame.playerUsernames) ? externalGame.playerUsernames : targetGame.playerUsernames || [];
+  targetGame.playerRefs = Array.isArray(externalGame.playerRefs) ? externalGame.playerRefs : targetGame.playerRefs || [];
+  targetGame.playerIds = playerIds.length ? playerIds : targetGame.playerIds || [];
+  targetGame.declinedPlayerIds = (externalGame.declinedPlayerIds ?? [])
+    .map((playerId) => playerIdMap.get(String(playerId)))
+    .filter(Boolean);
+  targetGame.ratingsOpenedAt = externalGame.ratingsOpenedAt || targetGame.ratingsOpenedAt || null;
+  targetGame.ratingsPromptMessageId = externalGame.ratingsPromptMessageId ?? targetGame.ratingsPromptMessageId ?? null;
+  targetGame.ratingsClosedByGameId = externalGame.ratingsClosedByGameId || targetGame.ratingsClosedByGameId || null;
+  targetGame.closedAt = externalGame.closedAt || targetGame.closedAt || null;
+  targetGame.createdAt = externalGame.createdAt || targetGame.createdAt || nowIso;
+  targetGame.updatedAt = nowIso;
+
+  return targetGame;
+}
+
+function mergeExternalState(state, externalState) {
+  const now = new Date().toISOString();
+  const playerIdMap = new Map();
+  const gameIdMap = new Map();
+  let playersMerged = 0;
+  let gamesMerged = 0;
+  let ratingsMerged = 0;
+
+  for (const chat of Object.values(externalState?.chats ?? {})) {
+    ensureChatState(state, chat);
+  }
+
+  for (const externalPlayer of Object.values(externalState?.players ?? {})) {
+    const player = mergeExternalPlayer(state, externalPlayer);
+    playerIdMap.set(String(externalPlayer.id), player.id);
+    playersMerged += 1;
+  }
+
+  const playersWithExternalRatings = new Set(
+    Object.values(externalState?.ratings ?? {}).map((rating) => String(rating.targetPlayerId))
+  );
+
+  for (const externalGame of Object.values(externalState?.games ?? {})) {
+    const existingGame = findGameBySchedule(state, externalGame);
+    const game = existingGame ?? {
+      id: `game_${state.meta.nextGameId++}`,
+      chatId: String(externalGame.chatId || 'global')
+    };
+
+    ensureChatState(state, {
+      id: externalGame.chatId || game.chatId || 'global',
+      title: '',
+      type: externalGame.chatId === 'global' ? 'global' : 'supergroup'
+    });
+    copyExternalGameFields(game, externalGame, playerIdMap, now);
+    state.games[game.id] = game;
+    gameIdMap.set(String(externalGame.id), game.id);
+    gamesMerged += 1;
+  }
+
+  for (const externalRating of Object.values(externalState?.ratings ?? {})) {
+    const gameId = gameIdMap.get(String(externalRating.gameId));
+    const targetPlayerId = playerIdMap.get(String(externalRating.targetPlayerId));
+    const raterPlayerId = playerIdMap.get(String(externalRating.raterPlayerId));
+
+    if (!gameId || !targetPlayerId || !raterPlayerId) {
+      continue;
+    }
+
+    const existingRating = Object.values(state.ratings).find(
+      (rating) =>
+        rating.gameId === gameId &&
+        rating.raterPlayerId === raterPlayerId &&
+        rating.targetPlayerId === targetPlayerId
+    );
+    const rating = existingRating ?? {
+      id: `rating_${state.meta.nextRatingId++}`,
+      createdAt: externalRating.createdAt || now
+    };
+
+    rating.chatId = String(state.games[gameId]?.chatId || externalRating.chatId || 'global');
+    rating.gameId = gameId;
+    rating.raterPlayerId = raterPlayerId;
+    rating.targetPlayerId = targetPlayerId;
+    rating.position = sanitizePosition(externalRating.position);
+
+    for (const key of STAT_KEYS) {
+      rating[key] = clamp(Number(externalRating[key] ?? 50), 1, 99);
+    }
+
+    rating.goals = rating.position === 'GK' ? 0 : clamp(Number(externalRating.goals ?? 0), 0, 20);
+    rating.assists = rating.position === 'GK' ? 0 : clamp(Number(externalRating.assists ?? 0), 0, 20);
+    rating.updatedAt = externalRating.updatedAt || now;
+    state.ratings[rating.id] = rating;
+    ratingsMerged += 1;
+  }
+
+  for (const externalPlayerId of playersWithExternalRatings) {
+    const playerId = playerIdMap.get(externalPlayerId);
+
+    if (playerId && state.players[playerId]?.careerSeed) {
+      delete state.players[playerId].careerSeed;
+    }
+  }
+
+  return { playersMerged, gamesMerged, ratingsMerged };
+}
+
 function setCurrentGame(chat, game, nowIso, previousGame = null) {
   if (previousGame && previousGame.id !== game.id && !previousGame.closedAt) {
     previousGame.closedAt = nowIso;
@@ -947,6 +1111,14 @@ export class AppStore {
 
       return { importedPlayers };
     });
+  }
+
+  async mergeState(externalState) {
+    if (!externalState || typeof externalState !== 'object') {
+      throw new Error('state must be an object');
+    }
+
+    return this.mutate((state) => mergeExternalState(state, externalState));
   }
 
   listGamesRequiringPrompt(now = new Date()) {
