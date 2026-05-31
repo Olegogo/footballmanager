@@ -315,6 +315,23 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'POST' && url.pathname === '/api/admin/import-bootstrap-snapshot') {
+      if (!config.adminImportToken) {
+        sendJson(res, 403, { error: 'Admin import is disabled' });
+        return;
+      }
+
+      if (req.headers['x-admin-token'] !== config.adminImportToken) {
+        sendJson(res, 401, { error: 'Invalid admin token' });
+        return;
+      }
+
+      const body = await readJsonBody(req);
+      const result = await store.importBootstrapSnapshot(body.snapshot);
+      sendJson(res, 200, result);
+      return;
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/games') {
       const session = getViewerSession(req);
 

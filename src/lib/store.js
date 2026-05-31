@@ -452,6 +452,165 @@ function mergeExternalState(state, externalState) {
   return { playersMerged, gamesMerged, ratingsMerged };
 }
 
+function getBootstrapDetailedGames(snapshot) {
+  const seen = new Set();
+  const games = [];
+
+  for (const game of [snapshot?.currentGame, ...(snapshot?.gameDays ?? [])]) {
+    if (!game?.id || seen.has(game.id) || !Array.isArray(game.participants)) {
+      continue;
+    }
+
+    seen.add(game.id);
+    games.push(game);
+  }
+
+  return games;
+}
+
+function getBootstrapGameSummary(snapshot, gameId) {
+  return (snapshot?.games ?? []).find((game) => game.id === gameId) ?? null;
+}
+
+function importBootstrapSnapshot(state, snapshot) {
+  const now = new Date().toISOString();
+  const chat = ensureChatState(state, {
+    id: 'global',
+    title: 'Все игры',
+    type: 'global'
+  });
+  const playerIdByBootstrapId = new Map();
+  let playersImported = 0;
+  let gamesImported = 0;
+  let ratingsImported = 0;
+
+  const upsertCardPlayer = (card) => {
+    const player = mergeExternalPlayer(state, {
+      id: card.id,
+      username: card.username,
+      displayName: card.displayName,
+      firstName: card.firstName,
+      lastName: card.lastName,
+      photoUrl: card.photoUrl,
+      defaultPosition: card.position
+    });
+
+    attachPlayerToChat(state, chat.id, player.id);
+    playerIdByBootstrapId.set(String(card.id), player.id);
+    playersImported += 1;
+    return player.id;
+  };
+
+  for (const player of snapshot?.players ?? []) {
+    upsertCardPlayer(player);
+  }
+
+  for (const game of getBootstrapDetailedGames(snapshot)) {
+    const participantIds = game.participants.map((player) => {
+      if (playerIdByBootstrapId.has(String(player.id))) {
+        return playerIdByBootstrapId.get(String(player.id));
+      }
+
+      return upsertCardPlayer(player);
+    });
+    const scheduleGame = {
+      scheduledAt: game.scheduledAt,
+      time: game.time,
+      location: game.location
+    };
+    const existingGame = findGameBySchedule(state, scheduleGame);
+    const targetGame = existingGame ?? {
+      id: `game_${state.meta.nextGameId++}`,
+      chatId: chat.id,
+      createdAt: now
+    };
+    const summary = getBootstrapGameSummary(snapshot, game.id);
+    const summaryMvpId = summary?.mvp?.playerId ? playerIdByBootstrapId.get(String(summary.mvp.playerId)) : '';
+    const summaryTopScorerId = summary?.topScorer?.playerId ? playerIdByBootstrapId.get(String(summary.topScorer.playerId)) : '';
+
+    targetGame.chatId = chat.id;
+    targetGame.messageId = targetGame.messageId ?? null;
+    targetGame.rawText = targetGame.rawText ?? '';
+    targetGame.key = targetGame.key || `bootstrap:${game.scheduledAt}:${String(game.location || '').toLowerCase()}`;
+    targetGame.source = targetGame.source || 'bootstrap-import';
+    targetGame.sourceDate = targetGame.sourceDate || now;
+    targetGame.dateLabel = game.dateLabel;
+    targetGame.location = game.location;
+    targetGame.time = game.time;
+    targetGame.scheduledAt = game.scheduledAt;
+    targetGame.date = String(game.scheduledAt || '').slice(0, 10);
+    targetGame.priceLine = game.priceLine || targetGame.priceLine || '';
+    targetGame.paymentLines = Array.isArray(game.paymentLines) ? game.paymentLines : targetGame.paymentLines || [];
+    targetGame.playerUsernames = game.participants.map((player) => normalizeUsername(player.username)).filter(Boolean);
+    targetGame.playerIds = participantIds;
+    targetGame.ratingsOpenedAt = game.ratingsOpenedAt || targetGame.ratingsOpenedAt || null;
+    targetGame.ratingsPromptMessageId = game.ratingsPromptMessageId ?? targetGame.ratingsPromptMessageId ?? null;
+    targetGame.ratingsClosedByGameId = targetGame.ratingsClosedByGameId || null;
+    targetGame.closedAt = game.status === 'finished' ? targetGame.closedAt || now : targetGame.closedAt || null;
+    targetGame.excludeFromCareer = true;
+    targetGame.importedSummary = {
+      totalGoals: Number(summary?.totalGoals ?? 0),
+      mvp: summary?.mvp && summaryMvpId
+        ? {
+            ...summary.mvp,
+            playerId: summaryMvpId
+          }
+        : null,
+      topScorer: summary?.topScorer && summaryTopScorerId
+        ? {
+            ...summary.topScorer,
+            playerId: summaryTopScorerId
+          }
+        : null
+    };
+    targetGame.updatedAt = now;
+    state.games[targetGame.id] = targetGame;
+    gamesImported += 1;
+
+    for (const ratingId of Object.keys(state.ratings)) {
+      if (state.ratings[ratingId].gameId === targetGame.id && state.ratings[ratingId].source === 'bootstrap-import') {
+        delete state.ratings[ratingId];
+      }
+    }
+
+    for (const participant of game.participants) {
+      const targetPlayerId = playerIdByBootstrapId.get(String(participant.id));
+      const stats = participant.currentGameStats;
+
+      if (!targetPlayerId || !stats?.hasRatings) {
+        continue;
+      }
+
+      const ratingsCount = Math.max(1, Math.round(Number(stats.ratingsCount ?? 1)));
+
+      for (let index = 0; index < ratingsCount; index += 1) {
+        const rating = {
+          id: `rating_${state.meta.nextRatingId++}`,
+          chatId: chat.id,
+          gameId: targetGame.id,
+          raterPlayerId: `bootstrap_${game.id}_${targetPlayerId}_${index}`,
+          targetPlayerId,
+          position: sanitizePosition(stats.position),
+          goals: stats.position === 'GK' ? 0 : clamp(Number(stats.goals ?? 0), 0, 20),
+          assists: stats.position === 'GK' ? 0 : clamp(Number(stats.assists ?? 0), 0, 20),
+          source: 'bootstrap-import',
+          createdAt: now,
+          updatedAt: now
+        };
+
+        for (const key of STAT_KEYS) {
+          rating[key] = clamp(Number(stats.stats?.[key] ?? 50), 1, 99);
+        }
+
+        state.ratings[rating.id] = rating;
+        ratingsImported += 1;
+      }
+    }
+  }
+
+  return { playersImported, gamesImported, ratingsImported };
+}
+
 function setCurrentGame(chat, game, nowIso, previousGame = null) {
   if (previousGame && previousGame.id !== game.id && !previousGame.closedAt) {
     previousGame.closedAt = nowIso;
@@ -1119,6 +1278,14 @@ export class AppStore {
     }
 
     return this.mutate((state) => mergeExternalState(state, externalState));
+  }
+
+  async importBootstrapSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') {
+      throw new Error('snapshot must be an object');
+    }
+
+    return this.mutate((state) => importBootstrapSnapshot(state, snapshot));
   }
 
   listGamesRequiringPrompt(now = new Date()) {

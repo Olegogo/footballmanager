@@ -47,6 +47,10 @@ export function isRatingWindowOpen(game, now = new Date()) {
 }
 
 function isFinalizedForCareer(game, now = new Date()) {
+  if (game?.excludeFromCareer) {
+    return false;
+  }
+
   const scheduledAt = new Date(game.scheduledAt);
   const closedAt = game.closedAt ? new Date(game.closedAt) : null;
 
@@ -510,12 +514,14 @@ function buildGamesView(state, games, playerCards, now) {
       const aggregation = buildGameAggregation(state, game.id);
       const mvp = mvpIndex.get(game.id);
       const mvpPlayer = mvp ? playersById.get(mvp.playerId) : null;
+      const importedMvp = game.importedSummary?.mvp ?? null;
+      const importedTopScorer = game.importedSummary?.topScorer ?? null;
       const totalGoals = round(
         game.playerIds.reduce((sum, playerId) => {
           const gameStats = aggregation?.players[playerId];
           return sum + (gameStats?.hasRatings ? gameStats.goals : 0);
         }, 0)
-      );
+      ) || Number(game.importedSummary?.totalGoals ?? 0);
       const topScorer = isFinalizedForCareer(game, now) ? game.playerIds
         .map((playerId) => {
           const gameStats = aggregation?.players[playerId];
@@ -562,7 +568,7 @@ function buildGamesView(state, games, playerCards, now) {
               ratingIncrease: mvp.ratingIncrease,
               overall: mvp.overall
             }
-          : null,
+          : importedMvp,
         topScorer: topScorer
           ? {
               playerId: topScorer.playerId,
@@ -571,7 +577,7 @@ function buildGamesView(state, games, playerCards, now) {
               goals: topScorer.goals,
               overall: topScorer.overall
             }
-          : null
+          : importedTopScorer
       };
     })
     .sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt));
