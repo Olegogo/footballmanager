@@ -51,7 +51,7 @@ test('processPendingRatingPrompts sends a rating prompt with miniapp link', asyn
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].url, undefined);
   assert.equal(
     sent[0].options.replyMarkup.inline_keyboard[0][0].login_url.url,
-    'https://app.example/auth/telegram-login?chatId=-1001&view=game'
+    'https://app.example/auth/telegram-login?chatId=-1001&view=game&gameId=game_1'
   );
   assert.deepEqual(marked, [{ gameId: 'game_1', messageId: 77 }]);
 });
@@ -88,7 +88,7 @@ test('processPendingRatingPrompts falls back to plain link when keyboard send fa
   assert.equal(sent[1].text, 'Не забудьте оценить игру тиммейтов');
   assert.equal(
     sent[1].options.replyMarkup.inline_keyboard[0][0].url,
-    'https://t.me/football_test_bot?startapp=game_chat_-1002'
+    'https://t.me/football_test_bot?startapp=gameid_game_2'
   );
   assert.deepEqual(marked, [{ gameId: 'game_2', messageId: 88 }]);
 });
@@ -261,7 +261,7 @@ test('buildManualInviteKeyboard uses the same main miniapp entry when possible',
 
   assert.equal(keyboard.inline_keyboard[0][0].text, 'К игре');
   assert.equal(keyboard.inline_keyboard[0][0].url, undefined);
-  assert.equal(keyboard.inline_keyboard[0][0].web_app.url, 'https://app.example/?chatId=-1009&view=game');
+  assert.equal(keyboard.inline_keyboard[0][0].web_app.url, 'https://app.example/?chatId=-1009&view=game&gameId=game_9');
   assert.equal(keyboard.inline_keyboard[1][0].callback_data, 'decline_game:game_9');
 });
 

@@ -88,11 +88,13 @@ const server = http.createServer(async (req, res) => {
       );
       const chatId = String(url.searchParams.get('chatId') || config.defaultChatId || '');
       const view = url.searchParams.get('view') || '';
+      const gameId = url.searchParams.get('gameId') || '';
 
       if (!auth.ok) {
         redirect(res, buildAppUrl(req, {
           chatId,
           view,
+          gameId,
           authError: auth.reason
         }));
         return;
@@ -115,6 +117,7 @@ const server = http.createServer(async (req, res) => {
       redirect(res, buildAppUrl(req, {
         chatId,
         view,
+        gameId,
         session: token
       }));
       return;

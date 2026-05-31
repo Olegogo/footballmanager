@@ -64,19 +64,23 @@ const GAME_DATE_REGEX = new RegExp(`(\\d{1,2})\\s+(${MONTH_NAME_PATTERN})`, 'i')
 function readLaunchContext() {
   const searchParams = new URLSearchParams(window.location.search);
   const urlChatId = searchParams.get('chatId') || '';
+  const urlGameId = searchParams.get('gameId') || '';
   const view = searchParams.get('view') || '';
   const startParam =
     searchParams.get('tgWebAppStartParam') ||
     window.Telegram?.WebApp?.initDataUnsafe?.start_param ||
     '';
 
+  const gameMatch = String(startParam).match(/^gameid_([a-zA-Z0-9_-]+)$/);
   const chatMatch =
     String(startParam).match(/^game_chat_(-?\d+)$/) ||
     String(startParam).match(/^chat_(-?\d+)$/);
-  const shouldOpenGame = view === 'game' || /^game($|_)/.test(String(startParam));
+  const selectedGameId = urlGameId || gameMatch?.[1] || '';
+  const shouldOpenGame = Boolean(selectedGameId) || view === 'game' || /^game($|_)/.test(String(startParam));
 
   return {
     chatId: urlChatId || chatMatch?.[1] || '',
+    gameId: selectedGameId,
     initialTab: shouldOpenGame ? 'game' : 'games'
   };
 }
@@ -109,7 +113,7 @@ const state = {
   gamesFilter: 'all',
   positionFilter: '',
   selectedPlayerId: null,
-  selectedGameId: '',
+  selectedGameId: launchContext.gameId,
   selfProfileDraft: null,
   selfProfileEditing: false,
   gameActionsOpen: false,
