@@ -500,6 +500,43 @@ test('handleCommand creates game from replied announcement with /game fallback',
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Детали игры');
 });
 
+test('handleCommand ignores bare /game in groups to avoid chat spam', async () => {
+  let recordCalled = false;
+  const store = {
+    state: {
+      chats: {},
+      games: {}
+    },
+    async recordGameFromAnnouncement() {
+      recordCalled = true;
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+  const sent = [];
+
+  bot.sendText = async (chatId, text, options = {}) => {
+    sent.push({ chatId, text, options });
+    return { message_id: 502 };
+  };
+
+  await bot.handleCommand({
+    text: '/game',
+    chat: {
+      id: -1011,
+      type: 'supergroup',
+      title: 'Football'
+    },
+    date: Math.floor(new Date('2026-05-28T12:00:00Z').getTime() / 1000),
+    message_id: 102
+  });
+
+  assert.equal(recordCalled, false);
+  assert.equal(sent.length, 0);
+});
+
 test('handleAnnouncement sends lineup image with details button when snapshot is available', async () => {
   const store = {
     state: {

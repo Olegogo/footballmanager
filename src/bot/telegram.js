@@ -621,6 +621,10 @@ export class TelegramBot {
     const source = this.getGameParseSource(message);
 
     if (!source) {
+      if (message.chat.type !== 'private') {
+        return;
+      }
+
       await this.sendText(
         message.chat.id,
         'Я вижу команду /game, но Telegram не передал мне текст анонса. Скопируй анонс после /game в одном сообщении или отключи Privacy Mode у бота через BotFather.'
