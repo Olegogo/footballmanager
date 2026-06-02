@@ -447,6 +447,106 @@ function getPlayerOverallLabel(player, currentStats = null) {
   return String(Math.round(Number(currentStats?.hasRatings ? currentStats.overall : player.overall)));
 }
 
+function getGamePlayerRatingState(player, game = null) {
+  const currentStats = player.currentGameStats ?? null;
+  const ratingsCount = Number(currentStats?.ratingsCount ?? 0);
+  const hasMatchRating = Boolean(currentStats?.hasRatings);
+  const matchRating = hasMatchRating ? Math.round(Number(currentStats.overall)) : null;
+  const hasStarted = Boolean(game?.hasStarted || game?.status === 'live' || game?.status === 'finished');
+
+  if (game?.ratingWindowOpen) {
+    return {
+      phase: ratingsCount > 0 ? 'live-rated' : 'live-empty',
+      ratingsCount,
+      rating: null,
+      hasMatchRating
+    };
+  }
+
+  if (hasStarted) {
+    return {
+      phase: hasMatchRating ? 'closed-rated' : 'closed-empty',
+      ratingsCount,
+      rating: matchRating,
+      hasMatchRating
+    };
+  }
+
+  return {
+    phase: player.ratedGames > 0 ? 'pre-game-rated' : 'pre-game-empty',
+    ratingsCount,
+    rating: player.ratedGames > 0 ? Math.round(Number(player.overall)) : null,
+    hasMatchRating
+  };
+}
+
+function getGamePlayerPositionLabel(player) {
+  const currentStats = player.currentGameStats ?? null;
+  const position = currentStats?.hasRatings && currentStats.position
+    ? currentStats.position
+    : (player.position || 'N/A');
+  const positionLabel = getPositionMeta(position).short;
+
+  return positionLabel === '—' ? 'Позиция не выбрана' : positionLabel;
+}
+
+function renderRatingCountBadge(count, className = 'rating-count-badge') {
+  return `
+    <span class="${escapeHtml(className)}" aria-label="${escapeHtml(count)} оценили">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 12a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4Zm-7.4 8.2c.6-3.7 3.5-6.2 7.4-6.2s6.8 2.5 7.4 6.2c.1.5-.3.9-.8.9H5.4c-.5 0-.9-.4-.8-.9Z"></path>
+      </svg>
+      <strong>${escapeHtml(count)}</strong>
+    </span>
+  `;
+}
+
+function renderGamePlayerState(player, game) {
+  const ratingState = getGamePlayerRatingState(player, game);
+
+  if (ratingState.phase === 'live-rated') {
+    return `
+      <div class="game-player-badges">
+        ${renderRatingCountBadge(ratingState.ratingsCount, 'game-player-count')}
+        <div class="game-player-unrated">Не оценён</div>
+      </div>
+    `;
+  }
+
+  if (ratingState.phase === 'closed-rated' || ratingState.phase === 'pre-game-rated') {
+    return `<div class="game-player-rating">${escapeHtml(ratingState.rating)}</div>`;
+  }
+
+  return '<div class="game-player-unrated">Не оценён</div>';
+}
+
+function renderEditorStateBadge(player, gamePlayer, game) {
+  if (!gamePlayer) {
+    return '<span class="editor-status">Карточка игрока</span>';
+  }
+
+  const ratingState = getGamePlayerRatingState(gamePlayer, game);
+
+  if (ratingState.phase === 'live-rated') {
+    return `
+      <div class="editor-status-group">
+        ${renderRatingCountBadge(ratingState.ratingsCount, 'editor-count-badge')}
+        <span class="editor-status">Не оценён</span>
+      </div>
+    `;
+  }
+
+  if (ratingState.phase === 'closed-rated') {
+    return `<span class="editor-final-rating">${escapeHtml(ratingState.rating)}</span>`;
+  }
+
+  if (ratingState.phase === 'pre-game-rated') {
+    return '<span class="editor-status">Оценка матча</span>';
+  }
+
+  return '<span class="editor-status">Не оценён</span>';
+}
+
 function getGameDateShort(dateLabel = '') {
   const match = String(dateLabel || '').replaceAll(',', ' ').match(GAME_DATE_REGEX);
 
@@ -687,19 +787,15 @@ function renderEditorRange(name, label, value) {
 
 function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
   const currentStats = gamePlayer?.currentGameStats ?? null;
-  const hasRatings = Boolean(currentStats?.hasRatings);
   const statMeta = getStatMetaForPosition(defaults.position);
   const isGoalkeeper = isGoalkeeperPosition(defaults.position);
-  const statusLabel = gamePlayer
-    ? (hasRatings ? `Оценок: ${currentStats?.ratingsCount ?? 0}` : (player.ratedGames > 0 ? 'Оценка матча' : 'Не оценён'))
-    : 'Карточка игрока';
 
   return `
     <div class="editor-overlay" data-modal-backdrop="true">
       <section class="editor-screen" role="dialog" aria-modal="true" aria-label="${escapeHtml(player.displayName)}">
         <div class="editor-hero">
           ${renderCardHero(player)}
-          <span class="editor-status">${escapeHtml(statusLabel)}</span>
+          ${renderEditorStateBadge(player, gamePlayer, game)}
           <button class="editor-close" type="button" data-close-modal="true">×</button>
         </div>
         <div class="editor-body">
@@ -885,35 +981,18 @@ function renderField(game, options = {}) {
 }
 
 function renderGamePlayerRow(player) {
-  const currentStats = player.currentGameStats;
-  const isRatedInGame = Boolean(currentStats?.hasRatings);
-  const hasCareerRating = player.ratedGames > 0;
-  const isUnrated = !isRatedInGame && !hasCareerRating;
-  const position = isRatedInGame ? currentStats.position : player.position;
-  const positionLabel = getPositionMeta(position).short;
+  const game = getCurrentGame();
+  const positionLabel = getGamePlayerPositionLabel(player);
   const openAttribute = player.canRateTarget ? ` data-open-player="${escapeHtml(player.id)}"` : '';
-  const ratingLabel = isRatedInGame
-    ? currentStats.overall
-    : hasCareerRating
-      ? Math.round(Number(player.overall))
-      : '';
 
   return `
     <article class="game-player-row ${player.canRateTarget ? 'is-clickable' : ''}"${openAttribute}>
       <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
       <div class="game-player-main">
         <strong>${escapeHtml(player.displayName)}</strong>
-        <span>${escapeHtml(positionLabel === '—' ? 'Позиция не выбрана' : positionLabel)}</span>
+        <span>${escapeHtml(positionLabel)}</span>
       </div>
-      ${
-        ratingLabel
-          ? `<div class="game-player-rating">${escapeHtml(ratingLabel)}</div>`
-          : player.canRateTarget
-            ? `<button type="button" class="primary-button game-player-action" data-open-player="${escapeHtml(player.id)}">Оценить</button>`
-            : isUnrated
-              ? '<div class="game-player-unrated">Не оценён</div>'
-            : ''
-      }
+      ${renderGamePlayerState(player, game)}
     </article>
   `;
 }
