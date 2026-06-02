@@ -344,11 +344,30 @@ export class TelegramBot {
       return null;
     }
 
-    const snapshot = this.store.getSnapshot(chatId, null);
-    const game = snapshot?.currentGame;
+    const snapshot = this.store.getSnapshot('global', null, { selectedGameId: gameId }) ?? this.store.getSnapshot(chatId, null);
+    const game =
+      [snapshot?.currentGame, ...(snapshot?.gameDays ?? [])]
+        .find((item) => item?.id === gameId) ?? null;
 
     if (!game || game.id !== gameId || !game.participants?.length) {
-      return null;
+      const storedGame = this.store.getGameById?.(gameId);
+      const playersById = new Map((snapshot?.players ?? []).map((player) => [player.id, player]));
+      const participants = (storedGame?.playerIds ?? [])
+        .map((playerId) => playersById.get(playerId))
+        .filter(Boolean);
+
+      if (!storedGame || !participants.length) {
+        return null;
+      }
+
+      return renderLineupPng({
+        id: storedGame.id,
+        dateLabel: storedGame.dateLabel,
+        location: storedGame.location,
+        time: storedGame.time,
+        scheduledAt: storedGame.scheduledAt,
+        participants
+      });
     }
 
     return renderLineupPng(game);

@@ -812,3 +812,95 @@ test('buildChatSnapshot includes imported career seed in global player ratings',
   assert.equal(player.position, 'ST');
   assert.equal(gamePlayer.overall, 72);
 });
+
+test('buildChatSnapshot includes selected game details outside current pair', () => {
+  const state = {
+    version: 1,
+    meta: {},
+    chats: {
+      '-1001': {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        username: '',
+        currentGameId: 'game_future',
+        playerIds: ['player_1', 'player_2']
+      }
+    },
+    players: {
+      player_1: {
+        id: 'player_1',
+        telegramUserId: 1,
+        username: 'oleg',
+        displayName: 'Oleg',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001']
+      },
+      player_2: {
+        id: 'player_2',
+        telegramUserId: 2,
+        username: 'teammate',
+        displayName: 'Teammate',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001']
+      }
+    },
+    games: {
+      game_future: {
+        id: 'game_future',
+        chatId: '-1001',
+        dateLabel: '7 июня',
+        location: 'Поле 10',
+        time: '19:00',
+        scheduledAt: '2026-06-07T16:00:00.000Z',
+        playerIds: ['player_1', 'player_2'],
+        paymentLines: [],
+        priceLine: ''
+      },
+      game_latest_finished: {
+        id: 'game_latest_finished',
+        chatId: '-1001',
+        dateLabel: '30 мая',
+        location: 'Поле 10',
+        time: '16:00',
+        scheduledAt: '2026-05-30T13:00:00.000Z',
+        playerIds: ['player_1', 'player_2'],
+        paymentLines: [],
+        priceLine: ''
+      },
+      game_selected_old: {
+        id: 'game_selected_old',
+        chatId: '-1001',
+        dateLabel: '24 мая',
+        location: 'Поле 10',
+        time: '19:30',
+        scheduledAt: '2026-05-24T16:30:00.000Z',
+        playerIds: ['player_1', 'player_2'],
+        paymentLines: [],
+        priceLine: ''
+      }
+    },
+    ratings: {}
+  };
+
+  const snapshot = buildChatSnapshot(
+    state,
+    'global',
+    'player_1',
+    new Date('2026-06-02T09:00:00.000Z'),
+    { selectedGameId: 'game_selected_old' }
+  );
+
+  assert.equal(snapshot.currentGame.id, 'game_future');
+  assert.deepEqual(
+    snapshot.gameDays.map((game) => game.id),
+    ['game_future', 'game_latest_finished', 'game_selected_old']
+  );
+  assert.equal(snapshot.gameDays.find((game) => game.id === 'game_selected_old').participants.length, 2);
+});

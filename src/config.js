@@ -50,6 +50,7 @@ export const config = {
   host: env('HOST', '0.0.0.0'),
   port: Number(env('PORT', '3000')),
   publicBaseUrl: env('PUBLIC_BASE_URL', '').replace(/\/+$/, ''),
+  canonicalBaseUrl: env('CANONICAL_BASE_URL', '').replace(/\/+$/, ''),
   corsAllowedOrigins: env('CORS_ALLOWED_ORIGINS', '')
     .split(',')
     .map((item) => item.trim().replace(/\/+$/, ''))

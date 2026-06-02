@@ -20,6 +20,10 @@ await store.ensureChat({
 const bot = new TelegramBot(config, store);
 void bot.startPolling();
 
+const KNOWN_LEGACY_HOST_REDIRECTS = new Map([
+  ['footballmanager-production.up.railway.app', 'https://footballmanager-production-cafd.up.railway.app']
+]);
+
 setInterval(() => {
   store.cleanupSessions();
   void bot.processPendingRatingPrompts();
@@ -30,8 +34,8 @@ function getViewerSession(req) {
   return store.getSession(token);
 }
 
-function getGlobalSnapshot(viewerPlayerId = null) {
-  return store.getSnapshot(GLOBAL_SNAPSHOT_CHAT_ID, viewerPlayerId);
+function getGlobalSnapshot(viewerPlayerId = null, options = {}) {
+  return store.getSnapshot(GLOBAL_SNAPSHOT_CHAT_ID, viewerPlayerId, options);
 }
 
 function redirect(res, location) {
@@ -42,8 +46,80 @@ function redirect(res, location) {
   res.end();
 }
 
+function normalizeHttpUrl(value) {
+  const raw = String(value ?? '').trim();
+
+  if (!raw) {
+    return '';
+  }
+
+  const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+
+  try {
+    return new URL(candidate).toString().replace(/\/+$/, '');
+  } catch {
+    return '';
+  }
+}
+
+function getRequestHostname(req) {
+  const forwardedHost = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+  const host = forwardedHost || String(req.headers.host || '').trim();
+
+  return host.split(':')[0].toLowerCase();
+}
+
+function getCanonicalBaseUrl(req) {
+  const configuredCanonical = normalizeHttpUrl(config.canonicalBaseUrl);
+
+  if (configuredCanonical) {
+    return configuredCanonical;
+  }
+
+  const requestHost = getRequestHostname(req);
+  const knownRedirect = KNOWN_LEGACY_HOST_REDIRECTS.get(requestHost);
+
+  if (knownRedirect) {
+    return knownRedirect;
+  }
+
+  return normalizeHttpUrl(config.publicBaseUrl);
+}
+
+function maybeRedirectToCanonical(req, res, url) {
+  if (!['GET', 'HEAD'].includes(req.method || '') || url.pathname === '/health') {
+    return false;
+  }
+
+  const canonicalBaseUrl = getCanonicalBaseUrl(req);
+
+  if (!canonicalBaseUrl) {
+    return false;
+  }
+
+  const requestHost = getRequestHostname(req);
+  const canonicalUrl = new URL(canonicalBaseUrl);
+
+  if (requestHost === canonicalUrl.hostname.toLowerCase()) {
+    return false;
+  }
+
+  const shouldRedirect =
+    Boolean(config.canonicalBaseUrl) ||
+    KNOWN_LEGACY_HOST_REDIRECTS.has(requestHost);
+
+  if (!shouldRedirect) {
+    return false;
+  }
+
+  canonicalUrl.pathname = url.pathname;
+  canonicalUrl.search = url.search;
+  redirect(res, canonicalUrl.toString());
+  return true;
+}
+
 function buildAppUrl(req, params = {}) {
-  const baseUrl = config.publicBaseUrl || `https://${req.headers.host || ''}`;
+  const baseUrl = getCanonicalBaseUrl(req) || config.publicBaseUrl || `https://${req.headers.host || ''}`;
   const appUrl = new URL(baseUrl);
 
   for (const [key, value] of Object.entries(params)) {
@@ -70,8 +146,13 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, {
         ok: true,
         botEnabled: bot.enabled,
-        publicBaseUrl: config.publicBaseUrl || null
+        publicBaseUrl: config.publicBaseUrl || null,
+        canonicalBaseUrl: getCanonicalBaseUrl(req) || null
       });
+      return;
+    }
+
+    if (maybeRedirectToCanonical(req, res, url)) {
       return;
     }
 
@@ -135,7 +216,9 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/api/bootstrap') {
       const session = getViewerSession(req);
-      const snapshot = getGlobalSnapshot(session?.playerId ?? null);
+      const snapshot = getGlobalSnapshot(session?.playerId ?? null, {
+        selectedGameId: url.searchParams.get('gameId') || ''
+      });
       sendJson(res, 200, {
         snapshot,
         allowDevLogin: config.allowDevLogin
@@ -173,7 +256,9 @@ const server = http.createServer(async (req, res) => {
       }
 
       const token = await store.createSession(player.id, GLOBAL_SNAPSHOT_CHAT_ID);
-      const snapshot = getGlobalSnapshot(player.id);
+      const snapshot = getGlobalSnapshot(player.id, {
+        selectedGameId: body.gameId || ''
+      });
 
       sendJson(res, 200, {
         token,

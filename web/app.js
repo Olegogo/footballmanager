@@ -266,6 +266,7 @@ async function authenticateTelegram() {
       method: 'POST',
       body: {
         chatId: state.chatId,
+        gameId: state.selectedGameId,
         initData: tg.initData
       }
     });
@@ -301,7 +302,8 @@ async function loginDev(username, displayName = '') {
 }
 
 async function loadSnapshot() {
-  const data = await api('/api/bootstrap');
+  const query = state.selectedGameId ? `?gameId=${encodeURIComponent(state.selectedGameId)}` : '';
+  const data = await api(`/api/bootstrap${query}`);
   state.snapshot = data.snapshot;
   state.allowDevLogin = data.allowDevLogin;
   state.chatId = state.chatId || data.snapshot?.chat?.id || '';

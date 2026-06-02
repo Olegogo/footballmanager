@@ -612,7 +612,7 @@ function pickCurrentGame(games, now = new Date()) {
   return [...games].sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt))[0];
 }
 
-function pickGameDayGames(games, currentGame, now = new Date()) {
+function pickGameDayGames(games, currentGame, now = new Date(), selectedGame = null) {
   const selected = [];
   const addGame = (game) => {
     if (game && !selected.some((item) => item.id === game.id)) {
@@ -621,12 +621,14 @@ function pickGameDayGames(games, currentGame, now = new Date()) {
   };
   const byNewest = [...games].sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt));
   const latestFinished = byNewest.find((game) => getGameStatus(game, now) === 'finished');
+  const targetSize = selectedGame ? 3 : 2;
 
   addGame(currentGame);
+  addGame(selectedGame);
   addGame(latestFinished);
 
   for (const game of byNewest) {
-    if (selected.length >= 2) {
+    if (selected.length >= targetSize) {
       break;
     }
 
@@ -636,7 +638,7 @@ function pickGameDayGames(games, currentGame, now = new Date()) {
   return selected.sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt));
 }
 
-export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = new Date()) {
+export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = new Date(), options = {}) {
   const chat = state.chats[String(chatId)];
   const scopedChatIds = getSnapshotChatIds(state, chatId);
   const fallbackChat = scopedChatIds.map((id) => state.chats[id]).find(Boolean) ?? null;
@@ -772,7 +774,10 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
   };
 
   const currentGameView = currentGame ? buildGameDayView(currentGame) : null;
-  const gameDays = pickGameDayGames(allGames, currentGame, now)
+  const selectedGame = options.selectedGameId
+    ? allGames.find((game) => game.id === String(options.selectedGameId))
+    : null;
+  const gameDays = pickGameDayGames(allGames, currentGame, now, selectedGame)
     .map((game) => buildGameDayView(game))
     .sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt));
 

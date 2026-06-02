@@ -1469,8 +1469,8 @@ export class AppStore {
     });
   }
 
-  getSnapshot(chatId, viewerPlayerId = null) {
-    return buildChatSnapshot(this.state, String(chatId), viewerPlayerId, new Date());
+  getSnapshot(chatId, viewerPlayerId = null, options = {}) {
+    return buildChatSnapshot(this.state, String(chatId), viewerPlayerId, new Date(), options);
   }
 
   getPlayerById(playerId) {

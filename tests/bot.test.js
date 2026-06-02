@@ -659,6 +659,79 @@ test('handleAnnouncement sends lineup image with details button when snapshot is
   assert.equal(photos[0].options.replyMarkup.inline_keyboard[0][0].text, 'Детали игры');
 });
 
+test('sendGameDetailsEntry renders lineup image for selected game outside currentGame', async () => {
+  const store = {
+    state: {
+      chats: {},
+      games: {}
+    },
+    getSnapshot() {
+      return {
+        currentGame: {
+          id: 'game_current',
+          participants: []
+        },
+        gameDays: [],
+        players: [
+          {
+            id: 'player_1',
+            username: 'oleg',
+            displayName: 'Oleg',
+            photoUrl: '',
+            overall: 59,
+            position: 'LW',
+            ratedGames: 1
+          },
+          {
+            id: 'player_2',
+            username: 'teammate',
+            displayName: 'Teammate',
+            photoUrl: '',
+            overall: 55,
+            position: 'GK',
+            ratedGames: 1
+          }
+        ]
+      };
+    },
+    getGameById(gameId) {
+      assert.equal(gameId, 'game_selected');
+      return {
+        id: 'game_selected',
+        chatId: '-1007',
+        dateLabel: '7 июня',
+        location: 'Сокольники, поле 10',
+        time: '19:00',
+        scheduledAt: '2099-06-07T16:00:00.000Z',
+        playerIds: ['player_1', 'player_2']
+      };
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+  const photos = [];
+
+  bot.botUsername = 'football_test_bot';
+  bot.sendPhoto = async (chatId, photo, options = {}) => {
+    photos.push({ chatId, photo, options });
+    return { message_id: 105 };
+  };
+  bot.sendText = async () => {
+    throw new Error('Expected photo instead of text fallback');
+  };
+
+  await bot.sendGameDetailsEntry(-1007, 'supergroup', -1007, {
+    id: 'game_selected'
+  });
+
+  assert.equal(photos.length, 1);
+  assert.equal(photos[0].chatId, -1007);
+  assert.ok(Buffer.isBuffer(photos[0].photo));
+  assert.equal(photos[0].options.replyMarkup.inline_keyboard[0][0].text, 'Детали игры');
+});
+
 test('notifyPlayersAboutManualGame sends private invites with decline button', async () => {
   const store = {
     state: {
