@@ -48,10 +48,9 @@ test('processPendingRatingPrompts sends a rating prompt with miniapp link', asyn
   assert.equal(sent[0].chatId, '-1001');
   assert.equal(sent[0].text, 'Не забудьте оценить игру тиммейтов');
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Оценить');
-  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].url, undefined);
   assert.equal(
-    sent[0].options.replyMarkup.inline_keyboard[0][0].login_url.url,
-    'https://app.example/auth/telegram-login?chatId=-1001&view=game&gameId=game_1'
+    sent[0].options.replyMarkup.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=gameid_game_1'
   );
   assert.deepEqual(marked, [{ gameId: 'game_1', messageId: 77 }]);
 });
@@ -75,7 +74,7 @@ test('processPendingRatingPrompts falls back to plain link when keyboard send fa
   bot.sendText = async (chatId, text, options = {}) => {
     sent.push({ chatId, text, options });
 
-    if (options.replyMarkup?.inline_keyboard?.[0]?.[0]?.login_url) {
+    if (options.replyMarkup?.inline_keyboard?.[0]?.[0]?.url) {
       throw new Error('Telegram rejected keyboard');
     }
 
@@ -84,11 +83,10 @@ test('processPendingRatingPrompts falls back to plain link when keyboard send fa
 
   await bot.processPendingRatingPrompts();
 
-  assert.equal(sent.length, 2);
-  assert.equal(sent[1].text, 'Не забудьте оценить игру тиммейтов');
+  assert.equal(sent.length, 3);
   assert.equal(
-    sent[1].options.replyMarkup.inline_keyboard[0][0].url,
-    'https://t.me/football_test_bot?startapp=gameid_game_2'
+    sent[2].text,
+    'Не забудьте оценить игру тиммейтов\n\nhttps://t.me/football_test_bot?startapp=gameid_game_2'
   );
   assert.deepEqual(marked, [{ gameId: 'game_2', messageId: 88 }]);
 });
@@ -105,7 +103,7 @@ test('/open falls back to plain link when Telegram rejects keyboard', async () =
   bot.sendText = async (chatId, text, options = {}) => {
     sent.push({ chatId, text, options });
 
-    if (options.replyMarkup?.inline_keyboard?.[0]?.[0]?.login_url) {
+    if (options.replyMarkup?.inline_keyboard?.[0]?.[0]?.url) {
       throw new Error('Telegram rejected keyboard');
     }
 
@@ -120,12 +118,11 @@ test('/open falls back to plain link when Telegram rejects keyboard', async () =
     }
   });
 
-  assert.equal(sent.length, 2);
+  assert.equal(sent.length, 3);
   assert.equal(sent[0].chatId, -1003);
-  assert.equal(sent[1].chatId, -1003);
-  assert.equal(sent[1].text, '\u2060');
+  assert.equal(sent[2].chatId, -1003);
   assert.equal(
-    sent[1].options.replyMarkup.inline_keyboard[0][0].url,
+    sent[2].text,
     'https://t.me/football_test_bot?startapp=app'
   );
 });
@@ -156,8 +153,8 @@ test('/open sends only button text with custom label when keyboard works', async
   assert.equal(sent[0].text, '\u2060');
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть футбольчик');
   assert.equal(
-    sent[0].options.replyMarkup.inline_keyboard[0][0].login_url.url,
-    'https://app.example/auth/telegram-login'
+    sent[0].options.replyMarkup.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=app'
   );
 });
 
@@ -265,7 +262,7 @@ test('buildManualInviteKeyboard uses the same main miniapp entry when possible',
   assert.equal(keyboard.inline_keyboard[1][0].callback_data, 'decline_game:game_9');
 });
 
-test('/open tolerates PUBLIC_BASE_URL without scheme in group chats', async () => {
+test('/open uses Telegram miniapp deep link in group chats', async () => {
   const { store } = createBotStore([]);
   const bot = new TelegramBot({
     telegramBotToken: 'token',
@@ -288,10 +285,9 @@ test('/open tolerates PUBLIC_BASE_URL without scheme in group chats', async () =
   });
 
   assert.equal(sent.length, 1);
-  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].url, undefined);
   assert.equal(
-    sent[0].options.replyMarkup.inline_keyboard[0][0].login_url.url,
-    'https://footballmanager-production.up.railway.app/auth/telegram-login'
+    sent[0].options.replyMarkup.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=app'
   );
 });
 
@@ -730,6 +726,76 @@ test('sendGameDetailsEntry renders lineup image for selected game outside curren
   assert.equal(photos[0].chatId, -1007);
   assert.ok(Buffer.isBuffer(photos[0].photo));
   assert.equal(photos[0].options.replyMarkup.inline_keyboard[0][0].text, 'Детали игры');
+});
+
+test('sendGameDetailsEntry sends bare lineup image when photo keyboard is rejected', async () => {
+  const store = {
+    state: {
+      chats: {},
+      games: {}
+    },
+    getSnapshot() {
+      return {
+        currentGame: {
+          id: 'game_selected',
+          participants: [
+            {
+              id: 'player_1',
+              username: 'oleg',
+              displayName: 'Oleg',
+              photoUrl: '',
+              overall: 59,
+              position: 'LW',
+              ratedGames: 1
+            },
+            {
+              id: 'player_2',
+              username: 'teammate',
+              displayName: 'Teammate',
+              photoUrl: '',
+              overall: 55,
+              position: 'GK',
+              ratedGames: 1
+            }
+          ]
+        },
+        gameDays: [],
+        players: []
+      };
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+  const photos = [];
+  const texts = [];
+
+  bot.botUsername = 'football_test_bot';
+  bot.sendPhoto = async (chatId, photo, options = {}) => {
+    photos.push({ chatId, photo, options });
+
+    if (options.replyMarkup) {
+      throw new Error('Telegram rejected photo keyboard');
+    }
+
+    return { message_id: 106 };
+  };
+  bot.sendText = async (chatId, text, options = {}) => {
+    texts.push({ chatId, text, options });
+    return { message_id: 107 };
+  };
+
+  await bot.sendGameDetailsEntry(-1007, 'supergroup', -1007, {
+    id: 'game_selected'
+  });
+
+  assert.equal(photos.length, 2);
+  assert.ok(photos[0].options.replyMarkup);
+  assert.equal(photos[1].options.replyMarkup, undefined);
+  assert.equal(texts.length, 1);
+  assert.equal(texts[0].options.replyMarkup.inline_keyboard[0][0].text, 'Детали игры');
+  assert.equal(texts[0].options.replyMarkup.inline_keyboard[0][0].url, 'https://t.me/football_test_bot?startapp=gameid_game_selected');
 });
 
 test('notifyPlayersAboutManualGame sends private invites with decline button', async () => {

@@ -151,16 +151,13 @@ export class TelegramBot {
       };
     }
 
-    if (chatType !== 'private' && loginUrl) {
+    if (chatType !== 'private' && directMiniAppLink) {
       return {
         inline_keyboard: [
           [
             {
               text: buttonText,
-              login_url: {
-                url: loginUrl,
-                request_write_access: true
-              }
+              url: directMiniAppLink
             }
           ]
         ]
@@ -174,6 +171,22 @@ export class TelegramBot {
             {
               text: buttonText,
               url: directMiniAppLink
+            }
+          ]
+        ]
+      };
+    }
+
+    if (chatType !== 'private' && loginUrl) {
+      return {
+        inline_keyboard: [
+          [
+            {
+              text: buttonText,
+              login_url: {
+                url: loginUrl,
+                request_write_access: true
+              }
             }
           ]
         ]
@@ -378,29 +391,43 @@ export class TelegramBot {
       initialView: 'game',
       gameId: game?.id || ''
     });
-
-    if (replyMarkup && game?.id) {
-      try {
-        const lineupImage = await this.buildGameLineupImage(targetChatId, game.id);
-
-        if (lineupImage) {
-          return await this.sendPhoto(chatId, lineupImage, {
-            filename: `lineup-${game.id}.png`,
-            replyMarkup
-          });
-        }
-      } catch (error) {
-        console.error('Unable to send game lineup image:', error.message);
-      }
-    }
-
-    return this.sendMiniAppEntry(chatId, chatType, targetChatId, {
+    const sendDetailsButton = () => this.sendMiniAppEntry(chatId, chatType, targetChatId, {
       primaryText: BUTTON_ONLY_TEXT,
       buttonText: 'Детали игры',
       buttonOnly: true,
       initialView: 'game',
       gameId: game?.id || ''
     });
+
+    if (replyMarkup && game?.id) {
+      try {
+        const lineupImage = await this.buildGameLineupImage(targetChatId, game.id);
+
+        if (lineupImage) {
+          try {
+            return await this.sendPhoto(chatId, lineupImage, {
+              filename: `lineup-${game.id}.png`,
+              replyMarkup
+            });
+          } catch (error) {
+            console.error('Unable to send game lineup image with details button:', error.message);
+
+            try {
+              await this.sendPhoto(chatId, lineupImage, {
+                filename: `lineup-${game.id}.png`
+              });
+              return await sendDetailsButton();
+            } catch (fallbackError) {
+              console.error('Unable to send game lineup image without details button:', fallbackError.message);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Unable to render game lineup image:', error.message);
+      }
+    }
+
+    return sendDetailsButton();
   }
 
   buildManualInviteKeyboard(chatId, gameId) {
