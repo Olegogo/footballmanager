@@ -112,6 +112,8 @@ const state = {
   activeSort: 'overall',
   gamesFilter: 'all',
   positionFilter: '',
+  playerSearch: '',
+  playerSearchVisible: true,
   selectedPlayerId: null,
   selectedGameId: launchContext.gameId,
   selfProfileDraft: null,
@@ -146,6 +148,7 @@ const toastNode = document.getElementById('toast');
 let refreshTimer = null;
 let countdownTimer = null;
 let lastAuthError = '';
+let lastPlayersSearchScrollY = window.scrollY || 0;
 
 function storageKey() {
   return 'fifa-miniapp-token:global';
@@ -1473,17 +1476,91 @@ function renderFilterBar() {
   `;
 }
 
-function renderPlayersTab() {
-  const filteredPlayers = state.positionFilter
+function getFilteredPlayers() {
+  const searchQuery = String(state.playerSearch || '').trim().toLowerCase();
+  const positionFilteredPlayers = state.positionFilter
     ? getPlayers().filter((player) => player.position === state.positionFilter)
     : getPlayers();
-  const players = sortPlayers(filteredPlayers);
+
+  if (!searchQuery) {
+    return sortPlayers(positionFilteredPlayers);
+  }
+
+  return sortPlayers(
+    positionFilteredPlayers.filter((player) => {
+      const searchable = [
+        player.displayName,
+        player.username ? `@${player.username}` : '',
+        player.username
+      ].filter(Boolean).join(' ').toLowerCase();
+
+      return searchable.includes(searchQuery);
+    })
+  );
+}
+
+function renderPlayerSearch() {
+  return `
+    <div class="players-search-wrap ${state.playerSearchVisible ? '' : 'is-hidden'}" data-player-search-wrap>
+      <label class="players-search-field">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M10.7 4.2a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Zm5.2 9.1 3.4 3.4a1 1 0 0 1-1.4 1.4l-3.4-3.4a1 1 0 0 1 1.4-1.4Z"></path>
+        </svg>
+        <input
+          type="search"
+          data-player-search
+          value="${escapeHtml(state.playerSearch)}"
+          placeholder="Поиск по игрокам"
+          autocomplete="off"
+        >
+        <button type="button" data-clear-player-search ${state.playerSearch ? '' : 'hidden'} aria-label="Очистить поиск">×</button>
+      </label>
+    </div>
+  `;
+}
+
+function renderPlayersResults() {
+  const players = getFilteredPlayers();
+
+  if (!players.length) {
+    return `
+      <section class="empty-state players-empty" data-players-results>
+        <h2>Никого не нашли</h2>
+        <p>Попробуй другое имя или ник в Telegram.</p>
+      </section>
+    `;
+  }
 
   return `
-    ${renderFilterBar()}
-    <section class="stack cards-stack cards-stack--players">
+    <section class="stack cards-stack cards-stack--players" data-players-results>
       ${players.map((player) => renderFifaCard(player, { variant: 'player-list', clickable: false })).join('')}
     </section>
+  `;
+}
+
+function refreshPlayersResults() {
+  const resultsNode = document.querySelector('[data-players-results]');
+
+  if (resultsNode) {
+    resultsNode.outerHTML = renderPlayersResults();
+  }
+
+  const clearButton = document.querySelector('[data-clear-player-search]');
+  if (clearButton) {
+    clearButton.hidden = !state.playerSearch;
+  }
+}
+
+function setPlayerSearchVisible(visible) {
+  state.playerSearchVisible = visible;
+  document.querySelector('[data-player-search-wrap]')?.classList.toggle('is-hidden', !visible);
+}
+
+function renderPlayersTab() {
+  return `
+    ${renderPlayerSearch()}
+    ${renderFilterBar()}
+    ${renderPlayersResults()}
   `;
 }
 
@@ -1871,6 +1948,32 @@ function syncTabbar() {
   });
 }
 
+function getPageScrollTop() {
+  return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+}
+
+function handlePlayersSearchScroll() {
+  if (state.activeTab !== 'players' || state.manualGameOpen) {
+    lastPlayersSearchScrollY = getPageScrollTop();
+    return;
+  }
+
+  const currentScrollY = getPageScrollTop();
+  const delta = currentScrollY - lastPlayersSearchScrollY;
+
+  if (Math.abs(delta) < 8) {
+    return;
+  }
+
+  if (currentScrollY <= 4) {
+    setPlayerSearchVisible(true);
+  } else {
+    setPlayerSearchVisible(delta > 0);
+  }
+
+  lastPlayersSearchScrollY = currentScrollY;
+}
+
 function render() {
   const screenTitle = getScreenTitle();
   chatTitleNode.textContent = screenTitle;
@@ -2090,6 +2193,10 @@ document.querySelector('.tabbar').addEventListener('click', (event) => {
   }
 
   state.activeTab = button.dataset.tab;
+  if (state.activeTab === 'players') {
+    state.playerSearchVisible = true;
+    lastPlayersSearchScrollY = getPageScrollTop();
+  }
   if (state.activeTab !== 'game') {
     state.selectedGameId = '';
   }
@@ -2261,6 +2368,19 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
+  const clearPlayerSearchButton = event.target.closest('[data-clear-player-search]');
+
+  if (clearPlayerSearchButton) {
+    state.playerSearch = '';
+    const searchInput = document.querySelector('[data-player-search]');
+    if (searchInput) {
+      searchInput.value = '';
+      searchInput.focus();
+    }
+    refreshPlayersResults();
+    return;
+  }
+
   const openButton = event.target.closest('[data-open-player]');
 
   if (openButton) {
@@ -2374,6 +2494,12 @@ document.addEventListener('change', (event) => {
 });
 
 document.addEventListener('input', (event) => {
+  if (event.target.matches('[data-player-search]')) {
+    state.playerSearch = event.target.value;
+    refreshPlayersResults();
+    return;
+  }
+
   if (event.target.matches('[data-manual-player-search]')) {
     state.manualPlayerSearch = event.target.value;
     state.manualPlayerPickerOpen = true;
@@ -2403,6 +2529,8 @@ document.addEventListener('visibilitychange', () => {
     void refreshSnapshot({ silent: true });
   }
 });
+
+window.addEventListener('scroll', handlePlayersSearchScroll, { passive: true });
 
 window.addEventListener('focus', () => {
   void refreshSnapshot({ silent: true });

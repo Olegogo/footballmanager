@@ -866,6 +866,75 @@ p {
   text-overflow: ellipsis;
 }
 
+.players-search-wrap {
+  max-height: 74px;
+  opacity: 1;
+  overflow: hidden;
+  transform: translateY(0);
+  transition:
+    max-height 180ms ease,
+    opacity 160ms ease,
+    transform 180ms ease,
+    margin 180ms ease;
+}
+
+.players-search-wrap.is-hidden {
+  max-height: 0;
+  opacity: 0;
+  margin-top: -8px;
+  pointer-events: none;
+  transform: translateY(-10px);
+}
+
+.players-search-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 0 14px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top left, rgba(241, 207, 114, 0.13), transparent 38%),
+    rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 235, 170, 0.13);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.2);
+}
+
+.players-search-field svg {
+  width: 21px;
+  height: 21px;
+  fill: rgba(255, 240, 209, 0.62);
+}
+
+.players-search-field input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.players-search-field input::placeholder {
+  color: rgba(255, 240, 209, 0.44);
+}
+
+.players-search-field input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.players-search-field button {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(255, 245, 208, 0.12);
+  color: rgba(255, 240, 209, 0.78);
+  font-size: 24px;
+  line-height: 1;
+}
+
 .filter-row {
   display: flex;
   gap: 10px;
