@@ -4,7 +4,7 @@ import path from 'node:path';
 import { isSuperAdminPlayer } from './admins.js';
 import { createSessionToken } from './auth.js';
 import { parseAnnouncementTextLog, parseTelegramExportGames } from './parser.js';
-import { POSITION_OPTIONS, STAT_KEYS, buildChatSnapshot, buildGlobalCareerIndex, isRatingWindowOpen } from './stats.js';
+import { MAX_RED_CARDS, MAX_YELLOW_CARDS, POSITION_OPTIONS, RATING_WINDOW_MS, STAT_KEYS, buildChatSnapshot, buildGlobalCareerIndex, isRatingWindowOpen } from './stats.js';
 import { clamp, formatDisplayName, normalizeUsername, toIsoString, unique } from './utils.js';
 
 const DEFAULT_POSITION_BY_USERNAME = {
@@ -128,6 +128,10 @@ function sanitizePosition(position) {
   return POSITION_OPTIONS.includes(position) ? position : 'CM';
 }
 
+function sanitizeCardCount(value, max) {
+  return Math.round(clamp(Number(value ?? 0), 0, max));
+}
+
 function sanitizeProfilePosition(position) {
   return POSITION_OPTIONS.includes(position) ? position : 'N/A';
 }
@@ -145,6 +149,8 @@ function sanitizeCareerSeed(player) {
     ratedGames,
     goals: Math.round(clamp(Number(player.goals ?? 0), 0, 10000)),
     assists: Math.round(clamp(Number(player.assists ?? 0), 0, 10000)),
+    yellowCards: Math.round(clamp(Number(player.yellowCards ?? player.cards?.yellow ?? 0), 0, 10000)),
+    redCards: Math.round(clamp(Number(player.redCards ?? player.cards?.red ?? 0), 0, 10000)),
     position: sanitizeProfilePosition(player.position),
     stats: Object.fromEntries(
       STAT_KEYS.map((key) => [key, clamp(Number(player.stats?.[key] ?? fallbackStat), 1, 99)])
@@ -356,6 +362,14 @@ function copyExternalGameFields(targetGame, externalGame, playerIdMap, nowIso) {
     .filter(Boolean);
   targetGame.ratingsOpenedAt = externalGame.ratingsOpenedAt || targetGame.ratingsOpenedAt || null;
   targetGame.ratingsPromptMessageId = externalGame.ratingsPromptMessageId ?? targetGame.ratingsPromptMessageId ?? null;
+  targetGame.ratingSummarySentAt = externalGame.ratingSummarySentAt || targetGame.ratingSummarySentAt || null;
+  targetGame.ratingSummaryChatMessageId = externalGame.ratingSummaryChatMessageId ?? targetGame.ratingSummaryChatMessageId ?? null;
+  targetGame.ratingSummaryPrivatePlayerIds = unique([
+    ...(targetGame.ratingSummaryPrivatePlayerIds ?? []),
+    ...(externalGame.ratingSummaryPrivatePlayerIds ?? [])
+      .map((playerId) => playerIdMap.get(String(playerId)))
+      .filter(Boolean)
+  ]);
   targetGame.ratingsClosedByGameId = externalGame.ratingsClosedByGameId || targetGame.ratingsClosedByGameId || null;
   targetGame.closedAt = externalGame.closedAt || targetGame.closedAt || null;
   targetGame.createdAt = externalGame.createdAt || targetGame.createdAt || nowIso;
@@ -436,6 +450,8 @@ function mergeExternalState(state, externalState) {
 
     rating.goals = rating.position === 'GK' ? 0 : clamp(Number(externalRating.goals ?? 0), 0, 20);
     rating.assists = rating.position === 'GK' ? 0 : clamp(Number(externalRating.assists ?? 0), 0, 20);
+    rating.yellowCards = sanitizeCardCount(externalRating.yellowCards, MAX_YELLOW_CARDS);
+    rating.redCards = sanitizeCardCount(externalRating.redCards, MAX_RED_CARDS);
     rating.updatedAt = externalRating.updatedAt || now;
     state.ratings[rating.id] = rating;
     ratingsMerged += 1;
@@ -545,6 +561,11 @@ function importBootstrapSnapshot(state, snapshot) {
     targetGame.playerIds = participantIds;
     targetGame.ratingsOpenedAt = game.ratingsOpenedAt || targetGame.ratingsOpenedAt || null;
     targetGame.ratingsPromptMessageId = game.ratingsPromptMessageId ?? targetGame.ratingsPromptMessageId ?? null;
+    targetGame.ratingSummarySentAt = game.ratingSummarySentAt || targetGame.ratingSummarySentAt || null;
+    targetGame.ratingSummaryChatMessageId = game.ratingSummaryChatMessageId ?? targetGame.ratingSummaryChatMessageId ?? null;
+    targetGame.ratingSummaryPrivatePlayerIds = Array.isArray(game.ratingSummaryPrivatePlayerIds)
+      ? game.ratingSummaryPrivatePlayerIds
+      : targetGame.ratingSummaryPrivatePlayerIds || [];
     targetGame.ratingsClosedByGameId = targetGame.ratingsClosedByGameId || null;
     targetGame.closedAt = game.status === 'finished' ? targetGame.closedAt || now : targetGame.closedAt || null;
     targetGame.excludeFromCareer = true;
@@ -768,6 +789,9 @@ function mergeImportedAnnouncements(state, {
       playerIds,
       ratingsOpenedAt: null,
       ratingsPromptMessageId: null,
+      ratingSummarySentAt: null,
+      ratingSummaryChatMessageId: null,
+      ratingSummaryPrivatePlayerIds: [],
       ratingsClosedByGameId: null,
       closedAt: null,
       createdAt: now,
@@ -1002,6 +1026,9 @@ export class AppStore {
         playerIds,
         ratingsOpenedAt: null,
         ratingsPromptMessageId: null,
+        ratingSummarySentAt: null,
+        ratingSummaryChatMessageId: null,
+        ratingSummaryPrivatePlayerIds: [],
         ratingsClosedByGameId: null,
         closedAt: null,
         createdAt: now,
@@ -1058,6 +1085,9 @@ export class AppStore {
         declinedPlayerIds: [],
         ratingsOpenedAt: null,
         ratingsPromptMessageId: null,
+        ratingSummarySentAt: null,
+        ratingSummaryChatMessageId: null,
+        ratingSummaryPrivatePlayerIds: [],
         ratingsClosedByGameId: null,
         closedAt: null,
         createdAt: now,
@@ -1292,11 +1322,34 @@ export class AppStore {
     return Object.values(this.state.games).filter((game) => {
       const chat = this.state.chats[game.chatId];
 
-      if (!chat || chat.type === 'private' || chat.type === 'global' || chat.currentGameId !== game.id || game.ratingsOpenedAt) {
+      if (!chat || chat.type === 'private' || game.ratingsOpenedAt) {
+        return false;
+      }
+
+      if (chat.type !== 'global' && chat.currentGameId !== game.id) {
         return false;
       }
 
       return new Date(game.scheduledAt) <= now;
+    });
+  }
+
+  listGamesRequiringSummary(now = new Date()) {
+    const nowMs = new Date(now).getTime();
+    const gamesWithRatings = new Set(Object.values(this.state.ratings).map((rating) => rating.gameId));
+
+    return Object.values(this.state.games).filter((game) => {
+      if (game.ratingSummarySentAt || game.excludeFromCareer) {
+        return false;
+      }
+
+      const scheduledAt = new Date(game.scheduledAt).getTime();
+
+      if (!Number.isFinite(scheduledAt) || nowMs < scheduledAt + RATING_WINDOW_MS) {
+        return false;
+      }
+
+      return Boolean(game.ratingsOpenedAt || gamesWithRatings.has(game.id));
     });
   }
 
@@ -1310,6 +1363,22 @@ export class AppStore {
 
       game.ratingsOpenedAt = new Date().toISOString();
       game.ratingsPromptMessageId = messageId ?? null;
+      game.updatedAt = new Date().toISOString();
+      return game;
+    });
+  }
+
+  async markRatingSummarySent(gameId, options = {}) {
+    return this.mutate((state) => {
+      const game = state.games[gameId];
+
+      if (!game) {
+        return null;
+      }
+
+      game.ratingSummarySentAt = new Date().toISOString();
+      game.ratingSummaryChatMessageId = options.chatMessageId ?? null;
+      game.ratingSummaryPrivatePlayerIds = unique(options.privatePlayerIds ?? []);
       game.updatedAt = new Date().toISOString();
       return game;
     });
@@ -1367,6 +1436,8 @@ export class AppStore {
 
       rating.goals = rating.position === 'GK' ? 0 : clamp(Number(payload.goals ?? 0), 0, 20);
       rating.assists = rating.position === 'GK' ? 0 : clamp(Number(payload.assists ?? 0), 0, 20);
+      rating.yellowCards = sanitizeCardCount(payload.yellowCards, MAX_YELLOW_CARDS);
+      rating.redCards = sanitizeCardCount(payload.redCards, MAX_RED_CARDS);
       rating.updatedAt = new Date().toISOString();
       state.ratings[rating.id] = rating;
       return rating;

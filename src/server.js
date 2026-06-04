@@ -27,6 +27,7 @@ const KNOWN_LEGACY_HOST_REDIRECTS = new Map([
 setInterval(() => {
   store.cleanupSessions();
   void bot.processPendingRatingPrompts();
+  void bot.processPendingGameSummaries();
 }, config.schedulerIntervalMs).unref();
 
 function getViewerSession(req) {

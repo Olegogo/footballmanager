@@ -904,3 +904,103 @@ test('buildChatSnapshot includes selected game details outside current pair', ()
   );
   assert.equal(snapshot.gameDays.find((game) => game.id === 'game_selected_old').participants.length, 2);
 });
+
+test('buildChatSnapshot aggregates cards into game and career summaries', () => {
+  const state = {
+    version: 1,
+    meta: {},
+    chats: {
+      '-1001': {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        username: '',
+        currentGameId: 'game_1',
+        playerIds: ['player_1', 'player_2', 'player_3']
+      }
+    },
+    players: {
+      player_1: {
+        id: 'player_1',
+        telegramUserId: 1,
+        username: 'oleg',
+        displayName: 'Oleg',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001']
+      },
+      player_2: {
+        id: 'player_2',
+        telegramUserId: 2,
+        username: 'target',
+        displayName: 'Target',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001']
+      },
+      player_3: {
+        id: 'player_3',
+        telegramUserId: 3,
+        username: 'rater',
+        displayName: 'Rater',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001']
+      }
+    },
+    games: {
+      game_1: {
+        id: 'game_1',
+        chatId: '-1001',
+        dateLabel: '30 мая',
+        location: 'Поле 10',
+        time: '16:00',
+        scheduledAt: '2026-05-30T13:00:00.000Z',
+        playerIds: ['player_1', 'player_2', 'player_3'],
+        paymentLines: [],
+        priceLine: '',
+        ratingsOpenedAt: '2026-05-30T13:00:00.000Z'
+      }
+    },
+    ratings: {
+      rating_1: {
+        id: 'rating_1',
+        chatId: '-1001',
+        gameId: 'game_1',
+        raterPlayerId: 'player_1',
+        targetPlayerId: 'player_2',
+        ...rating({ overall: 70, position: 'CM' }),
+        yellowCards: 1,
+        redCards: 0
+      },
+      rating_2: {
+        id: 'rating_2',
+        chatId: '-1001',
+        gameId: 'game_1',
+        raterPlayerId: 'player_3',
+        targetPlayerId: 'player_2',
+        ...rating({ overall: 80, position: 'CM' }),
+        yellowCards: 2,
+        redCards: 1
+      }
+    }
+  };
+
+  const snapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-06-02T09:00:00.000Z'));
+  const target = snapshot.players.find((player) => player.id === 'player_2');
+  const game = snapshot.games.find((item) => item.id === 'game_1');
+  const gameTarget = snapshot.gameDays[0].participants.find((player) => player.id === 'player_2');
+
+  assert.equal(game.averageOverall, 75);
+  assert.deepEqual(game.cards, { yellow: 2, red: 1, total: 3, hasCards: true });
+  assert.equal(target.yellowCards, 2);
+  assert.equal(target.redCards, 1);
+  assert.equal(gameTarget.currentGameStats.yellowCards, 2);
+  assert.equal(gameTarget.currentGameStats.redCards, 1);
+});

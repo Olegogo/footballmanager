@@ -641,6 +641,44 @@ function renderMiniAvatar(player) {
   return `<span>${escapeHtml(getInitials(player))}</span>`;
 }
 
+function getDisciplineCards(source = {}) {
+  const yellow = Number(source?.cards?.yellow ?? source?.yellowCards ?? 0);
+  const red = Number(source?.cards?.red ?? source?.redCards ?? 0);
+
+  return {
+    yellow: Math.max(0, Math.round(Number.isFinite(yellow) ? yellow : 0)),
+    red: Math.max(0, Math.round(Number.isFinite(red) ? red : 0))
+  };
+}
+
+function hasDisciplineCards(source = {}) {
+  const cards = getDisciplineCards(source);
+  return cards.yellow > 0 || cards.red > 0;
+}
+
+function renderDisciplineCards(source = {}, className = 'discipline-cards') {
+  const cards = getDisciplineCards(source);
+
+  if (!cards.yellow && !cards.red) {
+    return '';
+  }
+
+  return `
+    <span class="${escapeHtml(className)}">
+      ${
+        cards.yellow
+          ? `<span class="discipline-card-chip"><i class="discipline-card-icon discipline-card-icon--yellow"></i><strong>${escapeHtml(cards.yellow)}</strong></span>`
+          : ''
+      }
+      ${
+        cards.red
+          ? `<span class="discipline-card-chip"><i class="discipline-card-icon discipline-card-icon--red"></i><strong>${escapeHtml(cards.red)}</strong></span>`
+          : ''
+      }
+    </span>
+  `;
+}
+
 function renderPositionSelector(label, value) {
   return `
     <div class="position-selector">
@@ -667,7 +705,7 @@ function renderMetricCell(label, value, options = {}) {
   return `
     <div class="${classes.join(' ')}">
       <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(value)}</strong>
+      <strong>${options.html ? value : escapeHtml(value)}</strong>
     </div>
   `;
 }
@@ -775,6 +813,42 @@ function renderEditorStepper(name, label, value, max = 20) {
   `;
 }
 
+function renderEditorCardStepper(name, label, kind, value, max) {
+  return `
+    <div class="editor-card-stepper" data-stepper-name="${escapeHtml(name)}">
+      <span class="editor-card-label">
+        <i class="discipline-card-icon discipline-card-icon--${escapeHtml(kind)}"></i>
+        ${escapeHtml(label)}
+      </span>
+      <strong data-stepper-value>${escapeHtml(value)}</strong>
+      <input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(value)}" min="0" max="${escapeHtml(max)}">
+      <div class="editor-card-actions">
+        <button type="button" class="editor-stepper-button" data-stepper-action="decrement" data-stepper-name="${escapeHtml(name)}">−</button>
+        <button type="button" class="editor-stepper-button" data-stepper-action="increment" data-stepper-name="${escapeHtml(name)}">+</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderEditorCards(defaults) {
+  const cards = getDisciplineCards(defaults);
+  const enabled = Boolean(defaults.cardsEnabled ?? (cards.yellow > 0 || cards.red > 0));
+
+  return `
+    <section class="editor-cards-control ${enabled ? 'is-enabled' : ''}" data-card-control>
+      <label class="editor-cards-toggle">
+        <span>Карточки</span>
+        <input type="checkbox" name="cardsEnabled" data-cards-toggle ${enabled ? 'checked' : ''}>
+        <i aria-hidden="true"></i>
+      </label>
+      <div class="editor-cards-controls">
+        ${renderEditorCardStepper('yellowCards', 'желтые', 'yellow', cards.yellow, 2)}
+        ${renderEditorCardStepper('redCards', 'красная', 'red', cards.red, 1)}
+      </div>
+    </section>
+  `;
+}
+
 function renderEditorRange(name, label, value) {
   return `
     <label class="editor-range">
@@ -837,6 +911,7 @@ function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
                       `
                   }
                   ${statMeta.map(([key, label]) => renderEditorRange(key, label.toLowerCase(), defaults[key])).join('')}
+                  ${renderEditorCards(defaults)}
                   <button type="submit" class="primary-button card-action editor-submit">Сохранить</button>
                 </form>
               `
@@ -968,6 +1043,7 @@ function renderField(game, options = {}) {
                         <div class="field-player-info">
                           ${ratingLabel ? `<strong>${escapeHtml(ratingLabel)}</strong>` : ''}
                           <span>${escapeHtml(player.displayName.split(' ')[0])}</span>
+                          ${renderDisciplineCards(player.currentGameStats, 'field-player-cards')}
                         </div>
                       </button>
                     `;
@@ -993,6 +1069,7 @@ function renderGamePlayerRow(player) {
       <div class="game-player-main">
         <strong>${escapeHtml(player.displayName)}</strong>
         <span>${escapeHtml(positionLabel)}</span>
+        ${renderDisciplineCards(player.currentGameStats, 'game-player-cards')}
       </div>
       ${renderGamePlayerState(player, game)}
     </article>
@@ -1080,9 +1157,23 @@ function renderGameCard(game) {
           <strong>${escapeHtml(mvpLabel)}</strong>
         </div>
         <div>
+          <span>Средний уровень</span>
+          <strong>${escapeHtml(game.averageOverall ?? 'Пока нет')}</strong>
+        </div>
+        <div>
           <span>Всего голов</span>
           <strong>${escapeHtml(game.totalGoals)}</strong>
         </div>
+        ${
+          hasDisciplineCards(game.cards)
+            ? `
+              <div>
+                <span>Карточки</span>
+                <strong class="game-card-cards">${renderDisciplineCards(game.cards, 'game-summary-cards')}</strong>
+              </div>
+            `
+            : ''
+        }
         <div>
           <span>Игроков</span>
           <strong>${escapeHtml(game.playersCount)}</strong>
@@ -1567,6 +1658,13 @@ function renderProfileTab() {
           ]
     )
   ];
+  if (hasDisciplineCards(player)) {
+    overviewCells.push({
+      label: 'карточки',
+      value: renderDisciplineCards(player.cards || player, 'profile-cards-total'),
+      html: true
+    });
+  }
   const statCells = statMeta.map(([key, label]) => [
     label.toLowerCase(),
     showProfileValues ? player.stats[key] : '-'
@@ -1685,7 +1783,10 @@ function readRatingFormDraft(form) {
   const draft = {
     position: String(formData.get('position') || 'N/A'),
     goals: Number(formData.get('goals') || 0),
-    assists: Number(formData.get('assists') || 0)
+    assists: Number(formData.get('assists') || 0),
+    cardsEnabled: formData.get('cardsEnabled') === 'on',
+    yellowCards: Number(formData.get('yellowCards') || 0),
+    redCards: Number(formData.get('redCards') || 0)
   };
 
   for (const [key] of STAT_META) {
@@ -1744,6 +1845,9 @@ function renderModal() {
     position: viewerRating?.position || player.position || 'N/A',
     goals: viewerRating?.goals ?? 0,
     assists: viewerRating?.assists ?? 0,
+    yellowCards: viewerRating?.yellowCards ?? viewerRating?.cards?.yellow ?? 0,
+    redCards: viewerRating?.redCards ?? viewerRating?.cards?.red ?? 0,
+    cardsEnabled: hasDisciplineCards(viewerRating),
     ...Object.fromEntries(
       STAT_META.map(([key]) => [key, viewerRating?.stats?.[key] ?? player.stats?.[key] ?? 50])
     )
@@ -1808,11 +1912,14 @@ async function submitRating(form) {
   const gameId = form.dataset.gameId;
   const targetPlayerId = form.dataset.playerId;
   const formData = new FormData(form);
+  const cardsEnabled = formData.get('cardsEnabled') === 'on';
   const payload = {
     targetPlayerId,
     position: formData.get('position'),
     goals: Number(formData.get('goals') || 0),
-    assists: Number(formData.get('assists') || 0)
+    assists: Number(formData.get('assists') || 0),
+    yellowCards: cardsEnabled ? Number(formData.get('yellowCards') || 0) : 0,
+    redCards: cardsEnabled ? Number(formData.get('redCards') || 0) : 0
   };
 
   for (const [key] of STAT_META) {
@@ -2236,6 +2343,14 @@ document.addEventListener('change', (event) => {
     const form = event.target.closest('form');
     saveRatingFormDraft(form);
     renderModal();
+    return;
+  }
+
+  if (event.target.matches('[data-cards-toggle]')) {
+    const control = event.target.closest('[data-card-control]');
+    const form = event.target.closest('form');
+    control?.classList.toggle('is-enabled', event.target.checked);
+    saveRatingFormDraft(form);
     return;
   }
 

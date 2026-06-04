@@ -462,6 +462,63 @@ export class TelegramBot {
     ].filter(Boolean).join('\n');
   }
 
+  getPrivateParticipants(game) {
+    const seenChatIds = new Set();
+    const participants = [];
+
+    for (const playerId of game?.playerIds ?? []) {
+      const player = this.store.getPlayerById?.(playerId);
+
+      if (!player?.privateChatId || seenChatIds.has(String(player.privateChatId))) {
+        continue;
+      }
+
+      seenChatIds.add(String(player.privateChatId));
+      participants.push(player);
+    }
+
+    return participants;
+  }
+
+  formatCardsText(cards) {
+    const parts = [];
+
+    if (cards?.yellow > 0) {
+      parts.push(`желтых — ${cards.yellow}`);
+    }
+
+    if (cards?.red > 0) {
+      parts.push(`красных — ${cards.red}`);
+    }
+
+    return parts.join(', ');
+  }
+
+  getGameSummaryView(gameId) {
+    const snapshot = this.store.getSnapshot?.('global', null, { selectedGameId: gameId });
+    return snapshot?.games?.find((game) => game.id === gameId) ?? null;
+  }
+
+  formatGameSummary(game) {
+    const summary = this.getGameSummaryView(game.id);
+    const mvpLabel = summary?.mvp
+      ? `${summary.mvp.displayName}${summary.mvp.ratingIncrease ? ` +${summary.mvp.ratingIncrease}` : ''}`
+      : 'Пока нет';
+    const cardsText = this.formatCardsText(summary?.cards);
+
+    return [
+      'Итоги игры',
+      '',
+      `${summary?.dateLabel || game.dateLabel} в ${summary?.time || game.time}`,
+      summary?.location || game.location ? `Место: ${summary?.location || game.location}` : '',
+      '',
+      `Средний уровень игры: ${summary?.averageOverall ?? 'Пока нет'}`,
+      `MVP: ${mvpLabel}`,
+      `Голов всего: ${summary?.totalGoals ?? 0}`,
+      cardsText ? `Карточки: ${cardsText}` : ''
+    ].filter(Boolean).join('\n');
+  }
+
   async notifyPlayersAboutManualGame(gameId) {
     const game = this.store.getGameById?.(gameId);
 
@@ -874,6 +931,7 @@ export class TelegramBot {
 
     this.scheduleCurrentGamePrompts();
     await this.processPendingRatingPrompts();
+    await this.processPendingGameSummaries();
 
     while (this.running) {
       try {
@@ -909,20 +967,93 @@ export class TelegramBot {
 
     const games = this.store.listGamesRequiringPrompt(new Date());
     const promptText = 'Не забудьте оценить игру тиммейтов';
+    const privatePromptText = 'Оценка стартовала. Ты участвуешь в этой игре — не забудь оценить тиммейтов.';
 
     for (const game of games) {
       try {
-        const message = await this.sendMiniAppEntry(game.chatId, 'supergroup', game.chatId, {
-          primaryText: promptText,
-          buttonText: 'Оценить',
-          initialView: 'game',
-          gameId: game.id
-        });
+        const chat = this.store.state?.chats?.[String(game.chatId)];
+        let promptMessageId = null;
 
-        await this.store.markRatingsPromptSent(game.id, message.message_id);
+        if (chat?.type !== 'global') {
+          const message = await this.sendMiniAppEntry(game.chatId, chat?.type || 'supergroup', game.chatId, {
+            primaryText: promptText,
+            buttonText: 'Оценить',
+            initialView: 'game',
+            gameId: game.id
+          });
+          promptMessageId = message?.message_id ?? null;
+        }
+
+        await this.store.markRatingsPromptSent(game.id, promptMessageId);
         this.clearPromptTimer(game.id);
+
+        for (const player of this.getPrivateParticipants(game)) {
+          try {
+            await this.sendMiniAppEntry(player.privateChatId, 'private', game.chatId, {
+              primaryText: privatePromptText,
+              buttonText: 'Оценить',
+              initialView: 'game',
+              gameId: game.id
+            });
+          } catch (error) {
+            console.error(`Unable to send private rating prompt to ${player.id}:`, error.message);
+          }
+        }
       } catch (error) {
         console.error(`Unable to send rating prompt for ${game.id}:`, error.message);
+      }
+    }
+  }
+
+  async processPendingGameSummaries() {
+    if (!this.enabled || typeof this.store.listGamesRequiringSummary !== 'function') {
+      return;
+    }
+
+    const games = this.store.listGamesRequiringSummary(new Date());
+
+    for (const game of games) {
+      const summaryText = this.formatGameSummary(game);
+      const chat = this.store.state?.chats?.[String(game.chatId)];
+      let chatMessageId = null;
+      const privatePlayerIds = [];
+      let sentAnything = false;
+
+      if (chat && chat.type !== 'private' && chat.type !== 'global') {
+        try {
+          const message = await this.sendMiniAppEntry(game.chatId, chat.type || 'supergroup', game.chatId, {
+            primaryText: summaryText,
+            buttonText: 'Детали игры',
+            initialView: 'game',
+            gameId: game.id
+          });
+          chatMessageId = message?.message_id ?? null;
+          sentAnything = true;
+        } catch (error) {
+          console.error(`Unable to send game summary to chat for ${game.id}:`, error.message);
+        }
+      }
+
+      for (const player of this.getPrivateParticipants(game)) {
+        try {
+          await this.sendMiniAppEntry(player.privateChatId, 'private', game.chatId, {
+            primaryText: summaryText,
+            buttonText: 'Детали игры',
+            initialView: 'game',
+            gameId: game.id
+          });
+          privatePlayerIds.push(player.id);
+          sentAnything = true;
+        } catch (error) {
+          console.error(`Unable to send private game summary to ${player.id}:`, error.message);
+        }
+      }
+
+      if (sentAnything) {
+        await this.store.markRatingSummarySent(game.id, {
+          chatMessageId,
+          privatePlayerIds
+        });
       }
     }
   }

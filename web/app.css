@@ -400,7 +400,7 @@ p {
 
 .game-card-stats {
   display: grid;
-  grid-template-columns: 1.3fr 0.8fr 0.8fr;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
   gap: 10px;
 }
 
@@ -429,6 +429,47 @@ p {
   line-height: 1.1;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.discipline-cards,
+.game-summary-cards,
+.profile-cards-total,
+.game-player-cards,
+.field-player-cards {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.discipline-card-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #fff4d0;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.discipline-card-icon {
+  display: inline-block;
+  width: 13px;
+  height: 18px;
+  border-radius: 3px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.28);
+  transform: rotate(-6deg);
+}
+
+.discipline-card-icon--yellow {
+  background: linear-gradient(160deg, #ffe98c, #e5b72c);
+}
+
+.discipline-card-icon--red {
+  background: linear-gradient(160deg, #ff7b73, #b71919);
+}
+
+.game-card-cards {
+  display: flex;
 }
 
 .floating-create-button {
@@ -513,6 +554,20 @@ p {
   color: rgba(255, 240, 209, 0.66);
   font-size: 13px;
   font-weight: 800;
+}
+
+.game-player-cards {
+  margin-top: 2px;
+}
+
+.game-player-cards .discipline-card-chip {
+  font-size: 12px;
+}
+
+.game-player-cards .discipline-card-icon {
+  width: 10px;
+  height: 15px;
+  border-radius: 2px;
 }
 
 .game-player-unrated {
@@ -772,6 +827,24 @@ p {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.field-player-cards {
+  justify-content: center;
+  gap: 4px;
+  margin-top: 1px;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
+}
+
+.field-player-cards .discipline-card-chip {
+  gap: 2px;
+  font-size: 9px;
+}
+
+.field-player-cards .discipline-card-icon {
+  width: 8px;
+  height: 11px;
+  border-radius: 2px;
 }
 
 .field-player-overall,
@@ -1731,6 +1804,114 @@ input[type="range"] {
   color: #fff4d0;
   font-size: 30px;
   line-height: 1;
+}
+
+.editor-cards-control {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(241, 207, 114, 0.28);
+  background: rgba(255, 245, 208, 0.06);
+}
+
+.editor-cards-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  color: rgba(255, 240, 209, 0.72);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.editor-cards-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.editor-cards-toggle i {
+  width: 48px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(255, 245, 208, 0.16);
+  border: 1px solid rgba(255, 237, 186, 0.16);
+  box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.08);
+}
+
+.editor-cards-toggle i::after {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  margin: 2px;
+  border-radius: 999px;
+  background: rgba(255, 240, 209, 0.52);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.editor-cards-toggle input:checked + i {
+  background: rgba(241, 207, 114, 0.92);
+}
+
+.editor-cards-toggle input:checked + i::after {
+  background: #2a210f;
+  transform: translateX(20px);
+}
+
+.editor-cards-controls {
+  display: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.editor-cards-control.is-enabled .editor-cards-controls {
+  display: grid;
+}
+
+.editor-card-stepper {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  min-height: 86px;
+  padding: 12px 86px 12px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(241, 207, 114, 0.45);
+}
+
+.editor-card-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: rgba(255, 240, 209, 0.68);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.editor-card-stepper strong {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.editor-card-stepper input[type="hidden"] {
+  display: none;
+}
+
+.editor-card-actions {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+  transform: translateY(-50%);
+}
+
+.editor-card-actions .editor-stepper-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 24px;
 }
 
 .editor-range {

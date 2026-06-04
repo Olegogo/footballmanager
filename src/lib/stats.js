@@ -4,6 +4,8 @@ import { round } from './utils.js';
 export const STAT_KEYS = ['pace', 'dribbling', 'shooting', 'defense', 'passing', 'physical'];
 export const POSITION_OPTIONS = ['N/A', 'GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST'];
 export const RATING_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const MAX_YELLOW_CARDS = 2;
+export const MAX_RED_CARDS = 1;
 
 const FALLBACK_STATS = {
   pace: 50,
@@ -84,6 +86,8 @@ function createEmptySummary() {
     count: 0,
     goalsTotal: 0,
     assistsTotal: 0,
+    yellowCardsMax: 0,
+    redCardsMax: 0,
     positionCounts: {},
     sums: {
       pace: 0,
@@ -102,6 +106,8 @@ function createEmptyCareerEntry() {
     ratedGames: 0,
     goals: 0,
     assists: 0,
+    yellowCards: 0,
+    redCards: 0,
     overall: 50,
     positionCounts: {},
     statSums: {
@@ -135,6 +141,8 @@ function applyCareerSeedToEntry(entry, seed) {
   entry.ratedGames += ratedGames;
   entry.goals += Math.max(0, Math.round(Number(seed.goals ?? 0)));
   entry.assists += Math.max(0, Math.round(Number(seed.assists ?? 0)));
+  entry.yellowCards += Math.max(0, Math.round(Number(seed.yellowCards ?? 0)));
+  entry.redCards += Math.max(0, Math.round(Number(seed.redCards ?? 0)));
 
   const position = POSITION_OPTIONS.includes(seed.position) ? seed.position : 'N/A';
   if (position !== 'N/A') {
@@ -154,6 +162,13 @@ function finalizeSummary(summary) {
       overall: 50,
       goals: 0,
       assists: 0,
+      yellowCards: 0,
+      redCards: 0,
+      cards: {
+        yellow: 0,
+        red: 0
+      },
+      hasCards: false,
       position: 'N/A',
       ratingsCount: 0
     };
@@ -172,6 +187,13 @@ function finalizeSummary(summary) {
     overall,
     goals: round(summary.goalsTotal / summary.count),
     assists: round(summary.assistsTotal / summary.count),
+    yellowCards: summary.yellowCardsMax,
+    redCards: summary.redCardsMax,
+    cards: {
+      yellow: summary.yellowCardsMax,
+      red: summary.redCardsMax
+    },
+    hasCards: summary.yellowCardsMax > 0 || summary.redCardsMax > 0,
     position: pickDominantPosition(summary.positionCounts),
     ratingsCount: summary.count
   };
@@ -192,6 +214,12 @@ function finalizeCareerEntry(entry) {
     ratedGames: entry.ratedGames,
     goals: entry.goals,
     assists: entry.assists,
+    yellowCards: entry.yellowCards,
+    redCards: entry.redCards,
+    cards: {
+      yellow: entry.yellowCards,
+      red: entry.redCards
+    },
     overall,
     stats,
     position: entry.ratedGames ? pickDominantPosition(entry.positionCounts) : 'N/A'
@@ -216,6 +244,8 @@ function applyGameToCareerEntry(entry, gameStats) {
   entry.ratedGames += 1;
   entry.goals += gameStats.goals;
   entry.assists += gameStats.assists;
+  entry.yellowCards += gameStats.yellowCards ?? 0;
+  entry.redCards += gameStats.redCards ?? 0;
   entry.positionCounts[gameStats.position] = (entry.positionCounts[gameStats.position] ?? 0) + 1;
 
   for (const key of STAT_KEYS) {
@@ -291,6 +321,9 @@ export function buildGameAggregation(state, gameId) {
       summary.goalsTotal += rating.goals;
       summary.assistsTotal += rating.assists;
     }
+
+    summary.yellowCardsMax = Math.max(summary.yellowCardsMax, Math.min(MAX_YELLOW_CARDS, Math.max(0, Math.round(Number(rating.yellowCards ?? 0)))));
+    summary.redCardsMax = Math.max(summary.redCardsMax, Math.min(MAX_RED_CARDS, Math.max(0, Math.round(Number(rating.redCards ?? 0)))));
 
     for (const key of STAT_KEYS) {
       summary.sums[key] += rating[key];
@@ -505,6 +538,43 @@ function normalizeDateLabel(dateLabel = '') {
   return `${Number(match[1])} ${match[2].toLowerCase()}`;
 }
 
+function buildGameCardsSummary(game, aggregation) {
+  const cards = game.playerIds.reduce(
+    (acc, playerId) => {
+      const gameStats = aggregation?.players[playerId];
+
+      if (!gameStats?.hasRatings) {
+        return acc;
+      }
+
+      acc.yellow += gameStats.yellowCards ?? 0;
+      acc.red += gameStats.redCards ?? 0;
+      return acc;
+    },
+    { yellow: 0, red: 0 }
+  );
+
+  return {
+    ...cards,
+    total: cards.yellow + cards.red,
+    hasCards: cards.yellow > 0 || cards.red > 0
+  };
+}
+
+function buildGameAverageOverall(game, aggregation) {
+  const ratedPlayers = game.playerIds
+    .map((playerId) => aggregation?.players[playerId])
+    .filter((gameStats) => gameStats?.hasRatings);
+
+  if (!ratedPlayers.length) {
+    return null;
+  }
+
+  return round(
+    ratedPlayers.reduce((sum, gameStats) => sum + gameStats.overall, 0) / ratedPlayers.length
+  );
+}
+
 function buildGamesView(state, games, playerCards, now) {
   const mvpIndex = buildGameMvpIndexForGames(state, games, now);
   const playersById = new Map(playerCards.map((player) => [player.id, player]));
@@ -516,6 +586,8 @@ function buildGamesView(state, games, playerCards, now) {
       const mvpPlayer = mvp ? playersById.get(mvp.playerId) : null;
       const importedMvp = game.importedSummary?.mvp ?? null;
       const importedTopScorer = game.importedSummary?.topScorer ?? null;
+      const cards = buildGameCardsSummary(game, aggregation);
+      const averageOverall = buildGameAverageOverall(game, aggregation);
       const totalGoals = round(
         game.playerIds.reduce((sum, playerId) => {
           const gameStats = aggregation?.players[playerId];
@@ -560,6 +632,8 @@ function buildGamesView(state, games, playerCards, now) {
         status: getGameStatus(game, now),
         playersCount: game.playerIds.length,
         totalGoals,
+        averageOverall,
+        cards,
         mvp: mvp
           ? {
               playerId: mvp.playerId,
@@ -667,6 +741,12 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       ratedGames: 0,
       goals: 0,
       assists: 0,
+      yellowCards: 0,
+      redCards: 0,
+      cards: {
+        yellow: 0,
+        red: 0
+      },
       overall: 50,
       stats: { ...FALLBACK_STATS },
       position: 'N/A'
@@ -686,6 +766,9 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       ratedGames: careerEntry.ratedGames,
       goals: careerEntry.goals,
       assists: careerEntry.assists,
+      yellowCards: careerEntry.yellowCards,
+      redCards: careerEntry.redCards,
+      cards: careerEntry.cards,
       hasSelfProfile: Boolean(player.selfProfile),
       isMvp
     };
@@ -697,6 +780,12 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
         ratedGames: 0,
         goals: 0,
         assists: 0,
+        yellowCards: 0,
+        redCards: 0,
+        cards: {
+          yellow: 0,
+          red: 0
+        },
         overall: 50,
         stats: { ...FALLBACK_STATS },
         position: 'N/A'
@@ -759,6 +848,12 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
                   position: viewerRating.position,
                   goals: viewerRating.goals,
                   assists: viewerRating.assists,
+                  yellowCards: viewerRating.yellowCards ?? 0,
+                  redCards: viewerRating.redCards ?? 0,
+                  cards: {
+                    yellow: viewerRating.yellowCards ?? 0,
+                    red: viewerRating.redCards ?? 0
+                  },
                   stats: Object.fromEntries(STAT_KEYS.map((key) => [key, viewerRating[key]]))
                 }
               : null,
