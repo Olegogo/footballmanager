@@ -28,6 +28,13 @@ function stripCommandPayload(text) {
   return String(text ?? '').replace(/^\/[a-z0-9_]+(?:@\w+)?\s*/i, '').trim();
 }
 
+function escapeTelegramHtml(value = '') {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
 function normalizeHttpUrl(value) {
   const raw = String(value ?? '').trim();
 
@@ -240,7 +247,9 @@ export class TelegramBot {
     const fallbackUrl = this.getMiniAppFallbackUrl(targetChatId, chatType, linkOptions);
     const fallbackReplyMarkup = this.buildFallbackUrlKeyboard(targetChatId, chatType, buttonText, linkOptions);
     const buttonOnly = options.buttonOnly ?? false;
-    const fallbackText = buttonOnly ? fallbackUrl : `${primaryText}\n\n${fallbackUrl}`;
+    const parseMode = options.parseMode;
+    const fallbackUrlText = parseMode === 'HTML' ? escapeTelegramHtml(fallbackUrl) : fallbackUrl;
+    const fallbackText = buttonOnly ? fallbackUrlText : `${primaryText}\n\n${fallbackUrlText}`;
 
     if (!replyMarkup) {
       if (!fallbackUrl) {
@@ -250,16 +259,18 @@ export class TelegramBot {
 
       if (fallbackReplyMarkup) {
         return await this.sendText(chatId, primaryText, {
+          parseMode,
           replyMarkup: fallbackReplyMarkup
         });
       }
 
-      await this.sendText(chatId, fallbackText);
+      await this.sendText(chatId, fallbackText, { parseMode });
       return;
     }
 
     try {
       return await this.sendText(chatId, primaryText, {
+        parseMode,
         replyMarkup
       });
     } catch (error) {
@@ -270,14 +281,15 @@ export class TelegramBot {
       if (fallbackReplyMarkup) {
         try {
           return await this.sendText(chatId, primaryText, {
+            parseMode,
             replyMarkup: fallbackReplyMarkup
           });
         } catch {
-          return await this.sendText(chatId, fallbackText);
+          return await this.sendText(chatId, fallbackText, { parseMode });
         }
       }
 
-      return await this.sendText(chatId, fallbackText);
+      return await this.sendText(chatId, fallbackText, { parseMode });
     }
   }
 
@@ -325,6 +337,7 @@ export class TelegramBot {
     return this.callApi('sendMessage', {
       chat_id: chatId,
       text,
+      parse_mode: options.parseMode,
       reply_markup: options.replyMarkup
     });
   }
@@ -507,15 +520,15 @@ export class TelegramBot {
     const cardsText = this.formatCardsText(summary?.cards);
 
     return [
-      'Итоги игры',
+      '<b>Итоги игры</b>',
       '',
-      `${summary?.dateLabel || game.dateLabel} в ${summary?.time || game.time}`,
-      summary?.location || game.location ? `Место: ${summary?.location || game.location}` : '',
+      `${escapeTelegramHtml(summary?.dateLabel || game.dateLabel)} в ${escapeTelegramHtml(summary?.time || game.time)}`,
+      summary?.location || game.location ? `Место: ${escapeTelegramHtml(summary?.location || game.location)}` : '',
       '',
-      `Средний уровень игры: ${summary?.averageOverall ?? 'Пока нет'}`,
-      `MVP: ${mvpLabel}`,
-      `Голов всего: ${summary?.totalGoals ?? 0}`,
-      cardsText ? `Карточки: ${cardsText}` : ''
+      `Средний уровень игры: ${escapeTelegramHtml(summary?.averageOverall ?? 'Пока нет')}`,
+      `MVP: ${escapeTelegramHtml(mvpLabel)}`,
+      `Голов всего: ${escapeTelegramHtml(summary?.totalGoals ?? 0)}`,
+      cardsText ? `Карточки: ${escapeTelegramHtml(cardsText)}` : ''
     ].filter(Boolean).join('\n');
   }
 
@@ -1025,7 +1038,8 @@ export class TelegramBot {
             primaryText: summaryText,
             buttonText: 'Детали игры',
             initialView: 'game',
-            gameId: game.id
+            gameId: game.id,
+            parseMode: 'HTML'
           });
           chatMessageId = message?.message_id ?? null;
           sentAnything = true;
@@ -1040,7 +1054,8 @@ export class TelegramBot {
             primaryText: summaryText,
             buttonText: 'Детали игры',
             initialView: 'game',
-            gameId: game.id
+            gameId: game.id,
+            parseMode: 'HTML'
           });
           privatePlayerIds.push(player.id);
           sentAnything = true;
