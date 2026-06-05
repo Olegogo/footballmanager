@@ -867,23 +867,7 @@ p {
 }
 
 .players-search-wrap {
-  max-height: 74px;
-  opacity: 1;
-  overflow: hidden;
-  transform: translateY(0);
-  transition:
-    max-height 180ms ease,
-    opacity 160ms ease,
-    transform 180ms ease,
-    margin 180ms ease;
-}
-
-.players-search-wrap.is-hidden {
-  max-height: 0;
-  opacity: 0;
-  margin-top: -8px;
-  pointer-events: none;
-  transform: translateY(-10px);
+  display: block;
 }
 
 .players-search-field {
