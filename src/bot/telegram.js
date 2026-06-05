@@ -365,6 +365,21 @@ export class TelegramBot {
     return this.callApiMultipart('sendPhoto', formData);
   }
 
+  async prepareShareMessage(userId, result) {
+    if (!this.enabled || !userId || !result) {
+      return null;
+    }
+
+    return this.callApi('savePreparedInlineMessage', {
+      user_id: userId,
+      result,
+      allow_user_chats: true,
+      allow_bot_chats: false,
+      allow_group_chats: true,
+      allow_channel_chats: true
+    });
+  }
+
   async buildGameLineupImage(chatId, gameId) {
     if (typeof this.store.getSnapshot !== 'function') {
       return null;
@@ -512,11 +527,23 @@ export class TelegramBot {
     return snapshot?.games?.find((game) => game.id === gameId) ?? null;
   }
 
+  formatGameLevel(averageOverall) {
+    const rating = Number(averageOverall);
+
+    if (!Number.isFinite(rating)) {
+      return '';
+    }
+
+    const label = rating < 55 ? 'Низкий' : rating < 70 ? 'Средний' : 'Высокий';
+    return `${label} (~${Math.round(rating)})`;
+  }
+
   formatGameSummary(game) {
     const summary = this.getGameSummaryView(game.id);
     const mvpLabel = summary?.mvp
       ? `${summary.mvp.displayName}${summary.mvp.ratingIncrease ? ` +${summary.mvp.ratingIncrease}` : ''}`
-      : 'Пока нет';
+      : '';
+    const levelLabel = this.formatGameLevel(summary?.averageOverall);
     const cardsText = this.formatCardsText(summary?.cards);
 
     return [
@@ -525,8 +552,8 @@ export class TelegramBot {
       `${escapeTelegramHtml(summary?.dateLabel || game.dateLabel)} в ${escapeTelegramHtml(summary?.time || game.time)}`,
       summary?.location || game.location ? `Место: ${escapeTelegramHtml(summary?.location || game.location)}` : '',
       '',
-      `Средний уровень игры: ${escapeTelegramHtml(summary?.averageOverall ?? 'Пока нет')}`,
-      `MVP: ${escapeTelegramHtml(mvpLabel)}`,
+      levelLabel ? `Уровень игры: ${escapeTelegramHtml(levelLabel)}` : '',
+      mvpLabel ? `MVP: ${escapeTelegramHtml(mvpLabel)}` : '',
       `Голов всего: ${escapeTelegramHtml(summary?.totalGoals ?? 0)}`,
       cardsText ? `Карточки: ${escapeTelegramHtml(cardsText)}` : ''
     ].filter(Boolean).join('\n');
@@ -557,6 +584,59 @@ export class TelegramBot {
       } catch (error) {
         console.error(`Unable to send manual game invite to ${player.id}:`, error.message);
       }
+    }
+  }
+
+  formatJoinRequestText(game, player) {
+    const username = player?.username ? `@${player.username}` : 'без ника';
+
+    return [
+      'Игрок хочет присоединиться к игре',
+      '',
+      `${player?.displayName || username} (${username})`,
+      `${game.dateLabel} в ${game.time}`,
+      game.location ? `Место: ${game.location}` : ''
+    ].filter(Boolean).join('\n');
+  }
+
+  async notifyOrganizerAboutJoinRequest(gameId, playerId) {
+    const game = this.store.getGameById?.(gameId);
+    const player = this.store.getPlayerById?.(playerId);
+    const organizer = game?.organizerPlayerId ? this.store.getPlayerById?.(game.organizerPlayerId) : null;
+
+    if (!game || !player || !organizer?.privateChatId) {
+      return;
+    }
+
+    try {
+      await this.sendMiniAppEntry(organizer.privateChatId, 'private', game.chatId, {
+        primaryText: this.formatJoinRequestText(game, player),
+        buttonText: 'Подробнее',
+        initialView: 'game',
+        gameId: game.id
+      });
+    } catch (error) {
+      console.error(`Unable to notify organizer about join request for ${game.id}:`, error.message);
+    }
+  }
+
+  async notifyPlayerAddedToGame(gameId, playerId) {
+    const game = this.store.getGameById?.(gameId);
+    const player = this.store.getPlayerById?.(playerId);
+
+    if (!game || !player?.privateChatId) {
+      return;
+    }
+
+    try {
+      await this.sendMiniAppEntry(player.privateChatId, 'private', game.chatId, {
+        primaryText: `Тебя добавили в игру ${game.dateLabel} в ${game.time}.`,
+        buttonText: 'Детали игры',
+        initialView: 'game',
+        gameId: game.id
+      });
+    } catch (error) {
+      console.error(`Unable to notify player about join approve for ${game.id}:`, error.message);
     }
   }
 

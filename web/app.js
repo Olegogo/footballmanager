@@ -65,6 +65,7 @@ function readLaunchContext() {
   const searchParams = new URLSearchParams(window.location.search);
   const urlChatId = searchParams.get('chatId') || '';
   const urlGameId = searchParams.get('gameId') || '';
+  const urlPlayerId = searchParams.get('playerId') || '';
   const view = searchParams.get('view') || '';
   const startParam =
     searchParams.get('tgWebAppStartParam') ||
@@ -77,11 +78,13 @@ function readLaunchContext() {
     String(startParam).match(/^chat_(-?\d+)$/);
   const selectedGameId = urlGameId || gameMatch?.[1] || '';
   const shouldOpenGame = Boolean(selectedGameId) || view === 'game' || /^game($|_)/.test(String(startParam));
+  const shouldOpenPlayer = Boolean(urlPlayerId) || view === 'players';
 
   return {
     chatId: urlChatId || chatMatch?.[1] || '',
     gameId: selectedGameId,
-    initialTab: shouldOpenGame ? 'game' : 'games'
+    playerId: urlPlayerId,
+    initialTab: shouldOpenGame ? 'game' : shouldOpenPlayer ? 'players' : 'games'
   };
 }
 
@@ -113,7 +116,7 @@ const state = {
   gamesFilter: 'all',
   positionFilter: '',
   playerSearch: '',
-  selectedPlayerId: null,
+  selectedPlayerId: launchContext.playerId || null,
   selectedGameId: launchContext.gameId,
   selfProfileDraft: null,
   selfProfileEditing: false,
@@ -141,6 +144,7 @@ const chatTitleNode = document.getElementById('chatTitle');
 const topbarNode = document.querySelector('.topbar');
 const gameTopActionsNode = document.getElementById('gameTopActions');
 const gameMenuButtonNode = document.getElementById('gameMenuButton');
+const gameShareButtonNode = document.getElementById('gameShareButton');
 const closeGameButtonNode = document.getElementById('closeGameButton');
 const modalRoot = document.getElementById('modalRoot');
 const toastNode = document.getElementById('toast');
@@ -642,6 +646,14 @@ function renderMiniAvatar(player) {
   return `<span>${escapeHtml(getInitials(player))}</span>`;
 }
 
+function renderShareIcon() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M18 16.1c-.9 0-1.7.35-2.3.93L8.9 13.1c.07-.35.07-.72 0-1.07l6.73-3.9A3.05 3.05 0 1 0 14.6 6l-6.73 3.9a3.05 3.05 0 1 0 0 4.2l6.78 3.94A3.05 3.05 0 1 0 18 16.1Z"></path>
+    </svg>
+  `;
+}
+
 function getDisciplineCards(source = {}) {
   const yellow = Number(source?.cards?.yellow ?? source?.yellowCards ?? 0);
   const red = Number(source?.cards?.red ?? source?.redCards ?? 0);
@@ -1077,6 +1089,85 @@ function renderGamePlayerRow(player) {
   `;
 }
 
+function renderJoinRequestCard(player, game) {
+  const rating = getPlayerOverallLabel(player);
+
+  return `
+    <article class="join-request-card">
+      <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
+      <div class="join-request-main">
+        <strong>${escapeHtml(player.displayName)}</strong>
+        <span>@${escapeHtml(player.username || 'unknown')}</span>
+      </div>
+      <div class="join-request-meta">
+        ${rating ? `<strong>${escapeHtml(rating)}</strong>` : '<span class="game-player-unrated">Не оценён</span>'}
+        ${
+          player.canViewerApproveJoin
+            ? `<button type="button" class="primary-button join-request-action" data-approve-join-player="${escapeHtml(player.id)}" data-game-id="${escapeHtml(game.id)}">Добавить</button>`
+            : ''
+        }
+        ${
+          player.canViewerCancelJoin
+            ? `<button type="button" class="ghost-action join-request-action" data-cancel-join-request="${escapeHtml(game.id)}">Отменить</button>`
+            : ''
+        }
+      </div>
+    </article>
+  `;
+}
+
+function renderJoinControls(game) {
+  if (game.viewerJoinStatus === 'pending') {
+    return `
+      <section class="panel join-panel">
+        <div>
+          <strong>Заявка отправлена</strong>
+          <p>Ты в листе ожидания. Организатор получит запрос и сможет добавить тебя в состав.</p>
+        </div>
+        <button type="button" class="ghost-action join-panel-button" data-cancel-join-request="${escapeHtml(game.id)}">Отменить</button>
+      </section>
+    `;
+  }
+
+  if (!game.canViewerRequestJoin) {
+    return '';
+  }
+
+  return `
+    <section class="join-cta">
+      <button type="button" class="primary-button join-cta-button" data-join-game="${escapeHtml(game.id)}">Присоединиться</button>
+    </section>
+  `;
+}
+
+function renderPendingJoinSection(game) {
+  const pendingPlayers = game.pendingJoinPlayers ?? [];
+
+  if (!pendingPlayers.length) {
+    return '';
+  }
+
+  const visiblePendingPlayers = game.canViewerManage
+    ? pendingPlayers
+    : pendingPlayers.filter((player) => player.canViewerCancelJoin);
+
+  if (!visiblePendingPlayers.length) {
+    return '';
+  }
+
+  return `
+    <section class="panel join-requests-panel">
+      <div class="join-requests-head">
+        <h3>Ожидают добавления</h3>
+        <span>${escapeHtml(visiblePendingPlayers.length)}</span>
+      </div>
+      <div class="join-requests-list">
+        ${visiblePendingPlayers.map((player) => renderJoinRequestCard(player, game)).join('')}
+      </div>
+    </section>
+  `;
+}
+
 function renderGameTab() {
   const game = getCurrentGame();
 
@@ -1091,6 +1182,8 @@ function renderGameTab() {
 
   return `
     ${renderGameHeader(game)}
+    ${renderJoinControls(game)}
+    ${renderPendingJoinSection(game)}
     ${renderField(game)}
     ${renderRatingBanner(game)}
     <section class="game-player-list">
@@ -1105,6 +1198,39 @@ function getGameStatusLabel(status) {
   }
 
   return status === 'live' ? 'Игра идет' : 'Игра закончена';
+}
+
+function getGameLevelMeta(averageOverall) {
+  const rating = Number(averageOverall);
+
+  if (!Number.isFinite(rating)) {
+    return null;
+  }
+
+  if (rating < 55) {
+    return { label: 'Низкий', tone: 'low', rating: Math.round(rating) };
+  }
+
+  if (rating < 70) {
+    return { label: 'Средний', tone: 'mid', rating: Math.round(rating) };
+  }
+
+  return { label: 'Высокий', tone: 'high', rating: Math.round(rating) };
+}
+
+function renderGameLevelBadges(averageOverall) {
+  const level = getGameLevelMeta(averageOverall);
+
+  if (!level) {
+    return '';
+  }
+
+  return `
+    <span class="game-level-badges">
+      <span class="game-level-badge game-level-badge--${escapeHtml(level.tone)}">${escapeHtml(level.label)}</span>
+      <span class="game-level-badge game-level-rating">~${escapeHtml(level.rating)}</span>
+    </span>
+  `;
 }
 
 function getFilteredGames() {
@@ -1140,7 +1266,8 @@ function renderGameCard(game) {
   const openAttribute = isOpenable ? ` data-open-game="${escapeHtml(game.id)}"` : '';
   const mvpLabel = game.mvp
     ? `${game.mvp.displayName}${game.mvp.ratingIncrease ? ` +${game.mvp.ratingIncrease}` : ''}`
-    : 'Пока нет';
+    : '';
+  const gameLevelBadges = renderGameLevelBadges(game.averageOverall);
 
   return `
     <article class="game-card ${isOpenable ? 'game-card--openable' : ''}"${openAttribute}>
@@ -1153,14 +1280,26 @@ function renderGameCard(game) {
       </div>
       <p class="game-card-location">${escapeHtml(game.location || 'Не указано')}</p>
       <div class="game-card-stats">
-        <div>
-          <span>MVP</span>
-          <strong>${escapeHtml(mvpLabel)}</strong>
-        </div>
-        <div>
-          <span>Средний уровень</span>
-          <strong>${escapeHtml(game.averageOverall ?? 'Пока нет')}</strong>
-        </div>
+        ${
+          game.status !== 'upcoming' && mvpLabel
+            ? `
+              <div>
+                <span>MVP</span>
+                <strong>${escapeHtml(mvpLabel)}</strong>
+              </div>
+            `
+            : ''
+        }
+        ${
+          gameLevelBadges
+            ? `
+              <div>
+                <span>Уровень игры</span>
+                <strong>${gameLevelBadges}</strong>
+              </div>
+            `
+            : ''
+        }
         <div>
           <span>Всего голов</span>
           <strong>${escapeHtml(game.totalGoals)}</strong>
@@ -1746,6 +1885,9 @@ function renderProfileTab() {
     <section class="editor-screen profile-screen" aria-label="Профиль игрока">
       <div class="editor-hero profile-hero">
         ${renderCardHero(player)}
+        <button type="button" class="profile-share-button" data-share-profile aria-label="Поделиться профилем">
+          ${renderShareIcon()}
+        </button>
         ${
           hasCareerRatings
             ? `
@@ -1953,6 +2095,10 @@ function render() {
     const game = getCurrentGame();
     gameMenuButtonNode.hidden = state.manualGameOpen || !(state.activeTab === 'game' && game?.canViewerManage);
   }
+  if (gameShareButtonNode) {
+    const game = getCurrentGame();
+    gameShareButtonNode.hidden = state.manualGameOpen || !(state.activeTab === 'game' && game);
+  }
   appShellNode?.classList.toggle('app-shell--profile', state.activeTab === 'profile');
   appShellNode?.classList.toggle('app-shell--manual', state.manualGameOpen);
   syncTabbar();
@@ -2068,6 +2214,135 @@ async function deleteCurrentGame() {
   showToast('Игра удалена');
 }
 
+async function ensureAuthorizedForAction() {
+  if (state.token) {
+    return true;
+  }
+
+  const authenticated = await authenticateTelegram().catch(() => false);
+
+  if (!authenticated) {
+    showToast(lastAuthError || 'Открой ⚽ из Telegram, чтобы продолжить');
+    return false;
+  }
+
+  return true;
+}
+
+async function requestJoinGame(gameId) {
+  if (!(await ensureAuthorizedForAction())) {
+    return;
+  }
+
+  const data = await api(`/api/games/${encodeURIComponent(gameId)}/join-request`, {
+    method: 'POST'
+  });
+  state.snapshot = data.snapshot;
+  render();
+  showToast('Заявка отправлена');
+}
+
+async function cancelJoinRequest(gameId) {
+  if (!(await ensureAuthorizedForAction())) {
+    return;
+  }
+
+  const data = await api(`/api/games/${encodeURIComponent(gameId)}/join-request`, {
+    method: 'DELETE'
+  });
+  state.snapshot = data.snapshot;
+  render();
+  showToast('Заявка отменена');
+}
+
+async function approveJoinRequest(gameId, playerId) {
+  if (!(await ensureAuthorizedForAction())) {
+    return;
+  }
+
+  const data = await api(`/api/games/${encodeURIComponent(gameId)}/join-requests/${encodeURIComponent(playerId)}/approve`, {
+    method: 'POST'
+  });
+  state.snapshot = data.snapshot;
+  render();
+  showToast('Игрок добавлен');
+}
+
+async function shareFallback(fallback = {}) {
+  const title = fallback.title || 'Футбольчик';
+  const text = fallback.text || title;
+  const url = fallback.url || window.location.href;
+
+  if (navigator.share) {
+    await navigator.share({ title, text, url });
+    return;
+  }
+
+  const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+
+  if (tg?.openTelegramLink) {
+    tg.openTelegramLink(telegramShareUrl);
+    return;
+  }
+
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(url);
+    showToast('Ссылка скопирована');
+    return;
+  }
+
+  window.open(telegramShareUrl, '_blank', 'noopener,noreferrer');
+}
+
+async function sharePreparedOrFallback(data) {
+  if (data?.preparedMessageId && tg?.shareMessage) {
+    try {
+      tg.shareMessage(data.preparedMessageId, (success) => {
+        if (!success) {
+          showToast('Шаринг отменён');
+        }
+      });
+      return;
+    } catch {
+      // Fall through to link sharing below.
+    }
+  }
+
+  await shareFallback(data?.fallback);
+}
+
+async function shareProfile() {
+  if (!(await ensureAuthorizedForAction())) {
+    return;
+  }
+
+  const data = await api('/api/share/profile', {
+    method: 'POST'
+  });
+  await sharePreparedOrFallback(data);
+}
+
+async function shareCurrentGame() {
+  const game = getCurrentGame();
+
+  if (!game) {
+    showToast('Игра не найдена');
+    return;
+  }
+
+  if (!(await ensureAuthorizedForAction())) {
+    return;
+  }
+
+  const data = await api('/api/share/game', {
+    method: 'POST',
+    body: {
+      gameId: game.id
+    }
+  });
+  await sharePreparedOrFallback(data);
+}
+
 async function refreshSnapshot({ silent = false } = {}) {
   try {
     const activeRatingForm = document.getElementById('ratingForm');
@@ -2143,6 +2418,12 @@ document.getElementById('refreshButton')?.addEventListener('click', async () => 
 
 closeGameButtonNode?.addEventListener('click', closeGameScreen);
 
+gameShareButtonNode?.addEventListener('click', () => {
+  shareCurrentGame().catch((error) => {
+    showToast(error.message);
+  });
+});
+
 gameMenuButtonNode?.addEventListener('click', () => {
   state.gameActionsOpen = true;
   renderModal();
@@ -2176,6 +2457,15 @@ document.addEventListener('click', async (event) => {
   if (editSelfProfileButton) {
     state.selfProfileEditing = true;
     render();
+    return;
+  }
+
+  const shareProfileButton = event.target.closest('[data-share-profile]');
+
+  if (shareProfileButton) {
+    shareProfile().catch((error) => {
+      showToast(error.message);
+    });
     return;
   }
 
@@ -2341,6 +2631,33 @@ document.addEventListener('click', async (event) => {
       searchInput.focus();
     }
     refreshPlayersResults();
+    return;
+  }
+
+  const joinGameButton = event.target.closest('[data-join-game]');
+
+  if (joinGameButton) {
+    requestJoinGame(joinGameButton.dataset.joinGame).catch((error) => {
+      showToast(error.message);
+    });
+    return;
+  }
+
+  const cancelJoinButton = event.target.closest('[data-cancel-join-request]');
+
+  if (cancelJoinButton) {
+    cancelJoinRequest(cancelJoinButton.dataset.cancelJoinRequest).catch((error) => {
+      showToast(error.message);
+    });
+    return;
+  }
+
+  const approveJoinButton = event.target.closest('[data-approve-join-player]');
+
+  if (approveJoinButton) {
+    approveJoinRequest(approveJoinButton.dataset.gameId, approveJoinButton.dataset.approveJoinPlayer).catch((error) => {
+      showToast(error.message);
+    });
     return;
   }
 

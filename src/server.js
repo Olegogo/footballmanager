@@ -4,6 +4,8 @@ import path from 'node:path';
 import { TelegramBot } from './bot/telegram.js';
 import { config } from './config.js';
 import { verifyTelegramInitData, verifyTelegramLoginData } from './lib/auth.js';
+import { renderLineupPng } from './lib/lineup-image.js';
+import { renderPlayerShareCardPng } from './lib/player-card-image.js';
 import { AppStore } from './lib/store.js';
 import { getBearerToken, notFound, readJsonBody, sendJson, sendText, serveStaticFile, setCorsHeaders } from './lib/utils.js';
 
@@ -132,6 +134,38 @@ function buildAppUrl(req, params = {}) {
   return appUrl.toString();
 }
 
+function buildAbsoluteUrl(req, pathname, params = {}) {
+  const baseUrl = getCanonicalBaseUrl(req) || config.publicBaseUrl || `https://${req.headers.host || ''}`;
+  const absoluteUrl = new URL(pathname, baseUrl);
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      absoluteUrl.searchParams.set(key, String(value));
+    }
+  }
+
+  return absoluteUrl.toString();
+}
+
+function sendPng(res, buffer) {
+  res.writeHead(200, {
+    'Content-Type': 'image/png',
+    'Cache-Control': 'public, max-age=120'
+  });
+  res.end(buffer);
+}
+
+function getGameView(gameId) {
+  const snapshot = getGlobalSnapshot(null, { selectedGameId: gameId });
+  return [snapshot.currentGame, ...(snapshot.gameDays ?? [])]
+    .find((game) => game?.id === gameId) ?? null;
+}
+
+function getPlayerCard(playerId) {
+  const snapshot = getGlobalSnapshot(null);
+  return (snapshot.players ?? []).find((player) => player.id === playerId) ?? null;
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
@@ -159,6 +193,32 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
       serveStaticFile(res, path.join(config.webDir, 'index.html'));
+      return;
+    }
+
+    if (req.method === 'GET' && /^\/api\/share-images\/players\/[^/]+\.png$/.test(url.pathname)) {
+      const playerId = decodeURIComponent(url.pathname.split('/')[4].replace(/\.png$/, ''));
+      const player = getPlayerCard(playerId);
+
+      if (!player) {
+        notFound(res);
+        return;
+      }
+
+      sendPng(res, await renderPlayerShareCardPng(player));
+      return;
+    }
+
+    if (req.method === 'GET' && /^\/api\/share-images\/games\/[^/]+\.png$/.test(url.pathname)) {
+      const gameId = decodeURIComponent(url.pathname.split('/')[4].replace(/\.png$/, ''));
+      const game = getGameView(gameId);
+
+      if (!game) {
+        notFound(res);
+        return;
+      }
+
+      sendPng(res, await renderLineupPng(game));
       return;
     }
 
@@ -264,6 +324,116 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, {
         token,
         snapshot
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/share/profile') {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Unauthorized' });
+        return;
+      }
+
+      const player = store.getPlayerById(session.playerId);
+      const playerCard = getPlayerCard(session.playerId);
+
+      if (!player || !playerCard) {
+        sendJson(res, 404, { error: 'Игрок не найден' });
+        return;
+      }
+
+      const appUrl = buildAppUrl(req, {
+        view: 'players',
+        playerId: player.id
+      });
+      const imageUrl = buildAbsoluteUrl(req, `/api/share-images/players/${encodeURIComponent(player.id)}.png`);
+      const shareText = `${playerCard.displayName} в футбольчике`;
+      let preparedMessageId = '';
+
+      if (player.telegramUserId && bot.enabled) {
+        try {
+          const prepared = await bot.prepareShareMessage(player.telegramUserId, {
+            id: `player-${player.id}`,
+            type: 'photo',
+            title: shareText,
+            photo_url: imageUrl,
+            thumbnail_url: imageUrl,
+            caption: shareText,
+            reply_markup: {
+              inline_keyboard: [[{ text: 'Посмотреть', url: appUrl }]]
+            }
+          });
+          preparedMessageId = prepared?.id || '';
+        } catch (error) {
+          console.error('Unable to prepare profile share:', error.message);
+        }
+      }
+
+      sendJson(res, 200, {
+        preparedMessageId,
+        fallback: {
+          title: shareText,
+          text: shareText,
+          url: appUrl
+        }
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/share/game') {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Unauthorized' });
+        return;
+      }
+
+      const body = await readJsonBody(req);
+      const gameId = String(body.gameId || '');
+      const player = store.getPlayerById(session.playerId);
+      const game = getGameView(gameId);
+
+      if (!player || !game) {
+        sendJson(res, 404, { error: 'Игра не найдена' });
+        return;
+      }
+
+      const appUrl = buildAppUrl(req, {
+        view: 'game',
+        gameId: game.id
+      });
+      const imageUrl = buildAbsoluteUrl(req, `/api/share-images/games/${encodeURIComponent(game.id)}.png`);
+      const shareText = `Игра ${game.dateLabel} в ${game.time}${game.location ? `, ${game.location}` : ''}`;
+      let preparedMessageId = '';
+
+      if (player.telegramUserId && bot.enabled) {
+        try {
+          const prepared = await bot.prepareShareMessage(player.telegramUserId, {
+            id: `game-${game.id}`,
+            type: 'photo',
+            title: shareText,
+            photo_url: imageUrl,
+            thumbnail_url: imageUrl,
+            caption: shareText,
+            reply_markup: {
+              inline_keyboard: [[{ text: 'Посмотреть', url: appUrl }]]
+            }
+          });
+          preparedMessageId = prepared?.id || '';
+        } catch (error) {
+          console.error('Unable to prepare game share:', error.message);
+        }
+      }
+
+      sendJson(res, 200, {
+        preparedMessageId,
+        fallback: {
+          title: shareText,
+          text: shareText,
+          url: appUrl
+        }
       });
       return;
     }
@@ -508,6 +678,73 @@ const server = http.createServer(async (req, res) => {
         requesterPlayerId: session.playerId
       });
       const snapshot = getGlobalSnapshot(session.playerId);
+      sendJson(res, 200, { snapshot });
+      return;
+    }
+
+    if (req.method === 'POST' && /^\/api\/games\/[^/]+\/join-request$/.test(url.pathname)) {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Unauthorized' });
+        return;
+      }
+
+      const gameId = decodeURIComponent(url.pathname.split('/')[3]);
+      const result = await store.requestJoinGame({
+        gameId,
+        playerId: session.playerId
+      });
+
+      if (result.requested) {
+        await bot.notifyOrganizerAboutJoinRequest(result.game.id, result.player.id);
+      }
+
+      const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
+      sendJson(res, 200, { snapshot });
+      return;
+    }
+
+    if (req.method === 'DELETE' && /^\/api\/games\/[^/]+\/join-request$/.test(url.pathname)) {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Unauthorized' });
+        return;
+      }
+
+      const gameId = decodeURIComponent(url.pathname.split('/')[3]);
+      await store.cancelJoinRequest({
+        gameId,
+        playerId: session.playerId
+      });
+
+      const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
+      sendJson(res, 200, { snapshot });
+      return;
+    }
+
+    if (req.method === 'POST' && /^\/api\/games\/[^/]+\/join-requests\/[^/]+\/approve$/.test(url.pathname)) {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Unauthorized' });
+        return;
+      }
+
+      const parts = url.pathname.split('/');
+      const gameId = decodeURIComponent(parts[3]);
+      const playerId = decodeURIComponent(parts[5]);
+      const result = await store.approveJoinRequest({
+        gameId,
+        requesterPlayerId: session.playerId,
+        playerId
+      });
+
+      bot.schedulePromptForGame(result.game);
+      await bot.notifyPlayerAddedToGame(result.game.id, result.player.id);
+
+      const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
       sendJson(res, 200, { snapshot });
       return;
     }

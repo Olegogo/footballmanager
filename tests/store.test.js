@@ -679,6 +679,70 @@ test('removePlayerFromGame removes declined player and returns organizer', async
   }
 });
 
+test('join requests can be requested, shown and approved before kickoff', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const organizer = await store.rememberTelegramUser(777, {
+      id: 777,
+      username: 'organizer',
+      first_name: 'Org'
+    }, {
+      chatType: 'private'
+    });
+    const joiner = await store.rememberTelegramUser(888, {
+      id: 888,
+      username: 'joiner',
+      first_name: 'Joiner'
+    }, {
+      chatType: 'private'
+    });
+    await store.ensureChat({
+      id: '-1001',
+      title: 'Football Chat',
+      type: 'supergroup'
+    });
+    const first = await store.upsertPlayerByUsername('-1001', 'O_legacy');
+
+    const result = await store.createManualGame({
+      chatId: '-1001',
+      organizerPlayerId: organizer.id,
+      date: '2099-05-30',
+      time: '16:00',
+      location: 'Сокольники, поле 10',
+      playerIds: [organizer.id, first.id],
+      timezoneOffset: '+03:00'
+    });
+
+    const request = await store.requestJoinGame({
+      gameId: result.game.id,
+      playerId: joiner.id
+    });
+
+    assert.equal(request.requested, true);
+    assert.equal(request.organizer.id, organizer.id);
+
+    const joinerSnapshot = store.getSnapshot('global', joiner.id, { selectedGameId: result.game.id });
+    assert.equal(joinerSnapshot.currentGame.viewerJoinStatus, 'pending');
+    assert.equal(joinerSnapshot.currentGame.pendingJoinPlayers[0].canViewerCancelJoin, true);
+
+    const organizerSnapshot = store.getSnapshot('global', organizer.id, { selectedGameId: result.game.id });
+    assert.equal(organizerSnapshot.currentGame.pendingJoinPlayers[0].canViewerApproveJoin, true);
+
+    const approved = await store.approveJoinRequest({
+      gameId: result.game.id,
+      requesterPlayerId: organizer.id,
+      playerId: joiner.id
+    });
+
+    assert.equal(approved.approved, true);
+    assert.ok(approved.game.playerIds.includes(joiner.id));
+    assert.deepEqual(approved.game.pendingJoinPlayerIds, []);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('manual games keep previous ratings on the next game roster', async () => {
   const { directory, store } = await createStore();
 

@@ -806,6 +806,20 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     const hasStarted = now >= new Date(game.scheduledAt);
     const viewerIsParticipant = viewerPlayerId ? game.playerIds.includes(viewerPlayerId) : false;
     const ratingWindowOpen = isRatingWindowOpen(game, now);
+    const pendingJoinPlayerIds = (game.pendingJoinPlayerIds ?? []).filter(
+      (playerId) => !game.playerIds.includes(playerId)
+    );
+    const viewerJoinStatus = !viewerPlayerId
+      ? 'anonymous'
+      : viewerIsParticipant
+        ? 'participant'
+        : pendingJoinPlayerIds.includes(viewerPlayerId)
+          ? 'pending'
+          : 'none';
+    const canViewerManage = Boolean(
+      viewerPlayerId &&
+      (game.organizerPlayerId === viewerPlayerId || isSuperAdminPlayer(viewerPlayer))
+    );
     const viewerRatings = new Map(
       Object.values(state.ratings)
         .filter((rating) => rating.gameId === game.id && rating.raterPlayerId === viewerPlayerId)
@@ -827,12 +841,32 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       ratingWindowEndsAt: getRatingWindowEnd(game).toISOString(),
       viewerIsParticipant,
       canViewerRate: ratingWindowOpen && viewerIsParticipant,
+      viewerJoinStatus,
+      canViewerRequestJoin: Boolean(
+        viewerPlayerId &&
+        viewerJoinStatus === 'none' &&
+        game.organizerPlayerId &&
+        status === 'upcoming' &&
+        !ratingWindowOpen
+      ),
       ratingsPromptSent: Boolean(game.ratingsOpenedAt),
       organizerPlayerId: game.organizerPlayerId ?? null,
-      canViewerManage: Boolean(
-        viewerPlayerId &&
-        (game.organizerPlayerId === viewerPlayerId || isSuperAdminPlayer(viewerPlayer))
-      ),
+      canViewerManage,
+      pendingJoinPlayers: pendingJoinPlayerIds
+        .map((playerId) => {
+          const profile = playerCards.find((player) => player.id === playerId);
+
+          if (!profile) {
+            return null;
+          }
+
+          return {
+            ...profile,
+            canViewerApproveJoin: canViewerManage,
+            canViewerCancelJoin: viewerPlayerId === playerId
+          };
+        })
+        .filter(Boolean),
       participants: game.playerIds
         .map((playerId) => {
           const profile = playerCards.find((player) => player.id === playerId);
