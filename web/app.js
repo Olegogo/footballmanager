@@ -113,7 +113,7 @@ const state = {
   gamesFilter: 'all',
   positionFilter: '',
   playerSearch: '',
-  playerSearchVisible: true,
+  playerSearchVisible: false,
   selectedPlayerId: null,
   selectedGameId: launchContext.gameId,
   selfProfileDraft: null,
@@ -1708,7 +1708,7 @@ function renderProfileTab() {
     return `
       <section class="empty-state">
         <h2>Профиль пока недоступен</h2>
-        <p>Откройте miniapp из Telegram или войдите через dev-вход, чтобы увидеть свою карточку игрока.</p>
+        <p>Открой ⚽ из Telegram или войди через dev-вход, чтобы увидеть свою карточку игрока.</p>
       </section>
     `;
   }
@@ -1966,7 +1966,7 @@ function handlePlayersSearchScroll() {
   }
 
   if (currentScrollY <= 4) {
-    setPlayerSearchVisible(true);
+    setPlayerSearchVisible(false);
   } else {
     setPlayerSearchVisible(delta > 0);
   }
@@ -2194,7 +2194,7 @@ document.querySelector('.tabbar').addEventListener('click', (event) => {
 
   state.activeTab = button.dataset.tab;
   if (state.activeTab === 'players') {
-    state.playerSearchVisible = true;
+    state.playerSearchVisible = false;
     lastPlayersSearchScrollY = getPageScrollTop();
   }
   if (state.activeTab !== 'game') {
@@ -2223,7 +2223,7 @@ document.addEventListener('click', async (event) => {
       const authenticated = await authenticateTelegram().catch(() => false);
 
       if (!authenticated) {
-        showToast(lastAuthError || 'Открой miniapp из Telegram, чтобы создать игру');
+        showToast(lastAuthError || 'Открой ⚽ из Telegram, чтобы создать игру');
         return;
       }
     }

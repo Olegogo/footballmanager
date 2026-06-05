@@ -138,7 +138,7 @@ export class TelegramBot {
     return url.toString();
   }
 
-  buildMiniAppKeyboard(chatType = 'private', chatId = '', buttonText = 'Открыть миниапп', options = {}) {
+  buildMiniAppKeyboard(chatType = 'private', chatId = '', buttonText = '⚽', options = {}) {
     const publicUrl = this.buildMiniAppUrl(chatId, options);
     const directMiniAppLink = this.buildMainMiniAppLink(chatId, options);
     const loginUrl = this.buildTelegramLoginUrl(chatId, options);
@@ -203,7 +203,7 @@ export class TelegramBot {
     return undefined;
   }
 
-  buildMiniAppButton(chatType = 'private', chatId = '', buttonText = 'Открыть миниапп', options = {}) {
+  buildMiniAppButton(chatType = 'private', chatId = '', buttonText = '⚽', options = {}) {
     return this.buildMiniAppKeyboard(chatType, chatId, buttonText, options)?.inline_keyboard?.[0]?.[0] ?? null;
   }
 
@@ -217,7 +217,7 @@ export class TelegramBot {
     return this.buildMainMiniAppLink(chatId, options) || publicUrl || '';
   }
 
-  buildFallbackUrlKeyboard(chatId = '', chatType = 'private', buttonText = 'Открыть миниапп', options = {}) {
+  buildFallbackUrlKeyboard(chatId = '', chatType = 'private', buttonText = '⚽', options = {}) {
     const fallbackUrl = this.getMiniAppFallbackUrl(chatId, chatType, options);
 
     if (!fallbackUrl) {
@@ -238,7 +238,7 @@ export class TelegramBot {
 
   async sendMiniAppEntry(chatId, chatType, targetChatId, options = {}) {
     const primaryText = options.primaryText ?? BUTTON_ONLY_TEXT;
-    const buttonText = options.buttonText ?? 'Открыть миниапп';
+    const buttonText = options.buttonText ?? '⚽';
     const linkOptions = {
       initialView: options.initialView || '',
       gameId: options.gameId || ''
@@ -253,7 +253,7 @@ export class TelegramBot {
 
     if (!replyMarkup) {
       if (!fallbackUrl) {
-        await this.sendText(chatId, 'Сначала укажите PUBLIC_BASE_URL, чтобы miniapp можно было открыть из Telegram.');
+        await this.sendText(chatId, 'Сначала укажите PUBLIC_BASE_URL, чтобы ⚽ можно было открыть из Telegram.');
         return;
       }
 
@@ -471,7 +471,7 @@ export class TelegramBot {
       `${game.dateLabel} в ${game.time}`,
       game.location ? `Место: ${game.location}` : '',
       '',
-      'Открой miniapp, чтобы посмотреть состав и расстановку.'
+      'Открой ⚽, чтобы посмотреть состав и расстановку.'
     ].filter(Boolean).join('\n');
   }
 
