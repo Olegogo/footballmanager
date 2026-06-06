@@ -649,7 +649,7 @@ function renderMiniAvatar(player) {
 function renderShareIcon() {
   return `
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M18 16.1c-.9 0-1.7.35-2.3.93L8.9 13.1c.07-.35.07-.72 0-1.07l6.73-3.9A3.05 3.05 0 1 0 14.6 6l-6.73 3.9a3.05 3.05 0 1 0 0 4.2l6.78 3.94A3.05 3.05 0 1 0 18 16.1Z"></path>
+      <path d="M3.9 19.4c2.2-6.7 6.9-10.5 13.1-11.1V4.7c0-.9 1.1-1.4 1.8-.8l4.6 4.6c.5.5.5 1.2 0 1.7l-4.6 4.6c-.7.7-1.8.2-1.8-.8v-3.1c-4.8.2-8.6 2.5-12 8-.4.6-1.3.3-1.1-.5Z"></path>
     </svg>
   `;
 }
@@ -1203,7 +1203,7 @@ function getGameStatusLabel(status) {
 function getGameLevelMeta(averageOverall) {
   const rating = Number(averageOverall);
 
-  if (!Number.isFinite(rating)) {
+  if (!Number.isFinite(rating) || rating <= 0) {
     return null;
   }
 
@@ -1226,9 +1226,9 @@ function renderGameLevelBadges(averageOverall) {
   }
 
   return `
-    <span class="game-level-badges">
-      <span class="game-level-badge game-level-badge--${escapeHtml(level.tone)}">${escapeHtml(level.label)}</span>
-      <span class="game-level-badge game-level-rating">~${escapeHtml(level.rating)}</span>
+      <span class="game-level-badges">
+        <span class="game-level-badge game-level-badge--${escapeHtml(level.tone)}">${escapeHtml(level.label)}</span>
+      <span class="game-level-badge game-level-rating">${escapeHtml(level.rating)}</span>
     </span>
   `;
 }
@@ -1264,8 +1264,17 @@ function renderGamesFilterBar() {
 function renderGameCard(game) {
   const isOpenable = getGameDays().some((item) => item.id === game.id);
   const openAttribute = isOpenable ? ` data-open-game="${escapeHtml(game.id)}"` : '';
-  const mvpLabel = game.mvp
-    ? `${game.mvp.displayName}${game.mvp.ratingIncrease ? ` +${game.mvp.ratingIncrease}` : ''}`
+  const mvpBadges = game.mvp
+    ? `
+      <span class="game-level-badges game-mvp-badges">
+        <span class="game-level-badge game-level-badge--mid">${escapeHtml(game.mvp.displayName)}</span>
+        ${
+          game.mvp.ratingIncrease
+            ? `<span class="game-level-badge game-level-rating">+${escapeHtml(game.mvp.ratingIncrease)}</span>`
+            : ''
+        }
+      </span>
+    `
     : '';
   const gameLevelBadges = renderGameLevelBadges(game.averageOverall);
 
@@ -1281,11 +1290,11 @@ function renderGameCard(game) {
       <p class="game-card-location">${escapeHtml(game.location || 'Не указано')}</p>
       <div class="game-card-stats">
         ${
-          game.status !== 'upcoming' && mvpLabel
+          game.status !== 'upcoming' && mvpBadges
             ? `
               <div>
                 <span>MVP</span>
-                <strong>${escapeHtml(mvpLabel)}</strong>
+                <strong class="game-card-badges-value">${mvpBadges}</strong>
               </div>
             `
             : ''
@@ -1295,15 +1304,21 @@ function renderGameCard(game) {
             ? `
               <div>
                 <span>Уровень игры</span>
-                <strong>${gameLevelBadges}</strong>
+                <strong class="game-card-badges-value">${gameLevelBadges}</strong>
               </div>
             `
             : ''
         }
-        <div>
-          <span>Всего голов</span>
-          <strong>${escapeHtml(game.totalGoals)}</strong>
-        </div>
+        ${
+          game.status !== 'upcoming'
+            ? `
+              <div>
+                <span>Всего голов</span>
+                <strong>${escapeHtml(game.totalGoals)}</strong>
+              </div>
+            `
+            : ''
+        }
         ${
           hasDisciplineCards(game.cards)
             ? `

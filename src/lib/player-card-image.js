@@ -4,9 +4,28 @@ import { Resvg } from '@resvg/resvg-js';
 
 import { getInitials, getPositionMeta } from './lineup.js';
 
-const WIDTH = 900;
-const HEIGHT = 520;
+const WIDTH = 680;
+const HEIGHT = 1060;
+const HERO_HEIGHT = 360;
 const PHOTO_FETCH_TIMEOUT_MS = 1200;
+
+const STAT_META = [
+  ['pace', 'скорость'],
+  ['dribbling', 'дриблинг'],
+  ['shooting', 'удар'],
+  ['defense', 'защита'],
+  ['passing', 'передачи'],
+  ['physical', 'физика']
+];
+
+const GOALKEEPER_STAT_META = [
+  ['pace', 'игра на линии'],
+  ['dribbling', 'фиксация мяча'],
+  ['shooting', 'выносы'],
+  ['defense', 'рефлексы'],
+  ['passing', 'скорость'],
+  ['physical', 'выбор позиции']
+];
 
 function escapeXml(value) {
   return String(value ?? '')
@@ -17,12 +36,22 @@ function escapeXml(value) {
     .replaceAll("'", '&apos;');
 }
 
-function getRatingLabel(player) {
-  if (!(player?.ratedGames > 0)) {
-    return '';
+function truncate(value, maxLength) {
+  const normalized = String(value ?? '').trim();
+
+  if (normalized.length <= maxLength) {
+    return normalized;
   }
 
-  return String(Math.round(Number(player.overall || 0)));
+  return `${normalized.slice(0, maxLength - 1)}…`;
+}
+
+function hasRating(player) {
+  return player?.ratedGames > 0 && Number(player.overall) > 0;
+}
+
+function hasVisibleStats(player) {
+  return hasRating(player) || Boolean(player?.hasSelfProfile);
 }
 
 async function fetchPhotoDataUrl(photoUrl) {
@@ -57,84 +86,120 @@ async function fetchPhotoDataUrl(photoUrl) {
   }
 }
 
-function renderAvatar(player, photoDataUrl) {
+function renderHero(player, photoDataUrl) {
   if (photoDataUrl) {
     return `
-      <clipPath id="avatarClip">
-        <circle cx="155" cy="166" r="104"></circle>
-      </clipPath>
-      <image href="${escapeXml(photoDataUrl)}" x="51" y="62" width="208" height="208" preserveAspectRatio="xMidYMid slice" clip-path="url(#avatarClip)"></image>
-      <circle cx="155" cy="166" r="104" fill="none" stroke="#fff2c7" stroke-opacity="0.72" stroke-width="6"></circle>
+      <image href="${escapeXml(photoDataUrl)}" x="0" y="0" width="${WIDTH}" height="${HERO_HEIGHT}" preserveAspectRatio="xMidYMid slice"></image>
+      <rect x="0" y="0" width="${WIDTH}" height="${HERO_HEIGHT}" fill="#000000" opacity="0.2"></rect>
     `;
   }
 
   return `
-    <circle cx="155" cy="166" r="104" fill="url(#avatarGradient)" stroke="#fff2c7" stroke-opacity="0.72" stroke-width="6"></circle>
-    <text x="155" y="184" text-anchor="middle" font-size="68" font-weight="900" fill="#fffaf0">${escapeXml(getInitials(player))}</text>
+    <rect x="0" y="0" width="${WIDTH}" height="${HERO_HEIGHT}" fill="url(#heroFallback)"></rect>
+    <circle cx="${WIDTH / 2}" cy="${HERO_HEIGHT / 2}" r="104" fill="#fff5d6" fill-opacity="0.1" stroke="#fff2c7" stroke-opacity="0.35" stroke-width="4"></circle>
+    <text x="${WIDTH / 2}" y="${HERO_HEIGHT / 2 + 24}" text-anchor="middle" font-size="88" font-weight="900" fill="#fffaf0">${escapeXml(getInitials(player))}</text>
   `;
 }
 
-function renderStats(player) {
+function renderHeroBadge(player) {
+  if (!hasRating(player)) {
+    return `
+      <rect x="24" y="24" width="154" height="50" rx="14" fill="#fffaf0"></rect>
+      <text x="101" y="57" text-anchor="middle" font-size="24" font-weight="900" fill="#1d160a">Не оценён</text>
+    `;
+  }
+
+  const position = getPositionMeta(player.position || 'N/A').card;
+  return `
+    <text x="32" y="82" font-size="72" font-weight="900" fill="#fffaf0">${escapeXml(Math.round(Number(player.overall)))}</text>
+    <text x="36" y="124" font-size="34" font-weight="900" fill="#fffaf0">${escapeXml(position)}</text>
+  `;
+}
+
+function renderMetricCell({ x, y, width, label, value, emphasis = false }) {
+  return `
+    <g transform="translate(${x} ${y})">
+      <rect width="${width}" height="78" rx="18" fill="${emphasis ? '#fff2c7' : '#fffaf0'}" fill-opacity="${emphasis ? '0.18' : '0.08'}" stroke="#fff2c7" stroke-opacity="${emphasis ? '0' : '0.2'}"></rect>
+      <text x="18" y="30" fill="#d8c394" font-size="19" font-weight="900">${escapeXml(label)}</text>
+      <text x="18" y="62" fill="#fffaf0" font-size="28" font-weight="900">${escapeXml(value)}</text>
+    </g>
+  `;
+}
+
+function renderMetrics(player) {
+  const rated = hasRating(player);
+  const showStats = hasVisibleStats(player);
+  const isGoalkeeper = player?.position === 'GK';
   const stats = player?.stats ?? {};
-  const cells = [
-    ['Скорость', stats.pace],
-    ['Дриблинг', stats.dribbling],
-    ['Удар', stats.shooting],
-    ['Защита', stats.defense],
-    ['Передачи', stats.passing],
-    ['Физика', stats.physical]
+  const summary = [
+    { label: 'игр', value: player?.games ?? 0, emphasis: true },
+    ...(
+      isGoalkeeper
+        ? []
+        : [
+            { label: 'голов', value: rated ? player?.goals ?? 0 : '-' },
+            { label: 'голевых', value: rated ? player?.assists ?? 0 : '-' }
+          ]
+    )
   ];
+  const statRows = (isGoalkeeper ? GOALKEEPER_STAT_META : STAT_META)
+    .map(([key, label]) => ({
+      label,
+      value: showStats ? stats[key] ?? '-' : '-'
+    }));
+  const cells = [...summary, ...statRows];
+  const gap = 14;
+  const cellWidth = Math.floor((WIDTH - 48 * 2 - gap * 2) / 3);
+  const startX = 48;
+  const startY = 578;
 
   return cells
-    .map(([label, value], index) => {
-      const col = index % 3;
+    .map((cell, index) => {
       const row = Math.floor(index / 3);
-      const x = 372 + col * 150;
-      const y = 284 + row * 90;
-      return `
-        <g transform="translate(${x} ${y})">
-          <rect width="126" height="68" rx="20" fill="#fff6d8" fill-opacity="0.08" stroke="#fff2c7" stroke-opacity="0.14"></rect>
-          <text x="18" y="26" fill="#d8c394" font-size="18" font-weight="800">${escapeXml(label)}</text>
-          <text x="18" y="55" fill="#fffaf0" font-size="28" font-weight="900">${escapeXml(player?.ratedGames > 0 ? value ?? '-' : '-')}</text>
-        </g>
-      `;
+      const col = index % 3;
+      return renderMetricCell({
+        ...cell,
+        x: startX + col * (cellWidth + gap),
+        y: startY + row * 92,
+        width: cellWidth
+      });
     })
     .join('');
 }
 
 export async function renderPlayerShareCardPng(player) {
   const photoDataUrl = await fetchPhotoDataUrl(player?.photoUrl);
-  const ratingLabel = getRatingLabel(player);
-  const positionLabel = ratingLabel ? getPositionMeta(player?.position || 'N/A').short : 'Не оценён';
-  const displayName = player?.displayName || (player?.username ? `@${player.username}` : 'Игрок');
-  const username = player?.username ? `@${player.username}` : '@unknown';
+  const displayName = truncate(player?.displayName || (player?.username ? `@${player.username}` : 'Игрок'), 22);
+  const username = player?.username ? `@${truncate(player.username, 24)}` : '@unknown';
 
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
       <defs>
-        <linearGradient id="cardGradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#123f28"></stop>
-          <stop offset="0.46" stop-color="#78581f"></stop>
-          <stop offset="1" stop-color="#120d05"></stop>
+        <linearGradient id="panelGradient" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#9a762c" stop-opacity="0.92"></stop>
+          <stop offset="0.74" stop-color="#291e0b" stop-opacity="0.98"></stop>
         </linearGradient>
-        <radialGradient id="avatarGradient" cx="35%" cy="25%" r="75%">
-          <stop offset="0" stop-color="#ffcc70"></stop>
-          <stop offset="1" stop-color="#d88db7"></stop>
+        <radialGradient id="heroFallback" cx="35%" cy="22%" r="82%">
+          <stop offset="0" stop-color="#314a38"></stop>
+          <stop offset="1" stop-color="#07100b"></stop>
         </radialGradient>
       </defs>
       <rect width="${WIDTH}" height="${HEIGHT}" rx="42" fill="#06120c"></rect>
-      <rect x="18" y="18" width="${WIDTH - 36}" height="${HEIGHT - 36}" rx="36" fill="url(#cardGradient)" opacity="0.96"></rect>
-      <circle cx="742" cy="94" r="180" fill="#f1cf72" opacity="0.11"></circle>
-      ${renderAvatar(player, photoDataUrl)}
-      <text x="320" y="138" fill="#fffaf0" font-size="54" font-weight="900">${escapeXml(displayName)}</text>
-      <text x="322" y="184" fill="#d8c394" font-size="28" font-weight="800">${escapeXml(username)}</text>
-      ${
-        ratingLabel
-          ? `<text x="320" y="252" fill="#ffe28b" font-size="74" font-weight="900">${escapeXml(ratingLabel)}</text>`
-          : `<rect x="318" y="214" width="188" height="54" rx="18" fill="#fffaf0"></rect><text x="342" y="250" fill="#1d160a" font-size="28" font-weight="900">Не оценён</text>`
-      }
-      <text x="${ratingLabel ? 426 : 536}" y="250" fill="#fffaf0" font-size="36" font-weight="900">${escapeXml(positionLabel)}</text>
-      ${renderStats(player)}
+      <clipPath id="cardClip">
+        <rect x="18" y="18" width="${WIDTH - 36}" height="${HEIGHT - 36}" rx="36"></rect>
+      </clipPath>
+      <g clip-path="url(#cardClip)">
+        <rect x="18" y="18" width="${WIDTH - 36}" height="${HEIGHT - 36}" fill="#06120c"></rect>
+        <g transform="translate(18 18)">
+          ${renderHero(player, photoDataUrl)}
+          ${renderHeroBadge(player)}
+        </g>
+        <rect x="18" y="${HERO_HEIGHT + 18}" width="${WIDTH - 36}" height="${HEIGHT - HERO_HEIGHT - 36}" fill="url(#panelGradient)"></rect>
+        <text x="${WIDTH / 2}" y="438" text-anchor="middle" fill="#fffaf0" font-size="40" font-weight="900">${escapeXml(displayName)}</text>
+        <text x="${WIDTH / 2}" y="482" text-anchor="middle" fill="#d8c394" font-size="24" font-weight="800">${escapeXml(username)}</text>
+        ${renderMetrics(player)}
+      </g>
+      <rect x="18" y="18" width="${WIDTH - 36}" height="${HEIGHT - 36}" rx="36" fill="none" stroke="#e3c274" stroke-opacity="0.36" stroke-width="2"></rect>
     </svg>
   `;
   const renderer = new Resvg(svg, {

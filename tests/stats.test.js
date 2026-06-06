@@ -1004,3 +1004,82 @@ test('buildChatSnapshot aggregates cards into game and career summaries', () => 
   assert.equal(gameTarget.currentGameStats.yellowCards, 2);
   assert.equal(gameTarget.currentGameStats.redCards, 1);
 });
+
+test('buildChatSnapshot uses known roster ratings for upcoming game level', () => {
+  const state = {
+    version: 1,
+    meta: {},
+    chats: {
+      global: {
+        id: 'global',
+        title: 'Все игры',
+        type: 'global',
+        username: '',
+        currentGameId: 'game_1',
+        playerIds: ['player_1', 'player_2', 'player_3']
+      }
+    },
+    players: {
+      player_1: {
+        id: 'player_1',
+        username: 'rated_one',
+        displayName: 'Rated One',
+        chatIds: ['global'],
+        careerSeed: {
+          ratedGames: 1,
+          position: 'CM',
+          stats: rating({ overall: 60 })
+        }
+      },
+      player_2: {
+        id: 'player_2',
+        username: 'rated_two',
+        displayName: 'Rated Two',
+        chatIds: ['global'],
+        careerSeed: {
+          ratedGames: 1,
+          position: 'CM',
+          stats: rating({ overall: 80 })
+        }
+      },
+      player_3: {
+        id: 'player_3',
+        username: 'unrated',
+        displayName: 'Unrated',
+        chatIds: ['global']
+      }
+    },
+    games: {
+      game_1: {
+        id: 'game_1',
+        chatId: 'global',
+        dateLabel: '7 июня',
+        location: 'Поле 10',
+        time: '16:00',
+        scheduledAt: '2026-06-07T13:00:00.000Z',
+        playerIds: ['player_1', 'player_2', 'player_3'],
+        paymentLines: [],
+        priceLine: ''
+      },
+      game_2: {
+        id: 'game_2',
+        chatId: 'global',
+        dateLabel: '8 июня',
+        location: 'Поле 10',
+        time: '16:00',
+        scheduledAt: '2026-06-08T13:00:00.000Z',
+        playerIds: ['player_3'],
+        paymentLines: [],
+        priceLine: ''
+      }
+    },
+    ratings: {}
+  };
+
+  const snapshot = buildChatSnapshot(state, 'global', 'player_1', new Date('2026-06-06T09:00:00.000Z'));
+  const ratedGame = snapshot.games.find((game) => game.id === 'game_1');
+  const unratedGame = snapshot.games.find((game) => game.id === 'game_2');
+
+  assert.equal(ratedGame.averageOverall, 70);
+  assert.equal(unratedGame.averageOverall, null);
+});

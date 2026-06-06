@@ -437,6 +437,12 @@ p {
   white-space: nowrap;
 }
 
+.game-card-stats .game-card-badges-value {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}
+
 .game-level-badges {
   display: flex;
   flex-wrap: wrap;
@@ -1315,6 +1321,10 @@ p {
 
 .metric-grid--single {
   grid-template-columns: 1fr;
+}
+
+.metric-grid--summary + .metric-grid--stats {
+  margin-top: -4px;
 }
 
 .metric-cell {

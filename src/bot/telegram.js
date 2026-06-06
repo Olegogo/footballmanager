@@ -535,7 +535,7 @@ export class TelegramBot {
     }
 
     const label = rating < 55 ? 'Низкий' : rating < 70 ? 'Средний' : 'Высокий';
-    return `${label} (~${Math.round(rating)})`;
+    return `${label} (${Math.round(rating)})`;
   }
 
   formatGameSummary(game) {

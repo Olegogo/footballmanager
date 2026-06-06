@@ -575,6 +575,20 @@ function buildGameAverageOverall(game, aggregation) {
   );
 }
 
+function buildGameRosterAverageOverall(game, playersById) {
+  const ratedPlayers = game.playerIds
+    .map((playerId) => playersById.get(playerId))
+    .filter((player) => player?.ratedGames > 0 && Number(player.overall) > 0);
+
+  if (!ratedPlayers.length) {
+    return null;
+  }
+
+  return round(
+    ratedPlayers.reduce((sum, player) => sum + Number(player.overall), 0) / ratedPlayers.length
+  );
+}
+
 function buildGamesView(state, games, playerCards, now) {
   const mvpIndex = buildGameMvpIndexForGames(state, games, now);
   const playersById = new Map(playerCards.map((player) => [player.id, player]));
@@ -587,7 +601,7 @@ function buildGamesView(state, games, playerCards, now) {
       const importedMvp = game.importedSummary?.mvp ?? null;
       const importedTopScorer = game.importedSummary?.topScorer ?? null;
       const cards = buildGameCardsSummary(game, aggregation);
-      const averageOverall = buildGameAverageOverall(game, aggregation);
+      const averageOverall = buildGameAverageOverall(game, aggregation) ?? buildGameRosterAverageOverall(game, playersById);
       const totalGoals = round(
         game.playerIds.reduce((sum, playerId) => {
           const gameStats = aggregation?.players[playerId];

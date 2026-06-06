@@ -349,7 +349,7 @@ const server = http.createServer(async (req, res) => {
         playerId: player.id
       });
       const imageUrl = buildAbsoluteUrl(req, `/api/share-images/players/${encodeURIComponent(player.id)}.png`);
-      const shareText = `${playerCard.displayName} в футбольчике`;
+      const shareText = `${playerCard.displayName} в игре`;
       let preparedMessageId = '';
 
       if (player.telegramUserId && bot.enabled) {
