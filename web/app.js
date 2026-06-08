@@ -454,6 +454,20 @@ function getPlayerOverallLabel(player, currentStats = null) {
   return String(Math.round(Number(currentStats?.hasRatings ? currentStats.overall : player.overall)));
 }
 
+function getMatchOverallLabel(player) {
+  return player.currentGameStats?.hasRatings
+    ? String(Math.round(Number(player.currentGameStats.overall)))
+    : '';
+}
+
+function getGameMiniCardRatingLabel(player, game = null) {
+  if (game?.hasStarted) {
+    return getMatchOverallLabel(player);
+  }
+
+  return getPlayerOverallLabel(player, player.currentGameStats);
+}
+
 function getGamePlayerRatingState(player, game = null) {
   const currentStats = player.currentGameStats ?? null;
   const ratingsCount = Number(currentStats?.ratingsCount ?? 0);
@@ -465,7 +479,7 @@ function getGamePlayerRatingState(player, game = null) {
     return {
       phase: ratingsCount > 0 ? 'live-rated' : 'live-empty',
       ratingsCount,
-      rating: null,
+      rating: matchRating,
       hasMatchRating
     };
   }
@@ -515,7 +529,7 @@ function renderGamePlayerState(player, game) {
     return `
       <div class="game-player-badges">
         ${renderRatingCountBadge(ratingState.ratingsCount, 'game-player-count')}
-        <div class="game-player-unrated">Не оценён</div>
+        <div class="game-player-rating">${escapeHtml(ratingState.rating)}</div>
       </div>
     `;
   }
@@ -538,7 +552,7 @@ function renderEditorStateBadge(player, gamePlayer, game) {
     return `
       <div class="editor-status-group">
         ${renderRatingCountBadge(ratingState.ratingsCount, 'editor-count-badge')}
-        <span class="editor-status">Не оценён</span>
+        <span class="editor-live-rating">${escapeHtml(ratingState.rating)}</span>
       </div>
     `;
   }
@@ -1044,7 +1058,8 @@ function renderField(game, options = {}) {
                   .map(({ player, slot }) => {
                     const isInteractive = Boolean(player.canRateTarget);
                     const openAttribute = isInteractive ? `data-open-player="${escapeHtml(player.id)}"` : '';
-                    const ratingLabel = getPlayerOverallLabel(player, player.currentGameStats);
+                    const ratingLabel = getGameMiniCardRatingLabel(player, game);
+                    const showUnratedBadge = game.hasStarted && !ratingLabel;
                     return `
                       <button
                         type="button"
@@ -1055,6 +1070,7 @@ function renderField(game, options = {}) {
                         <div class="field-player-photo">${renderMiniAvatar(player)}</div>
                         <div class="field-player-info">
                           ${ratingLabel ? `<strong>${escapeHtml(ratingLabel)}</strong>` : ''}
+                          ${showUnratedBadge ? '<span class="field-player-unrated">Не оценён</span>' : ''}
                           <span>${escapeHtml(player.displayName.split(' ')[0])}</span>
                           ${renderDisciplineCards(player.currentGameStats, 'field-player-cards')}
                         </div>

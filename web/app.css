@@ -999,6 +999,18 @@ p {
   text-overflow: ellipsis;
 }
 
+.field-player-info .field-player-unrated {
+  justify-self: center;
+  max-width: 100%;
+  padding: 3px 5px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1d160a;
+  font-size: 8px;
+  line-height: 1;
+  text-shadow: none;
+}
+
 .field-player-cards {
   justify-content: center;
   gap: 4px;
@@ -1885,6 +1897,14 @@ input[type="range"] {
 .editor-count-badge {
   padding: 8px 10px;
   font-size: 12px;
+}
+
+.editor-live-rating {
+  color: #ffe28b;
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
 }
 
 .editor-final-rating {
