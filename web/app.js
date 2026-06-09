@@ -19,6 +19,7 @@ const STAT_META = [
   ['passing', 'Передачи'],
   ['physical', 'Физика']
 ];
+const QUICK_RATING_POINTS = 3;
 const GOALKEEPER_STAT_META = [
   ['pace', 'Игра на линии'],
   ['dribbling', 'Фиксация мяча'],
@@ -122,6 +123,7 @@ const state = {
   selfProfileEditing: false,
   gameActionsOpen: false,
   ratingDrafts: {},
+  quickRatingDrafts: {},
   manualGameOpen: false,
   manualGameMode: 'create',
   manualGameGameId: '',
@@ -177,6 +179,22 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function getPlural(count, forms) {
+  const number = Math.abs(Number(count));
+  const mod10 = number % 10;
+  const mod100 = number % 100;
+
+  if (mod10 === 1 && mod100 !== 11) {
+    return forms[0];
+  }
+
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return forms[1];
+  }
+
+  return forms[2];
 }
 
 function normalizeUsername(value = '') {
@@ -436,6 +454,79 @@ function openManualGameEdit(game) {
 
 function getRatingDraftKey(gameId, playerId) {
   return `${gameId}:${playerId}`;
+}
+
+function getQuickRatingDraftKey(gameId) {
+  return `quick:${gameId}`;
+}
+
+function normalizeQuickBoosts(boosts = []) {
+  const boostMap = new Map();
+
+  for (const boost of Array.isArray(boosts) ? boosts : []) {
+    const targetPlayerId = String(boost?.targetPlayerId || '');
+    const statKey = String(boost?.statKey || '');
+    const points = Math.max(0, Math.min(QUICK_RATING_POINTS, Math.round(Number(boost?.points ?? 0))));
+
+    if (!targetPlayerId || !STAT_META.some(([key]) => key === statKey) || !points) {
+      continue;
+    }
+
+    const key = `${targetPlayerId}:${statKey}`;
+    boostMap.set(key, {
+      targetPlayerId,
+      statKey,
+      points: Math.min(QUICK_RATING_POINTS, (boostMap.get(key)?.points ?? 0) + points)
+    });
+  }
+
+  return [...boostMap.values()];
+}
+
+function getQuickRatingDraft(game) {
+  if (!game?.id) {
+    return {
+      mvpPlayerId: '',
+      boosts: []
+    };
+  }
+
+  const draftKey = getQuickRatingDraftKey(game.id);
+
+  if (!state.quickRatingDrafts[draftKey]) {
+    state.quickRatingDrafts[draftKey] = {
+      mvpPlayerId: game.viewerQuickRating?.mvpPlayerId || '',
+      boosts: normalizeQuickBoosts(game.viewerQuickRating?.boosts)
+    };
+  }
+
+  return state.quickRatingDrafts[draftKey];
+}
+
+function getQuickRatingPointsUsed(draft) {
+  return normalizeQuickBoosts(draft?.boosts).reduce((sum, boost) => sum + boost.points, 0);
+}
+
+function getQuickBoostPoints(draft, targetPlayerId, statKey) {
+  return normalizeQuickBoosts(draft?.boosts).find(
+    (boost) => boost.targetPlayerId === targetPlayerId && boost.statKey === statKey
+  )?.points ?? 0;
+}
+
+function setQuickBoostPoints(game, targetPlayerId, statKey, points) {
+  const draft = getQuickRatingDraft(game);
+  const nextBoosts = normalizeQuickBoosts(draft.boosts)
+    .filter((boost) => !(boost.targetPlayerId === targetPlayerId && boost.statKey === statKey));
+
+  if (points > 0) {
+    nextBoosts.push({
+      targetPlayerId,
+      statKey,
+      points: Math.max(0, Math.min(QUICK_RATING_POINTS, Math.round(Number(points))))
+    });
+  }
+
+  draft.boosts = normalizeQuickBoosts(nextBoosts);
 }
 
 function hasVisibleRating(player, currentStats = null) {
@@ -909,38 +1000,18 @@ function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
           ${
             editable
               ? `
-                <form id="ratingForm" class="editor-form" data-game-id="${escapeHtml(game.id)}" data-player-id="${escapeHtml(player.id)}" data-draft-key="${escapeHtml(getRatingDraftKey(game.id, player.id))}">
-                  <label class="editor-select">
-                    <span>Позиция</span>
-                    <select name="position">
-                      ${POSITION_CHOICES
-                        .map((position) => `
-                          <option value="${position}" ${defaults.position === position ? 'selected' : ''}>
-                            ${escapeHtml(getPositionMeta(position).title)}
-                          </option>
-                        `)
-                        .join('')}
-                    </select>
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M6.7 8.8a1 1 0 0 1 1.4 0L12 12.7l3.9-3.9a1 1 0 1 1 1.4 1.4l-4.6 4.6a1 1 0 0 1-1.4 0L6.7 10.2a1 1 0 0 1 0-1.4z"></path>
-                    </svg>
-                  </label>
-                  <div class="editor-stat-block editor-stat-block--filled">
-                    <span>игр</span>
-                    <strong>${escapeHtml(player.games)}</strong>
+                <div class="editor-form editor-form--quick">
+                  <div class="quick-rating-block">
+                    <span class="quick-rating-label">MVP матча</span>
+                    ${renderQuickRatingMvpButton(player, game, getQuickRatingDraft(game))}
                   </div>
-                  ${
-                    isGoalkeeper
-                      ? ''
-                      : `
-                        ${renderEditorStepper('goals', 'голов', defaults.goals)}
-                        ${renderEditorStepper('assists', 'голевых передач', defaults.assists)}
-                      `
-                  }
-                  ${statMeta.map(([key, label]) => renderEditorRange(key, label.toLowerCase(), defaults[key])).join('')}
-                  ${renderEditorCards(defaults)}
-                  <button type="submit" class="primary-button card-action editor-submit">Сохранить</button>
-                </form>
+                  <div class="quick-rating-block">
+                    <span class="quick-rating-label">Очки статов</span>
+                    <p class="quick-rating-hint">Всего на матч доступно ${QUICK_RATING_POINTS} очка. Можно отдать все одному игроку или распределить между несколькими.</p>
+                    ${renderQuickStatControls(player, game, getQuickRatingDraft(game))}
+                  </div>
+                  <button type="button" class="primary-button card-action editor-submit" data-submit-quick-rating="${escapeHtml(game.id)}">Сохранить</button>
+                </div>
               `
               : `
                 ${renderFifaCard(player, {
@@ -1032,6 +1103,118 @@ function renderRatingBanner(game) {
   return `
     <section class="notice-banner">
       <p>${escapeHtml(message)}</p>
+    </section>
+  `;
+}
+
+function renderQuickRatingMvpButton(player, game, draft) {
+  const selected = draft.mvpPlayerId === player.id;
+
+  return `
+    <button
+      type="button"
+      class="quick-mvp-chip ${selected ? 'is-selected' : ''}"
+      data-quick-mvp="${escapeHtml(player.id)}"
+      data-game-id="${escapeHtml(game.id)}"
+    >
+      <span class="quick-mvp-avatar">${renderMiniAvatar(player)}</span>
+      <span>${escapeHtml(player.displayName)}</span>
+    </button>
+  `;
+}
+
+function renderQuickStatControls(player, game, draft) {
+  const used = getQuickRatingPointsUsed(draft);
+  const remaining = Math.max(0, QUICK_RATING_POINTS - used);
+  const statMeta = getStatMetaForPosition(player.currentGameStats?.position || player.position || 'N/A');
+
+  return `
+    <div class="quick-stat-grid">
+      ${statMeta
+        .map(([key, label]) => {
+          const points = getQuickBoostPoints(draft, player.id, key);
+          const disabled = remaining <= 0 && points <= 0;
+
+          return `
+            <div class="quick-stat-chip ${points ? 'is-active' : ''}">
+              <button
+                type="button"
+                data-quick-boost-remove="${escapeHtml(player.id)}"
+                data-quick-boost-stat="${escapeHtml(key)}"
+                data-game-id="${escapeHtml(game.id)}"
+                ${points ? '' : 'disabled'}
+                aria-label="Убрать очко ${escapeHtml(label)}"
+              >−</button>
+              <span>${escapeHtml(label)}</span>
+              <strong>${escapeHtml(points ? `+${points}` : '+')}</strong>
+              <button
+                type="button"
+                data-quick-boost-add="${escapeHtml(player.id)}"
+                data-quick-boost-stat="${escapeHtml(key)}"
+                data-game-id="${escapeHtml(game.id)}"
+                ${disabled ? 'disabled' : ''}
+                aria-label="Добавить очко ${escapeHtml(label)}"
+              >+</button>
+            </div>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
+}
+
+function renderQuickRatingPanel(game) {
+  if (!game.canViewerRate) {
+    return '';
+  }
+
+  const targets = game.participants.filter((player) => player.canRateTarget);
+
+  if (!targets.length) {
+    return '';
+  }
+
+  const draft = getQuickRatingDraft(game);
+  const used = getQuickRatingPointsUsed(draft);
+  const remaining = Math.max(0, QUICK_RATING_POINTS - used);
+
+  return `
+    <section class="panel quick-rating-panel">
+      <div class="quick-rating-head">
+        <div>
+          <h3>Быстрая оценка</h3>
+          <p>Выбери MVP и раздай до ${QUICK_RATING_POINTS} очков параметров тем, кто был заметен в игре.</p>
+        </div>
+        <strong>${escapeHtml(remaining)} осталось</strong>
+      </div>
+      <div class="quick-rating-block">
+        <span class="quick-rating-label">MVP матча</span>
+        <div class="quick-mvp-row">
+          ${targets.map((player) => renderQuickRatingMvpButton(player, game, draft)).join('')}
+        </div>
+      </div>
+      <div class="quick-rating-block">
+        <span class="quick-rating-label">Очки статов</span>
+        <div class="quick-players-list">
+          ${targets
+            .map((player) => `
+              <article class="quick-player-card">
+                <div class="quick-player-head">
+                  <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
+                  <div>
+                    <strong>${escapeHtml(player.displayName)}</strong>
+                    <span>${escapeHtml(getGamePlayerPositionLabel(player))}</span>
+                  </div>
+                </div>
+                ${renderQuickStatControls(player, game, draft)}
+              </article>
+            `)
+            .join('')}
+        </div>
+      </div>
+      <button type="button" class="primary-button quick-rating-submit" data-submit-quick-rating="${escapeHtml(game.id)}">
+        Сохранить оценку
+      </button>
     </section>
   `;
 }
@@ -1202,6 +1385,7 @@ function renderGameTab() {
     ${renderPendingJoinSection(game)}
     ${renderField(game)}
     ${renderRatingBanner(game)}
+    ${renderQuickRatingPanel(game)}
     <section class="game-player-list">
       ${game.participants.map((player) => renderGamePlayerRow(player)).join('')}
     </section>
@@ -1285,9 +1469,11 @@ function renderGameCard(game) {
       <span class="game-level-badges game-mvp-badges">
         <span class="game-level-badge game-level-badge--mid">${escapeHtml(game.mvp.displayName)}</span>
         ${
-          game.mvp.ratingIncrease
-            ? `<span class="game-level-badge game-level-rating">+${escapeHtml(game.mvp.ratingIncrease)}</span>`
-            : ''
+          game.mvp.votes
+            ? `<span class="game-level-badge game-level-rating">${escapeHtml(game.mvp.votes)} ${escapeHtml(getPlural(game.mvp.votes, ['голос', 'голоса', 'голосов']))}</span>`
+            : game.mvp.ratingIncrease
+              ? `<span class="game-level-badge game-level-rating">+${escapeHtml(game.mvp.ratingIncrease)}</span>`
+              : ''
         }
       </span>
     `
@@ -2185,6 +2371,31 @@ async function submitRating(form) {
   showToast('Оценка сохранена');
 }
 
+async function submitQuickRating(gameId) {
+  const game = getGameDays().find((item) => item.id === gameId) ?? getCurrentGame();
+
+  if (!game?.id) {
+    throw new Error('Игра не найдена');
+  }
+
+  const draft = getQuickRatingDraft(game);
+  const payload = {
+    mvpPlayerId: draft.mvpPlayerId || '',
+    boosts: normalizeQuickBoosts(draft.boosts)
+  };
+
+  const data = await api(`/api/games/${encodeURIComponent(gameId)}/quick-rating`, {
+    method: 'POST',
+    body: payload
+  });
+
+  state.snapshot = data.snapshot;
+  delete state.quickRatingDrafts[getQuickRatingDraftKey(gameId)];
+  state.selectedPlayerId = null;
+  render();
+  showToast('Оценка сохранена');
+}
+
 async function submitSelfProfile(form) {
   saveSelfProfileDraft(form);
   const payload = state.selfProfileDraft || readSelfProfileForm(form);
@@ -2687,6 +2898,57 @@ document.addEventListener('click', async (event) => {
 
   if (approveJoinButton) {
     approveJoinRequest(approveJoinButton.dataset.gameId, approveJoinButton.dataset.approveJoinPlayer).catch((error) => {
+      showToast(error.message);
+    });
+    return;
+  }
+
+  const quickMvpButton = event.target.closest('[data-quick-mvp]');
+
+  if (quickMvpButton) {
+    const game = getGameDays().find((item) => item.id === quickMvpButton.dataset.gameId) ?? getCurrentGame();
+    const draft = getQuickRatingDraft(game);
+    const playerId = quickMvpButton.dataset.quickMvp;
+    draft.mvpPlayerId = draft.mvpPlayerId === playerId ? '' : playerId;
+    render();
+    return;
+  }
+
+  const quickBoostAddButton = event.target.closest('[data-quick-boost-add]');
+
+  if (quickBoostAddButton) {
+    const game = getGameDays().find((item) => item.id === quickBoostAddButton.dataset.gameId) ?? getCurrentGame();
+    const draft = getQuickRatingDraft(game);
+    const used = getQuickRatingPointsUsed(draft);
+
+    if (used >= QUICK_RATING_POINTS) {
+      showToast(`Можно раздать максимум ${QUICK_RATING_POINTS} очка`);
+      return;
+    }
+
+    const playerId = quickBoostAddButton.dataset.quickBoostAdd;
+    const statKey = quickBoostAddButton.dataset.quickBoostStat;
+    setQuickBoostPoints(game, playerId, statKey, getQuickBoostPoints(draft, playerId, statKey) + 1);
+    render();
+    return;
+  }
+
+  const quickBoostRemoveButton = event.target.closest('[data-quick-boost-remove]');
+
+  if (quickBoostRemoveButton) {
+    const game = getGameDays().find((item) => item.id === quickBoostRemoveButton.dataset.gameId) ?? getCurrentGame();
+    const draft = getQuickRatingDraft(game);
+    const playerId = quickBoostRemoveButton.dataset.quickBoostRemove;
+    const statKey = quickBoostRemoveButton.dataset.quickBoostStat;
+    setQuickBoostPoints(game, playerId, statKey, Math.max(0, getQuickBoostPoints(draft, playerId, statKey) - 1));
+    render();
+    return;
+  }
+
+  const quickSubmitButton = event.target.closest('[data-submit-quick-rating]');
+
+  if (quickSubmitButton) {
+    submitQuickRating(quickSubmitButton.dataset.submitQuickRating).catch((error) => {
       showToast(error.message);
     });
     return;

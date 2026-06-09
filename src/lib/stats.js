@@ -6,6 +6,7 @@ export const POSITION_OPTIONS = ['N/A', 'GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CA
 export const RATING_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const MAX_YELLOW_CARDS = 2;
 export const MAX_RED_CARDS = 1;
+export const QUICK_RATING_POINTS = 3;
 
 const FALLBACK_STATS = {
   pace: 50,
@@ -97,6 +98,14 @@ function createEmptySummary() {
       passing: 0,
       physical: 0
     }
+  };
+}
+
+function createEmptyBoostSummary() {
+  return {
+    totalPoints: 0,
+    statPoints: Object.fromEntries(STAT_KEYS.map((key) => [key, 0])),
+    raterIds: new Set()
   };
 }
 
@@ -226,6 +235,19 @@ function finalizeCareerEntry(entry) {
   };
 }
 
+function applyBoostsToStats(baseStats, boostSummary) {
+  return Object.fromEntries(
+    STAT_KEYS.map((key) => [
+      key,
+      Math.max(1, Math.min(99, Math.round(Number(baseStats?.[key] ?? FALLBACK_STATS[key]) + Number(boostSummary?.statPoints?.[key] ?? 0))))
+    ])
+  );
+}
+
+function getStatsOverall(stats) {
+  return round(STAT_KEYS.reduce((sum, key) => sum + Number(stats[key] ?? 0), 0) / STAT_KEYS.length);
+}
+
 function ensureCareerEntry(career, playerId) {
   if (!career.has(playerId)) {
     career.set(playerId, createEmptyCareerEntry());
@@ -250,6 +272,38 @@ function applyGameToCareerEntry(entry, gameStats) {
 
   for (const key of STAT_KEYS) {
     entry.statSums[key] += gameStats.stats[key];
+  }
+}
+
+function applyBoostsToCareerEntry(entry, boostSummary, player, fullGameStatsApplied = false) {
+  if (!boostSummary?.hasBoosts) {
+    return;
+  }
+
+  if (fullGameStatsApplied && entry.ratedGames > 0) {
+    for (const key of STAT_KEYS) {
+      entry.statSums[key] += boostSummary.statPoints[key] ?? 0;
+    }
+    return;
+  }
+
+  const career = finalizeCareerEntry(entry);
+  const baseStats = entry.ratedGames > 0
+    ? career.stats
+    : player?.selfProfile?.stats || FALLBACK_STATS;
+  const boostedStats = applyBoostsToStats(baseStats, boostSummary);
+  const position = career.position !== 'N/A'
+    ? career.position
+    : player?.selfProfile?.position || player?.defaultPosition || 'N/A';
+
+  entry.ratedGames += 1;
+
+  if (position !== 'N/A') {
+    entry.positionCounts[position] = (entry.positionCounts[position] ?? 0) + 1;
+  }
+
+  for (const key of STAT_KEYS) {
+    entry.statSums[key] += boostedStats[key];
   }
 }
 
@@ -340,8 +394,107 @@ export function buildGameAggregation(state, gameId) {
   };
 }
 
+export function buildGameBoostAggregation(state, gameId) {
+  const game = state.games[gameId];
+
+  if (!game) {
+    return null;
+  }
+
+  const byPlayer = new Map();
+
+  for (const playerId of game.playerIds) {
+    byPlayer.set(playerId, createEmptyBoostSummary());
+  }
+
+  for (const boost of Object.values(state.statBoosts ?? {})) {
+    if (boost.gameId !== gameId || !STAT_KEYS.includes(boost.statKey)) {
+      continue;
+    }
+
+    if (!byPlayer.has(boost.targetPlayerId)) {
+      byPlayer.set(boost.targetPlayerId, createEmptyBoostSummary());
+    }
+
+    const summary = byPlayer.get(boost.targetPlayerId);
+    const points = Math.max(0, Math.round(Number(boost.points ?? 0)));
+    summary.statPoints[boost.statKey] += points;
+    summary.totalPoints += points;
+
+    if (boost.raterPlayerId) {
+      summary.raterIds.add(boost.raterPlayerId);
+    }
+  }
+
+  return {
+    gameId,
+    players: Object.fromEntries(
+      [...byPlayer.entries()].map(([playerId, summary]) => [
+        playerId,
+        {
+          hasBoosts: summary.totalPoints > 0,
+          totalPoints: summary.totalPoints,
+          statPoints: { ...summary.statPoints },
+          ratingsCount: summary.raterIds.size
+        }
+      ])
+    )
+  };
+}
+
+function combineGameStatsWithBoosts(gameStats, boostSummary, playerCard = null) {
+  if (!boostSummary?.hasBoosts) {
+    return gameStats ?? null;
+  }
+
+  const baseStats = gameStats?.hasRatings
+    ? gameStats.stats
+    : playerCard?.ratedGames > 0 || playerCard?.hasSelfProfile
+      ? playerCard.stats
+      : FALLBACK_STATS;
+  const stats = applyBoostsToStats(baseStats, boostSummary);
+  const position = gameStats?.hasRatings
+    ? gameStats.position
+    : playerCard?.position || 'N/A';
+
+  return {
+    hasRatings: true,
+    stats,
+    overall: getStatsOverall(stats),
+    goals: gameStats?.hasRatings ? gameStats.goals : 0,
+    assists: gameStats?.hasRatings ? gameStats.assists : 0,
+    yellowCards: gameStats?.hasRatings ? gameStats.yellowCards ?? 0 : 0,
+    redCards: gameStats?.hasRatings ? gameStats.redCards ?? 0 : 0,
+    cards: gameStats?.hasRatings
+      ? gameStats.cards
+      : {
+          yellow: 0,
+          red: 0
+        },
+    hasCards: Boolean(gameStats?.hasCards),
+    position,
+    ratingsCount: Math.max(
+      1,
+      Number(gameStats?.ratingsCount ?? 0) + Number(boostSummary.ratingsCount ?? 0)
+    ),
+    boostPoints: boostSummary.totalPoints,
+    statPoints: boostSummary.statPoints
+  };
+}
+
+function getGameStatsWithBoosts(state, gameId, playerId, playerCard = null, aggregation = null, boostAggregation = null) {
+  const baseAggregation = aggregation ?? buildGameAggregation(state, gameId);
+  const boosts = boostAggregation ?? buildGameBoostAggregation(state, gameId);
+  return combineGameStatsWithBoosts(
+    baseAggregation?.players[playerId] ?? null,
+    boosts?.players[playerId] ?? null,
+    playerCard
+  );
+}
+
 function buildCareerIndexForPlayersAndGames(state, players, games, now = new Date()) {
   const career = new Map();
+  const playersById = new Map(players.map((player) => [player.id, player]));
 
   for (const player of players) {
     const entry = createEmptyCareerEntry();
@@ -351,9 +504,18 @@ function buildCareerIndexForPlayersAndGames(state, players, games, now = new Dat
 
   for (const game of games.filter((item) => isFinalizedForCareer(item, now))) {
     const aggregation = buildGameAggregation(state, game.id);
+    const boostAggregation = buildGameBoostAggregation(state, game.id);
 
     for (const playerId of game.playerIds) {
-      applyGameToCareerEntry(ensureCareerEntry(career, playerId), aggregation?.players[playerId]);
+      const gameStats = aggregation?.players[playerId];
+      const entry = ensureCareerEntry(career, playerId);
+      applyGameToCareerEntry(entry, gameStats);
+      applyBoostsToCareerEntry(
+        entry,
+        boostAggregation?.players[playerId],
+        playersById.get(playerId),
+        Boolean(gameStats?.hasRatings)
+      );
     }
   }
 
@@ -399,6 +561,27 @@ function buildGameMvpIndexForGames(state, games, now = new Date()) {
     }
 
     const aggregation = buildGameAggregation(state, game.id);
+    const voteWinner = getGameMvpVoteWinner(state, game);
+
+    if (voteWinner) {
+      const entry = ensureCareerEntry(career, voteWinner.playerId);
+      const summary = aggregation?.players[voteWinner.playerId];
+      const previousOverall = finalizeCareerEntry(entry).overall;
+      const nextOverall = summary?.hasRatings
+        ? previewCareerOverallAfterGame(entry, summary)
+        : previousOverall;
+
+      mvpIndex.set(game.id, {
+        gameId: game.id,
+        playerId: voteWinner.playerId,
+        overall: nextOverall,
+        ratingIncrease: round(nextOverall - previousOverall, 2),
+        previousOverall,
+        gameOverall: summary?.overall ?? previousOverall,
+        votes: voteWinner.votes
+      });
+    }
+
     const candidates = game.playerIds
       .map((playerId) => {
         const entry = ensureCareerEntry(career, playerId);
@@ -422,7 +605,7 @@ function buildGameMvpIndexForGames(state, games, now = new Date()) {
       })
       .filter((candidate) => candidate?.increase > 0);
 
-    if (candidates.length) {
+    if (!voteWinner && candidates.length) {
       candidates.sort((left, right) => {
         if (right.increase !== left.increase) {
           return right.increase - left.increase;
@@ -457,12 +640,45 @@ function buildGameMvpIndexForGames(state, games, now = new Date()) {
       });
     }
 
+    const boostAggregation = buildGameBoostAggregation(state, game.id);
+
     for (const playerId of game.playerIds) {
-      applyGameToCareerEntry(ensureCareerEntry(career, playerId), aggregation?.players[playerId]);
+      const gameStats = aggregation?.players[playerId];
+      const entry = ensureCareerEntry(career, playerId);
+      applyGameToCareerEntry(entry, gameStats);
+      applyBoostsToCareerEntry(entry, boostAggregation?.players[playerId], state.players[playerId], Boolean(gameStats?.hasRatings));
     }
   }
 
   return mvpIndex;
+}
+
+function getGameMvpVoteWinner(state, game) {
+  const voteCounts = new Map();
+
+  for (const vote of Object.values(state.mvpVotes ?? {})) {
+    if (vote.gameId !== game.id || !game.playerIds.includes(vote.targetPlayerId)) {
+      continue;
+    }
+
+    voteCounts.set(vote.targetPlayerId, (voteCounts.get(vote.targetPlayerId) ?? 0) + 1);
+  }
+
+  const candidates = [...voteCounts.entries()].map(([playerId, votes]) => ({ playerId, votes }));
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  candidates.sort((left, right) => {
+    if (right.votes !== left.votes) {
+      return right.votes - left.votes;
+    }
+
+    return left.playerId.localeCompare(right.playerId);
+  });
+
+  return candidates[0];
 }
 
 function getLatestMvpForGames(state, games, now = new Date()) {
@@ -561,9 +777,13 @@ function buildGameCardsSummary(game, aggregation) {
   };
 }
 
-function buildGameAverageOverall(game, aggregation) {
+function buildGameAverageOverall(game, aggregation, boostAggregation, playersById) {
   const ratedPlayers = game.playerIds
-    .map((playerId) => aggregation?.players[playerId])
+    .map((playerId) => combineGameStatsWithBoosts(
+      aggregation?.players[playerId] ?? null,
+      boostAggregation?.players[playerId] ?? null,
+      playersById.get(playerId)
+    ))
     .filter((gameStats) => gameStats?.hasRatings);
 
   if (!ratedPlayers.length) {
@@ -596,12 +816,13 @@ function buildGamesView(state, games, playerCards, now) {
   return games
     .map((game) => {
       const aggregation = buildGameAggregation(state, game.id);
+      const boostAggregation = buildGameBoostAggregation(state, game.id);
       const mvp = mvpIndex.get(game.id);
       const mvpPlayer = mvp ? playersById.get(mvp.playerId) : null;
       const importedMvp = game.importedSummary?.mvp ?? null;
       const importedTopScorer = game.importedSummary?.topScorer ?? null;
       const cards = buildGameCardsSummary(game, aggregation);
-      const averageOverall = buildGameAverageOverall(game, aggregation) ?? buildGameRosterAverageOverall(game, playersById);
+      const averageOverall = buildGameAverageOverall(game, aggregation, boostAggregation, playersById) ?? buildGameRosterAverageOverall(game, playersById);
       const totalGoals = round(
         game.playerIds.reduce((sum, playerId) => {
           const gameStats = aggregation?.players[playerId];
@@ -654,7 +875,8 @@ function buildGamesView(state, games, playerCards, now) {
               displayName: mvpPlayer?.displayName || 'Игрок',
               username: mvpPlayer?.username || '',
               ratingIncrease: mvp.ratingIncrease,
-              overall: mvp.overall
+              overall: mvp.overall,
+              votes: mvp.votes ?? 0
             }
           : importedMvp,
         topScorer: topScorer
@@ -816,6 +1038,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
   const currentGame = pickCurrentGame(allGames, now);
   const buildGameDayView = (game) => {
     const aggregation = buildGameAggregation(state, game.id);
+    const boostAggregation = buildGameBoostAggregation(state, game.id);
     const status = getGameStatus(game, now);
     const hasStarted = now >= new Date(game.scheduledAt);
     const viewerIsParticipant = viewerPlayerId ? game.playerIds.includes(viewerPlayerId) : false;
@@ -839,6 +1062,16 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
         .filter((rating) => rating.gameId === game.id && rating.raterPlayerId === viewerPlayerId)
         .map((rating) => [rating.targetPlayerId, rating])
     );
+    const viewerBoosts = Object.values(state.statBoosts ?? {})
+      .filter((boost) => boost.gameId === game.id && boost.raterPlayerId === viewerPlayerId)
+      .map((boost) => ({
+        targetPlayerId: boost.targetPlayerId,
+        statKey: boost.statKey,
+        points: boost.points
+      }));
+    const boostedTargetIdsByViewer = new Set(viewerBoosts.map((boost) => boost.targetPlayerId));
+    const viewerMvpVote = Object.values(state.mvpVotes ?? {})
+      .find((vote) => vote.gameId === game.id && vote.raterPlayerId === viewerPlayerId) ?? null;
 
     return {
       id: game.id,
@@ -864,6 +1097,10 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
         !ratingWindowOpen
       ),
       ratingsPromptSent: Boolean(game.ratingsOpenedAt),
+      viewerQuickRating: {
+        mvpPlayerId: viewerMvpVote?.targetPlayerId ?? '',
+        boosts: viewerBoosts
+      },
       organizerPlayerId: game.organizerPlayerId ?? null,
       canViewerManage,
       pendingJoinPlayers: pendingJoinPlayerIds
@@ -884,13 +1121,20 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       participants: game.playerIds
         .map((playerId) => {
           const profile = playerCards.find((player) => player.id === playerId);
-          const gameStats = aggregation?.players[playerId];
+          const gameStats = getGameStatsWithBoosts(
+            state,
+            game.id,
+            playerId,
+            profile,
+            aggregation,
+            boostAggregation
+          );
           const viewerRating = viewerRatings.get(playerId);
 
           return {
             ...profile,
             currentGameStats: gameStats ?? null,
-            viewerHasRatedTarget: Boolean(viewerRating),
+            viewerHasRatedTarget: Boolean(viewerRating || boostedTargetIdsByViewer.has(playerId)),
             viewerRating: viewerRating
               ? {
                   position: viewerRating.position,

@@ -299,6 +299,127 @@ test('getLatestMvp picks the biggest positive career rating jump', () => {
   assert.equal(snapshot.players[0].isMvp, true);
 });
 
+test('buildChatSnapshot applies quick stat boosts and MVP votes globally', () => {
+  const state = {
+    version: 1,
+    meta: {},
+    chats: {
+      '-1001': {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        username: '',
+        currentGameId: 'game_1',
+        playerIds: ['player_1', 'player_2', 'player_3']
+      }
+    },
+    players: {
+      player_1: {
+        id: 'player_1',
+        telegramUserId: 1,
+        username: 'rater_one',
+        displayName: 'Rater One',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001']
+      },
+      player_2: {
+        id: 'player_2',
+        telegramUserId: 2,
+        username: 'boosted',
+        displayName: 'Boosted',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'LW',
+        chatIds: ['-1001']
+      },
+      player_3: {
+        id: 'player_3',
+        telegramUserId: 3,
+        username: 'rater_two',
+        displayName: 'Rater Two',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'N/A',
+        chatIds: ['-1001']
+      }
+    },
+    games: {
+      game_1: {
+        id: 'game_1',
+        chatId: '-1001',
+        dateLabel: '9 июня',
+        location: 'Поле',
+        time: '19:00',
+        scheduledAt: '2026-06-09T16:00:00.000Z',
+        playerIds: ['player_1', 'player_2', 'player_3'],
+        paymentLines: [],
+        priceLine: ''
+      }
+    },
+    ratings: {},
+    statBoosts: {
+      stat_boost_1: {
+        id: 'stat_boost_1',
+        chatId: '-1001',
+        gameId: 'game_1',
+        raterPlayerId: 'player_1',
+        targetPlayerId: 'player_2',
+        statKey: 'pace',
+        points: 2
+      },
+      stat_boost_2: {
+        id: 'stat_boost_2',
+        chatId: '-1001',
+        gameId: 'game_1',
+        raterPlayerId: 'player_3',
+        targetPlayerId: 'player_2',
+        statKey: 'passing',
+        points: 1
+      }
+    },
+    mvpVotes: {
+      mvp_vote_1: {
+        id: 'mvp_vote_1',
+        chatId: '-1001',
+        gameId: 'game_1',
+        raterPlayerId: 'player_1',
+        targetPlayerId: 'player_2'
+      },
+      mvp_vote_2: {
+        id: 'mvp_vote_2',
+        chatId: '-1001',
+        gameId: 'game_1',
+        raterPlayerId: 'player_3',
+        targetPlayerId: 'player_2'
+      }
+    }
+  };
+
+  const liveSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-06-09T17:00:00.000Z'));
+  const liveTarget = liveSnapshot.currentGame.participants.find((player) => player.id === 'player_2');
+
+  assert.equal(liveTarget.currentGameStats.hasRatings, true);
+  assert.equal(liveTarget.currentGameStats.ratingsCount, 2);
+  assert.equal(liveTarget.currentGameStats.overall, 51);
+  assert.equal(liveTarget.viewerHasRatedTarget, true);
+  assert.equal(liveSnapshot.currentGame.viewerQuickRating.mvpPlayerId, 'player_2');
+  assert.equal(liveSnapshot.currentGame.viewerQuickRating.boosts.length, 1);
+
+  const finishedSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-06-11T17:00:00.000Z'));
+  const boostedPlayer = finishedSnapshot.players.find((player) => player.id === 'player_2');
+
+  assert.equal(boostedPlayer.ratedGames, 1);
+  assert.equal(boostedPlayer.overall, 51);
+  assert.equal(boostedPlayer.isMvp, true);
+  assert.equal(finishedSnapshot.games[0].mvp.playerId, 'player_2');
+  assert.equal(finishedSnapshot.games[0].mvp.votes, 2);
+});
+
 test('buildChatSnapshot keeps rating window open for 24 hours after kickoff', () => {
   const state = {
     version: 1,

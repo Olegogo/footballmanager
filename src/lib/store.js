@@ -4,7 +4,7 @@ import path from 'node:path';
 import { isSuperAdminPlayer } from './admins.js';
 import { createSessionToken } from './auth.js';
 import { parseAnnouncementTextLog, parseTelegramExportGames } from './parser.js';
-import { MAX_RED_CARDS, MAX_YELLOW_CARDS, POSITION_OPTIONS, RATING_WINDOW_MS, STAT_KEYS, buildChatSnapshot, buildGlobalCareerIndex, isRatingWindowOpen } from './stats.js';
+import { MAX_RED_CARDS, MAX_YELLOW_CARDS, POSITION_OPTIONS, QUICK_RATING_POINTS, RATING_WINDOW_MS, STAT_KEYS, buildChatSnapshot, buildGlobalCareerIndex, isRatingWindowOpen } from './stats.js';
 import { clamp, formatDisplayName, normalizeUsername, toIsoString, unique } from './utils.js';
 
 const DEFAULT_POSITION_BY_USERNAME = {
@@ -18,12 +18,16 @@ function defaultState() {
     meta: {
       nextPlayerId: 1,
       nextGameId: 1,
-      nextRatingId: 1
+      nextRatingId: 1,
+      nextStatBoostId: 1,
+      nextMvpVoteId: 1
     },
     chats: {},
     players: {},
     games: {},
     ratings: {},
+    statBoosts: {},
+    mvpVotes: {},
     sessions: {}
   };
 }
@@ -130,6 +134,10 @@ function sanitizePosition(position) {
 
 function sanitizeCardCount(value, max) {
   return Math.round(clamp(Number(value ?? 0), 0, max));
+}
+
+function sanitizeBoostPoints(value) {
+  return Math.round(clamp(Number(value ?? 0), 0, QUICK_RATING_POINTS));
 }
 
 function sanitizeProfilePosition(position) {
@@ -403,6 +411,8 @@ function mergeExternalState(state, externalState) {
   let playersMerged = 0;
   let gamesMerged = 0;
   let ratingsMerged = 0;
+  let statBoostsMerged = 0;
+  let mvpVotesMerged = 0;
 
   for (const chat of Object.values(externalState?.chats ?? {})) {
     ensureChatState(state, chat);
@@ -415,7 +425,10 @@ function mergeExternalState(state, externalState) {
   }
 
   const playersWithExternalRatings = new Set(
-    Object.values(externalState?.ratings ?? {}).map((rating) => String(rating.targetPlayerId))
+    [
+      ...Object.values(externalState?.ratings ?? {}).map((rating) => String(rating.targetPlayerId)),
+      ...Object.values(externalState?.statBoosts ?? {}).map((boost) => String(boost.targetPlayerId))
+    ]
   );
 
   for (const externalGame of Object.values(externalState?.games ?? {})) {
@@ -475,6 +488,65 @@ function mergeExternalState(state, externalState) {
     ratingsMerged += 1;
   }
 
+  for (const externalBoost of Object.values(externalState?.statBoosts ?? {})) {
+    const gameId = gameIdMap.get(String(externalBoost.gameId));
+    const targetPlayerId = playerIdMap.get(String(externalBoost.targetPlayerId));
+    const raterPlayerId = playerIdMap.get(String(externalBoost.raterPlayerId));
+    const statKey = String(externalBoost.statKey ?? '');
+
+    if (!gameId || !targetPlayerId || !raterPlayerId || !STAT_KEYS.includes(statKey)) {
+      continue;
+    }
+
+    const existingBoost = Object.values(state.statBoosts ?? {}).find(
+      (boost) =>
+        boost.gameId === gameId &&
+        boost.raterPlayerId === raterPlayerId &&
+        boost.targetPlayerId === targetPlayerId &&
+        boost.statKey === statKey
+    );
+    const boost = existingBoost ?? {
+      id: `stat_boost_${state.meta.nextStatBoostId++}`,
+      createdAt: externalBoost.createdAt || now
+    };
+
+    boost.chatId = String(state.games[gameId]?.chatId || externalBoost.chatId || 'global');
+    boost.gameId = gameId;
+    boost.raterPlayerId = raterPlayerId;
+    boost.targetPlayerId = targetPlayerId;
+    boost.statKey = statKey;
+    boost.points = sanitizeBoostPoints(externalBoost.points);
+    boost.updatedAt = externalBoost.updatedAt || now;
+    state.statBoosts[boost.id] = boost;
+    statBoostsMerged += 1;
+  }
+
+  for (const externalVote of Object.values(externalState?.mvpVotes ?? {})) {
+    const gameId = gameIdMap.get(String(externalVote.gameId));
+    const targetPlayerId = playerIdMap.get(String(externalVote.targetPlayerId));
+    const raterPlayerId = playerIdMap.get(String(externalVote.raterPlayerId));
+
+    if (!gameId || !targetPlayerId || !raterPlayerId) {
+      continue;
+    }
+
+    const existingVote = Object.values(state.mvpVotes ?? {}).find(
+      (vote) => vote.gameId === gameId && vote.raterPlayerId === raterPlayerId
+    );
+    const vote = existingVote ?? {
+      id: `mvp_vote_${state.meta.nextMvpVoteId++}`,
+      createdAt: externalVote.createdAt || now
+    };
+
+    vote.chatId = String(state.games[gameId]?.chatId || externalVote.chatId || 'global');
+    vote.gameId = gameId;
+    vote.raterPlayerId = raterPlayerId;
+    vote.targetPlayerId = targetPlayerId;
+    vote.updatedAt = externalVote.updatedAt || now;
+    state.mvpVotes[vote.id] = vote;
+    mvpVotesMerged += 1;
+  }
+
   for (const externalPlayerId of playersWithExternalRatings) {
     const playerId = playerIdMap.get(externalPlayerId);
 
@@ -483,7 +555,7 @@ function mergeExternalState(state, externalState) {
     }
   }
 
-  return { playersMerged, gamesMerged, ratingsMerged };
+  return { playersMerged, gamesMerged, ratingsMerged, statBoostsMerged, mvpVotesMerged };
 }
 
 function getBootstrapDetailedGames(snapshot) {
@@ -1196,6 +1268,18 @@ export class AppStore {
         }
       }
 
+      for (const boostId of Object.keys(state.statBoosts ?? {})) {
+        if (state.statBoosts[boostId].gameId === gameId) {
+          delete state.statBoosts[boostId];
+        }
+      }
+
+      for (const voteId of Object.keys(state.mvpVotes ?? {})) {
+        if (state.mvpVotes[voteId].gameId === gameId) {
+          delete state.mvpVotes[voteId];
+        }
+      }
+
       delete state.games[gameId];
 
       if (chat.currentGameId === gameId) {
@@ -1460,6 +1544,8 @@ export class AppStore {
   listGamesRequiringSummary(now = new Date()) {
     const nowMs = new Date(now).getTime();
     const gamesWithRatings = new Set(Object.values(this.state.ratings).map((rating) => rating.gameId));
+    const gamesWithBoosts = new Set(Object.values(this.state.statBoosts ?? {}).map((boost) => boost.gameId));
+    const gamesWithMvpVotes = new Set(Object.values(this.state.mvpVotes ?? {}).map((vote) => vote.gameId));
 
     return Object.values(this.state.games).filter((game) => {
       if (game.ratingSummarySentAt || game.excludeFromCareer) {
@@ -1472,7 +1558,12 @@ export class AppStore {
         return false;
       }
 
-      return Boolean(game.ratingsOpenedAt || gamesWithRatings.has(game.id));
+      return Boolean(
+        game.ratingsOpenedAt ||
+        gamesWithRatings.has(game.id) ||
+        gamesWithBoosts.has(game.id) ||
+        gamesWithMvpVotes.has(game.id)
+      );
     });
   }
 
@@ -1564,6 +1655,136 @@ export class AppStore {
       rating.updatedAt = new Date().toISOString();
       state.ratings[rating.id] = rating;
       return rating;
+    });
+  }
+
+  async submitQuickRating({ chatId, gameId, raterPlayerId, payload }) {
+    return this.mutate((state) => {
+      const game = state.games[gameId];
+      const chat = game ? state.chats[String(game.chatId)] : state.chats[String(chatId)];
+
+      if (!chat || !game) {
+        throw new Error('Игра не найдена');
+      }
+
+      if (new Date(game.scheduledAt) > new Date()) {
+        throw new Error('Игра еще не началась');
+      }
+
+      if (!isRatingWindowOpen(game, new Date())) {
+        throw new Error('Окно оценки уже закрыто');
+      }
+
+      if (!game.playerIds.includes(raterPlayerId)) {
+        throw new Error('Оценивать можно только участникам текущей игры');
+      }
+
+      const mvpPlayerId = String(payload?.mvpPlayerId ?? '');
+
+      if (mvpPlayerId) {
+        if (mvpPlayerId === raterPlayerId) {
+          throw new Error('Нельзя голосовать за себя');
+        }
+
+        if (!game.playerIds.includes(mvpPlayerId)) {
+          throw new Error('MVP можно выбрать только из участников игры');
+        }
+      }
+
+      const boostMap = new Map();
+
+      for (const item of Array.isArray(payload?.boosts) ? payload.boosts : []) {
+        const targetPlayerId = String(item?.targetPlayerId ?? '');
+        const statKey = String(item?.statKey ?? '');
+        const points = sanitizeBoostPoints(item?.points);
+
+        if (!points) {
+          continue;
+        }
+
+        if (targetPlayerId === raterPlayerId) {
+          throw new Error('Нельзя начислять очки себе');
+        }
+
+        if (!game.playerIds.includes(targetPlayerId)) {
+          throw new Error('Очки можно начислять только участникам игры');
+        }
+
+        if (!STAT_KEYS.includes(statKey)) {
+          throw new Error('Неизвестный параметр');
+        }
+
+        const key = `${targetPlayerId}:${statKey}`;
+        boostMap.set(key, {
+          targetPlayerId,
+          statKey,
+          points: (boostMap.get(key)?.points ?? 0) + points
+        });
+      }
+
+      const boosts = [...boostMap.values()].map((item) => ({
+        ...item,
+        points: sanitizeBoostPoints(item.points)
+      }));
+      const totalPoints = boosts.reduce((sum, item) => sum + item.points, 0);
+
+      if (totalPoints > QUICK_RATING_POINTS) {
+        throw new Error(`Можно раздать максимум ${QUICK_RATING_POINTS} очка`);
+      }
+
+      if (!mvpPlayerId && totalPoints === 0) {
+        throw new Error('Выберите MVP или раздайте очки параметров');
+      }
+
+      for (const boostId of Object.keys(state.statBoosts ?? {})) {
+        const boost = state.statBoosts[boostId];
+
+        if (boost.gameId === gameId && boost.raterPlayerId === raterPlayerId) {
+          delete state.statBoosts[boostId];
+        }
+      }
+
+      for (const boost of boosts) {
+        const id = `stat_boost_${state.meta.nextStatBoostId++}`;
+        state.statBoosts[id] = {
+          id,
+          chatId: String(game.chatId),
+          gameId,
+          raterPlayerId,
+          targetPlayerId: boost.targetPlayerId,
+          statKey: boost.statKey,
+          points: boost.points,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      }
+
+      const existingVote = Object.values(state.mvpVotes ?? {}).find(
+        (vote) => vote.gameId === gameId && vote.raterPlayerId === raterPlayerId
+      );
+
+      if (mvpPlayerId) {
+        const vote = existingVote ?? {
+          id: `mvp_vote_${state.meta.nextMvpVoteId++}`,
+          chatId: String(game.chatId),
+          gameId,
+          raterPlayerId,
+          createdAt: new Date().toISOString()
+        };
+
+        vote.targetPlayerId = mvpPlayerId;
+        vote.updatedAt = new Date().toISOString();
+        state.mvpVotes[vote.id] = vote;
+      } else if (existingVote) {
+        delete state.mvpVotes[existingVote.id];
+      }
+
+      game.updatedAt = new Date().toISOString();
+
+      return {
+        boosts,
+        mvpPlayerId
+      };
     });
   }
 

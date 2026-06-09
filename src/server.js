@@ -772,6 +772,27 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'POST' && /^\/api\/games\/[^/]+\/quick-rating$/.test(url.pathname)) {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Unauthorized' });
+        return;
+      }
+
+      const body = await readJsonBody(req);
+      const gameId = url.pathname.split('/')[3];
+      await store.submitQuickRating({
+        chatId: session.chatId,
+        gameId,
+        raterPlayerId: session.playerId,
+        payload: body
+      });
+      const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
+      sendJson(res, 200, { snapshot });
+      return;
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/profile') {
       const session = getViewerSession(req);
 

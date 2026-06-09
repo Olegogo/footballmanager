@@ -94,6 +94,86 @@ test('recordGameFromAnnouncement overwrites upcoming game before kickoff', async
   }
 });
 
+test('submitQuickRating stores MVP vote and up to three stat points', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const scheduledAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+    await store.mutate((state) => {
+      state.chats['-1001'] = {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        currentGameId: 'game_1',
+        playerIds: ['player_1', 'player_2', 'player_3']
+      };
+      state.players.player_1 = {
+        id: 'player_1',
+        username: 'rater',
+        displayName: 'Rater',
+        chatIds: ['-1001']
+      };
+      state.players.player_2 = {
+        id: 'player_2',
+        username: 'target',
+        displayName: 'Target',
+        chatIds: ['-1001']
+      };
+      state.players.player_3 = {
+        id: 'player_3',
+        username: 'third',
+        displayName: 'Third',
+        chatIds: ['-1001']
+      };
+      state.games.game_1 = {
+        id: 'game_1',
+        chatId: '-1001',
+        dateLabel: '9 июня',
+        location: 'Поле',
+        time: '19:00',
+        scheduledAt,
+        playerIds: ['player_1', 'player_2', 'player_3'],
+        paymentLines: [],
+        priceLine: ''
+      };
+    });
+
+    await store.submitQuickRating({
+      chatId: '-1001',
+      gameId: 'game_1',
+      raterPlayerId: 'player_1',
+      payload: {
+        mvpPlayerId: 'player_2',
+        boosts: [
+          { targetPlayerId: 'player_2', statKey: 'pace', points: 2 },
+          { targetPlayerId: 'player_3', statKey: 'passing', points: 1 }
+        ]
+      }
+    });
+
+    assert.equal(Object.keys(store.state.statBoosts).length, 2);
+    assert.equal(Object.values(store.state.mvpVotes)[0].targetPlayerId, 'player_2');
+
+    await assert.rejects(
+      () => store.submitQuickRating({
+        chatId: '-1001',
+        gameId: 'game_1',
+        raterPlayerId: 'player_1',
+        payload: {
+          boosts: [
+            { targetPlayerId: 'player_2', statKey: 'pace', points: 3 },
+            { targetPlayerId: 'player_3', statKey: 'passing', points: 1 }
+          ]
+        }
+      }),
+      /максимум 3/
+    );
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('recordGameFromAnnouncement does not overwrite game after kickoff', async () => {
   const { directory, store } = await createStore();
 
