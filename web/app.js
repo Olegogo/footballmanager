@@ -447,7 +447,10 @@ function openManualGameEdit(game) {
     date: new Date(game.scheduledAt).toISOString().slice(0, 10),
     time: game.time || '19:30',
     location: game.location || '',
-    playerIds: game.participants.map((player) => player.id)
+    playerIds: [
+      ...game.participants.map((player) => player.id),
+      ...(game.invitedPlayers ?? []).map((player) => player.id)
+    ]
   };
   render();
 }
@@ -1290,16 +1293,31 @@ function renderGamePlayerRow(player) {
 
 function renderJoinRequestCard(player, game) {
   const rating = getPlayerOverallLabel(player);
+  const statusLabel = player.inviteStatus === 'invited'
+    ? 'Ожидает ответа'
+    : player.inviteStatus === 'pending'
+      ? 'Заявка'
+      : 'В составе';
 
   return `
     <article class="join-request-card">
       <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
       <div class="join-request-main">
         <strong>${escapeHtml(player.displayName)}</strong>
-        <span>@${escapeHtml(player.username || 'unknown')}</span>
+        <span>@${escapeHtml(player.username || 'unknown')} · ${escapeHtml(statusLabel)}</span>
       </div>
       <div class="join-request-meta">
         ${rating ? `<strong>${escapeHtml(rating)}</strong>` : '<span class="game-player-unrated">Не оценён</span>'}
+        ${
+          player.canViewerAcceptInvite
+            ? `<button type="button" class="primary-button join-request-action" data-accept-game-invite="${escapeHtml(game.id)}">Принять</button>`
+            : ''
+        }
+        ${
+          player.canViewerDeclineInvite
+            ? `<button type="button" class="ghost-action join-request-action" data-decline-game-invite="${escapeHtml(game.id)}">Отклонить</button>`
+            : ''
+        }
         ${
           player.canViewerApproveJoin
             ? `<button type="button" class="primary-button join-request-action" data-approve-join-player="${escapeHtml(player.id)}" data-game-id="${escapeHtml(game.id)}">Добавить</button>`
@@ -1316,16 +1334,8 @@ function renderJoinRequestCard(player, game) {
 }
 
 function renderJoinControls(game) {
-  if (game.viewerJoinStatus === 'pending') {
-    return `
-      <section class="panel join-panel">
-        <div>
-          <strong>Заявка отправлена</strong>
-          <p>Ты в листе ожидания. Организатор получит запрос и сможет добавить тебя в состав.</p>
-        </div>
-        <button type="button" class="ghost-action join-panel-button" data-cancel-join-request="${escapeHtml(game.id)}">Отменить</button>
-      </section>
-    `;
+  if (game.viewerJoinStatus === 'pending' || game.viewerJoinStatus === 'invited') {
+    return '';
   }
 
   if (!game.canViewerRequestJoin) {
@@ -1339,30 +1349,57 @@ function renderJoinControls(game) {
   `;
 }
 
-function renderPendingJoinSection(game) {
+function renderRosterStatusSection(game) {
+  const acceptedPlayers = game.participants ?? [];
+  const invitedPlayers = game.invitedPlayers ?? [];
   const pendingPlayers = game.pendingJoinPlayers ?? [];
+  const waitingPlayers = [
+    ...invitedPlayers,
+    ...(game.canViewerManage
+      ? pendingPlayers
+      : pendingPlayers.filter((player) => player.canViewerCancelJoin))
+  ];
 
-  if (!pendingPlayers.length) {
-    return '';
-  }
-
-  const visiblePendingPlayers = game.canViewerManage
-    ? pendingPlayers
-    : pendingPlayers.filter((player) => player.canViewerCancelJoin);
-
-  if (!visiblePendingPlayers.length) {
+  if (!acceptedPlayers.length && !waitingPlayers.length) {
     return '';
   }
 
   return `
     <section class="panel join-requests-panel">
       <div class="join-requests-head">
-        <h3>Ожидают добавления</h3>
-        <span>${escapeHtml(visiblePendingPlayers.length)}</span>
+        <h3>Состав</h3>
+        <span>${escapeHtml(acceptedPlayers.length + waitingPlayers.length)}</span>
       </div>
-      <div class="join-requests-list">
-        ${visiblePendingPlayers.map((player) => renderJoinRequestCard(player, game)).join('')}
-      </div>
+      ${
+        acceptedPlayers.length
+          ? `
+            <div class="roster-status-group">
+              <div class="roster-status-title">
+                <span>Приняли</span>
+                <strong>${escapeHtml(acceptedPlayers.length)}</strong>
+              </div>
+              <div class="join-requests-list">
+                ${acceptedPlayers.map((player) => renderJoinRequestCard({ ...player, inviteStatus: 'accepted' }, game)).join('')}
+              </div>
+            </div>
+          `
+          : ''
+      }
+      ${
+        waitingPlayers.length
+          ? `
+            <div class="roster-status-group">
+              <div class="roster-status-title">
+                <span>Ожидают</span>
+                <strong>${escapeHtml(waitingPlayers.length)}</strong>
+              </div>
+              <div class="join-requests-list">
+                ${waitingPlayers.map((player) => renderJoinRequestCard(player, game)).join('')}
+              </div>
+            </div>
+          `
+          : ''
+      }
     </section>
   `;
 }
@@ -1382,13 +1419,19 @@ function renderGameTab() {
   return `
     ${renderGameHeader(game)}
     ${renderJoinControls(game)}
-    ${renderPendingJoinSection(game)}
+    ${renderRosterStatusSection(game)}
     ${renderField(game)}
     ${renderRatingBanner(game)}
     ${renderQuickRatingPanel(game)}
-    <section class="game-player-list">
-      ${game.participants.map((player) => renderGamePlayerRow(player)).join('')}
-    </section>
+    ${
+      game.hasStarted
+        ? `
+          <section class="game-player-list">
+            ${game.participants.map((player) => renderGamePlayerRow(player)).join('')}
+          </section>
+        `
+        : ''
+    }
   `;
 }
 
@@ -2510,6 +2553,32 @@ async function approveJoinRequest(gameId, playerId) {
   showToast('Игрок добавлен');
 }
 
+async function acceptGameInvite(gameId) {
+  if (!(await ensureAuthorizedForAction())) {
+    return;
+  }
+
+  const data = await api(`/api/games/${encodeURIComponent(gameId)}/invite/accept`, {
+    method: 'POST'
+  });
+  state.snapshot = data.snapshot;
+  render();
+  showToast('Ты в составе');
+}
+
+async function declineGameInvite(gameId) {
+  if (!(await ensureAuthorizedForAction())) {
+    return;
+  }
+
+  const data = await api(`/api/games/${encodeURIComponent(gameId)}/invite`, {
+    method: 'DELETE'
+  });
+  state.snapshot = data.snapshot;
+  render();
+  showToast('Приглашение отклонено');
+}
+
 async function shareFallback(fallback = {}) {
   const title = fallback.title || 'Футбольчик';
   const text = fallback.text || title;
@@ -2903,6 +2972,24 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
+  const acceptInviteButton = event.target.closest('[data-accept-game-invite]');
+
+  if (acceptInviteButton) {
+    acceptGameInvite(acceptInviteButton.dataset.acceptGameInvite).catch((error) => {
+      showToast(error.message);
+    });
+    return;
+  }
+
+  const declineInviteButton = event.target.closest('[data-decline-game-invite]');
+
+  if (declineInviteButton) {
+    declineGameInvite(declineInviteButton.dataset.declineGameInvite).catch((error) => {
+      showToast(error.message);
+    });
+    return;
+  }
+
   const quickMvpButton = event.target.closest('[data-quick-mvp]');
 
   if (quickMvpButton) {
@@ -3118,7 +3205,7 @@ document.addEventListener('submit', async (event) => {
       return;
     }
 
-    if (payload.playerIds.length < 2) {
+    if (new Set([state.snapshot?.viewerPlayerId, ...payload.playerIds].filter(Boolean)).size < 2) {
       showToast('Добавьте минимум двух игроков');
       return;
     }

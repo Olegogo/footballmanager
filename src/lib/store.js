@@ -297,6 +297,46 @@ function applyManualFieldsToGame(state, game, {
   return game;
 }
 
+function applyManualInviteState(state, game, {
+  selectedPlayerIds,
+  organizerPlayerId,
+  previousAcceptedPlayerIds = [],
+  previousInvitedPlayerIds = [],
+  nowIso
+}) {
+  const selectedIds = unique([organizerPlayerId, ...selectedPlayerIds])
+    .filter((playerId) => Boolean(state.players[playerId]));
+  const previousAccepted = new Set(previousAcceptedPlayerIds);
+  const previousInvited = new Set(previousInvitedPlayerIds);
+  const acceptedPlayerIds = selectedIds.filter(
+    (playerId) =>
+      playerId === organizerPlayerId ||
+      (previousAccepted.has(playerId) && !previousInvited.has(playerId))
+  );
+  const invitedPlayerIds = selectedIds.filter(
+    (playerId) => !acceptedPlayerIds.includes(playerId)
+  );
+
+  game.playerIds = unique(acceptedPlayerIds);
+  game.invitedPlayerIds = unique(invitedPlayerIds);
+  game.playerUsernames = selectedIds
+    .map((playerId) => state.players[playerId]?.username)
+    .filter(Boolean);
+  game.pendingJoinPlayerIds = (game.pendingJoinPlayerIds ?? []).filter(
+    (playerId) => !selectedIds.includes(playerId)
+  );
+  game.declinedPlayerIds = (game.declinedPlayerIds ?? []).filter(
+    (playerId) => !selectedIds.includes(playerId)
+  );
+  game.updatedAt = nowIso;
+
+  for (const playerId of selectedIds) {
+    attachPlayerToChat(state, game.chatId, playerId);
+  }
+
+  return game;
+}
+
 function assertCanManageGame(state, game, requesterPlayerId) {
   const requester = findPlayerById(state, requesterPlayerId);
 
@@ -380,6 +420,9 @@ function copyExternalGameFields(targetGame, externalGame, playerIdMap, nowIso) {
   targetGame.playerUsernames = Array.isArray(externalGame.playerUsernames) ? externalGame.playerUsernames : targetGame.playerUsernames || [];
   targetGame.playerRefs = Array.isArray(externalGame.playerRefs) ? externalGame.playerRefs : targetGame.playerRefs || [];
   targetGame.playerIds = playerIds.length ? playerIds : targetGame.playerIds || [];
+  targetGame.invitedPlayerIds = (externalGame.invitedPlayerIds ?? [])
+    .map((playerId) => playerIdMap.get(String(playerId)))
+    .filter((playerId) => playerId && !(targetGame.playerIds ?? []).includes(playerId));
   targetGame.declinedPlayerIds = (externalGame.declinedPlayerIds ?? [])
     .map((playerId) => playerIdMap.get(String(playerId)))
     .filter(Boolean);
@@ -649,6 +692,7 @@ function importBootstrapSnapshot(state, snapshot) {
     targetGame.paymentLines = Array.isArray(game.paymentLines) ? game.paymentLines : targetGame.paymentLines || [];
     targetGame.playerUsernames = game.participants.map((player) => normalizeUsername(player.username)).filter(Boolean);
     targetGame.playerIds = participantIds;
+    targetGame.invitedPlayerIds = [];
     targetGame.pendingJoinPlayerIds = [];
     targetGame.declinedPlayerIds = targetGame.declinedPlayerIds || [];
     targetGame.ratingsOpenedAt = game.ratingsOpenedAt || targetGame.ratingsOpenedAt || null;
@@ -816,6 +860,7 @@ function applyAnnouncementToGame(state, game, {
   game.playerUsernames = announcement.playerUsernames;
   game.playerRefs = getAnnouncementPlayerRefs(announcement).map((item) => normalizePlayerRef(item));
   game.playerIds = playerIds;
+  game.invitedPlayerIds = [];
   game.pendingJoinPlayerIds = (game.pendingJoinPlayerIds ?? []).filter(
     (playerId) => !playerIds.includes(playerId)
   );
@@ -885,6 +930,7 @@ function mergeImportedAnnouncements(state, {
       playerUsernames: item.announcement.playerUsernames,
       playerRefs: getAnnouncementPlayerRefs(item.announcement).map((item) => normalizePlayerRef(item)),
       playerIds,
+      invitedPlayerIds: [],
       pendingJoinPlayerIds: [],
       declinedPlayerIds: [],
       ratingsOpenedAt: null,
@@ -1124,6 +1170,7 @@ export class AppStore {
         playerUsernames: announcement.playerUsernames,
         playerRefs: getAnnouncementPlayerRefs(announcement).map((item) => normalizePlayerRef(item)),
         playerIds,
+        invitedPlayerIds: [],
         pendingJoinPlayerIds: [],
         declinedPlayerIds: [],
         ratingsOpenedAt: null,
@@ -1184,6 +1231,7 @@ export class AppStore {
         paymentLines: [],
         playerUsernames: [],
         playerIds: [],
+        invitedPlayerIds: [],
         declinedPlayerIds: [],
         pendingJoinPlayerIds: [],
         ratingsOpenedAt: null,
@@ -1201,8 +1249,15 @@ export class AppStore {
         date,
         time,
         location,
-        playerIds,
+        playerIds: unique([organizerPlayerId, ...(Array.isArray(playerIds) ? playerIds : [])]),
         timezoneOffset,
+        nowIso: now
+      });
+      applyManualInviteState(state, game, {
+        selectedPlayerIds: game.playerIds,
+        organizerPlayerId,
+        previousAcceptedPlayerIds: [organizerPlayerId],
+        previousInvitedPlayerIds: [],
         nowIso: now
       });
 
@@ -1238,12 +1293,21 @@ export class AppStore {
       }
 
       const now = new Date().toISOString();
+      const previousAcceptedPlayerIds = [...(game.playerIds ?? [])];
+      const previousInvitedPlayerIds = [...(game.invitedPlayerIds ?? [])];
       applyManualFieldsToGame(state, game, {
         date,
         time,
         location,
-        playerIds,
+        playerIds: unique([game.organizerPlayerId || requesterPlayerId, ...(Array.isArray(playerIds) ? playerIds : [])]),
         timezoneOffset,
+        nowIso: now
+      });
+      applyManualInviteState(state, game, {
+        selectedPlayerIds: game.playerIds,
+        organizerPlayerId: game.organizerPlayerId || requesterPlayerId,
+        previousAcceptedPlayerIds,
+        previousInvitedPlayerIds,
         nowIso: now
       });
       setCurrentGame(chat, game, now, chat.currentGameId ? state.games[chat.currentGameId] : null);
@@ -1302,16 +1366,62 @@ export class AppStore {
       }
 
       const wasInGame = game.playerIds.includes(playerId);
+      const wasInvited = (game.invitedPlayerIds ?? []).includes(playerId);
+      const wasPending = (game.pendingJoinPlayerIds ?? []).includes(playerId);
 
-      if (wasInGame) {
+      if (wasInGame || wasInvited || wasPending) {
         game.playerIds = game.playerIds.filter((id) => id !== playerId);
+        game.invitedPlayerIds = (game.invitedPlayerIds ?? []).filter((id) => id !== playerId);
+        game.pendingJoinPlayerIds = (game.pendingJoinPlayerIds ?? []).filter((id) => id !== playerId);
         game.playerUsernames = game.playerIds.map((id) => state.players[id]?.username).filter(Boolean);
         game.declinedPlayerIds = unique([...(game.declinedPlayerIds ?? []), playerId]);
         game.updatedAt = new Date().toISOString();
       }
 
       return {
-        removed: wasInGame,
+        removed: wasInGame || wasInvited || wasPending,
+        game,
+        player,
+        organizer: game.organizerPlayerId ? findPlayerById(state, game.organizerPlayerId) : null
+      };
+    });
+  }
+
+  async acceptGameInvite({ gameId, playerId }) {
+    return this.mutate((state) => {
+      const game = state.games[gameId];
+      const player = findPlayerById(state, playerId);
+
+      if (!game || !player) {
+        throw new Error('Игра или игрок не найдены');
+      }
+
+      if (!isGameEditableBeforeStart(game, new Date())) {
+        throw new Error('Приглашение уже нельзя принять');
+      }
+
+      if (game.playerIds.includes(playerId)) {
+        return {
+          accepted: false,
+          game,
+          player,
+          organizer: game.organizerPlayerId ? findPlayerById(state, game.organizerPlayerId) : null
+        };
+      }
+
+      if (!(game.invitedPlayerIds ?? []).includes(playerId)) {
+        throw new Error('Приглашение не найдено');
+      }
+
+      game.invitedPlayerIds = (game.invitedPlayerIds ?? []).filter((id) => id !== playerId);
+      game.declinedPlayerIds = (game.declinedPlayerIds ?? []).filter((id) => id !== playerId);
+      game.playerIds = unique([...(game.playerIds ?? []), playerId]);
+      game.playerUsernames = game.playerIds.map((id) => state.players[id]?.username).filter(Boolean);
+      attachPlayerToChat(state, game.chatId, playerId);
+      game.updatedAt = new Date().toISOString();
+
+      return {
+        accepted: true,
         game,
         player,
         organizer: game.organizerPlayerId ? findPlayerById(state, game.organizerPlayerId) : null
@@ -1330,6 +1440,10 @@ export class AppStore {
 
       if (game.playerIds.includes(playerId)) {
         throw new Error('Ты уже в составе этой игры');
+      }
+
+      if ((game.invitedPlayerIds ?? []).includes(playerId)) {
+        throw new Error('Ты уже приглашен в эту игру');
       }
 
       if (!isGameJoinable(game, new Date())) {
@@ -1398,6 +1512,7 @@ export class AppStore {
       game.pendingJoinPlayerIds = (game.pendingJoinPlayerIds ?? []).filter((id) => id !== playerId);
       game.declinedPlayerIds = (game.declinedPlayerIds ?? []).filter((id) => id !== playerId);
       game.playerIds = unique([...(game.playerIds ?? []), playerId]);
+      game.invitedPlayerIds = (game.invitedPlayerIds ?? []).filter((id) => id !== playerId);
       game.playerUsernames = game.playerIds.map((id) => state.players[id]?.username).filter(Boolean);
       attachPlayerToChat(state, game.chatId, playerId);
       game.updatedAt = new Date().toISOString();

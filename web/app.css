@@ -948,6 +948,37 @@ p {
   gap: 10px;
 }
 
+.roster-status-group {
+  display: grid;
+  gap: 10px;
+}
+
+.roster-status-group + .roster-status-group {
+  margin-top: 16px;
+}
+
+.roster-status-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgba(255, 240, 209, 0.7);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.roster-status-title strong {
+  min-width: 26px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(241, 207, 114, 0.16);
+  color: #ffe28b;
+  text-align: center;
+  line-height: 1;
+}
+
 .join-request-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

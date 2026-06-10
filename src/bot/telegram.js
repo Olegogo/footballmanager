@@ -566,7 +566,11 @@ export class TelegramBot {
       return;
     }
 
-    for (const playerId of game.playerIds) {
+    const invitePlayerIds = Array.isArray(game.invitedPlayerIds)
+      ? game.invitedPlayerIds
+      : game.playerIds ?? [];
+
+    for (const playerId of invitePlayerIds) {
       if (playerId === game.organizerPlayerId) {
         continue;
       }
@@ -637,6 +641,25 @@ export class TelegramBot {
       });
     } catch (error) {
       console.error(`Unable to notify player about join approve for ${game.id}:`, error.message);
+    }
+  }
+
+  async notifyOrganizerAboutDeclinedGame(gameId, playerId, context = {}) {
+    const game = context.game ?? this.store.getGameById?.(gameId);
+    const player = context.player ?? this.store.getPlayerById?.(playerId);
+    const organizer = context.organizer ?? (game?.organizerPlayerId ? this.store.getPlayerById?.(game.organizerPlayerId) : null);
+
+    if (!game || !player || !organizer?.privateChatId) {
+      return;
+    }
+
+    try {
+      await this.sendText(
+        organizer.privateChatId,
+        `${player.displayName || `@${player.username}`} не сможет сыграть ${game.dateLabel} в ${game.time}. Нужно искать замену.`
+      );
+    } catch (error) {
+      console.error(`Unable to notify organizer about decline for ${game.id}:`, error.message);
     }
   }
 
@@ -985,11 +1008,8 @@ export class TelegramBot {
         result.removed ? 'Ок, убрал тебя из игры' : 'Ты уже не в списке игроков'
       );
 
-      if (result.removed && result.organizer?.privateChatId) {
-        await this.sendText(
-          result.organizer.privateChatId,
-          `${result.player.displayName || `@${result.player.username}`} не сможет сыграть ${result.game.dateLabel} в ${result.game.time}. Нужно искать замену.`
-        );
+      if (result.removed) {
+        await this.notifyOrganizerAboutDeclinedGame(result.game.id, result.player.id, result);
       }
     } catch (error) {
       await this.answerCallbackQuery(callbackQuery.id, error.message || 'Не получилось обновить игру');

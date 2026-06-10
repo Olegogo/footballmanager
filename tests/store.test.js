@@ -681,14 +681,29 @@ test('createManualGame creates current game from selected players', async () => 
     assert.equal(result.game.location, 'Сокольники, поле 10');
     assert.equal(result.game.time, '16:00');
     assert.equal(result.game.scheduledAt, '2099-05-30T13:00:00.000Z');
-    assert.deepEqual(result.game.playerIds, [organizer.id, first.id, second.id]);
+    assert.deepEqual(result.game.playerIds, [organizer.id]);
+    assert.deepEqual(result.game.invitedPlayerIds, [first.id, second.id]);
 
     const snapshot = store.getSnapshot('-1001', organizer.id);
     assert.equal(snapshot.chat.currentGameId, result.game.id);
     assert.equal(snapshot.currentGame.id, result.game.id);
-    assert.equal(snapshot.currentGame.participants.length, 3);
+    assert.equal(snapshot.currentGame.participants.length, 1);
+    assert.equal(snapshot.currentGame.invitedPlayers.length, 2);
     assert.equal(snapshot.viewerCanCreateGames, true);
     assert.ok(snapshot.availablePlayers.some((player) => player.id === first.id));
+
+    const firstSnapshot = store.getSnapshot('global', first.id, { selectedGameId: result.game.id });
+    assert.equal(firstSnapshot.currentGame.viewerJoinStatus, 'invited');
+    assert.equal(firstSnapshot.currentGame.invitedPlayers[0].canViewerAcceptInvite, true);
+
+    const accepted = await store.acceptGameInvite({
+      gameId: result.game.id,
+      playerId: first.id
+    });
+
+    assert.equal(accepted.accepted, true);
+    assert.deepEqual(accepted.game.playerIds, [organizer.id, first.id]);
+    assert.deepEqual(accepted.game.invitedPlayerIds, [second.id]);
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }
@@ -753,6 +768,7 @@ test('removePlayerFromGame removes declined player and returns organizer', async
     assert.equal(decline.organizer.id, organizer.id);
     assert.equal(decline.player.id, invited.id);
     assert.deepEqual(decline.game.playerIds, [organizer.id]);
+    assert.deepEqual(decline.game.invitedPlayerIds, []);
     assert.deepEqual(decline.game.declinedPlayerIds, [invited.id]);
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
@@ -891,6 +907,12 @@ test('manual games keep previous ratings on the next game roster', async () => {
       playerIds: [rater.id, target.id],
       timezoneOffset: '+03:00'
     });
+
+    await store.acceptGameInvite({
+      gameId: nextGame.game.id,
+      playerId: target.id
+    });
+
     const snapshot = store.getSnapshot('-1001', rater.id);
     const targetInNextGame = snapshot.currentGame.participants.find((player) => player.id === target.id);
 
@@ -948,7 +970,8 @@ test('updateManualGame and deleteGame manage organizer games', async () => {
     assert.equal(updated.game.dateLabel, '31 мая');
     assert.equal(updated.game.time, '18:15');
     assert.equal(updated.game.location, 'Полежаевская');
-    assert.deepEqual(updated.game.playerIds, [first.id, third.id]);
+    assert.deepEqual(updated.game.playerIds, [organizer.id]);
+    assert.deepEqual(updated.game.invitedPlayerIds, [first.id, third.id]);
 
     const deleted = await store.deleteGame({
       chatId: '-1001',

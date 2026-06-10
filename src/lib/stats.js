@@ -1043,16 +1043,23 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     const hasStarted = now >= new Date(game.scheduledAt);
     const viewerIsParticipant = viewerPlayerId ? game.playerIds.includes(viewerPlayerId) : false;
     const ratingWindowOpen = isRatingWindowOpen(game, now);
+    const invitedPlayerIds = (game.invitedPlayerIds ?? []).filter(
+      (playerId) =>
+        !game.playerIds.includes(playerId) &&
+        !(game.declinedPlayerIds ?? []).includes(playerId)
+    );
     const pendingJoinPlayerIds = (game.pendingJoinPlayerIds ?? []).filter(
-      (playerId) => !game.playerIds.includes(playerId)
+      (playerId) => !game.playerIds.includes(playerId) && !invitedPlayerIds.includes(playerId)
     );
     const viewerJoinStatus = !viewerPlayerId
       ? 'anonymous'
       : viewerIsParticipant
         ? 'participant'
-        : pendingJoinPlayerIds.includes(viewerPlayerId)
-          ? 'pending'
-          : 'none';
+        : invitedPlayerIds.includes(viewerPlayerId)
+          ? 'invited'
+          : pendingJoinPlayerIds.includes(viewerPlayerId)
+            ? 'pending'
+            : 'none';
     const canViewerManage = Boolean(
       viewerPlayerId &&
       (game.organizerPlayerId === viewerPlayerId || isSuperAdminPlayer(viewerPlayer))
@@ -1113,8 +1120,25 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
 
           return {
             ...profile,
+            inviteStatus: 'pending',
             canViewerApproveJoin: canViewerManage,
             canViewerCancelJoin: viewerPlayerId === playerId
+          };
+        })
+        .filter(Boolean),
+      invitedPlayers: invitedPlayerIds
+        .map((playerId) => {
+          const profile = playerCards.find((player) => player.id === playerId);
+
+          if (!profile) {
+            return null;
+          }
+
+          return {
+            ...profile,
+            inviteStatus: 'invited',
+            canViewerAcceptInvite: viewerPlayerId === playerId,
+            canViewerDeclineInvite: viewerPlayerId === playerId
           };
         })
         .filter(Boolean),
