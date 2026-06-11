@@ -145,14 +145,16 @@ function hasRequiredPaymentBlock(lines) {
   });
 }
 
-export function parseAnnouncementText(rawText, referenceDate = new Date()) {
+export function parseAnnouncementText(rawText, referenceDate = new Date(), options = {}) {
   const lines = normalizeLines(rawText);
 
   if (!lines.length) {
     return null;
   }
 
-  if (!hasRequiredPaymentBlock(lines)) {
+  const hasPaymentBlock = hasRequiredPaymentBlock(lines);
+
+  if ((options.requirePaymentBlock ?? true) && !hasPaymentBlock) {
     return null;
   }
 
@@ -234,6 +236,7 @@ export function parseAnnouncementText(rawText, referenceDate = new Date()) {
     timeLabel: timeMatch[0],
     priceLine,
     paymentLines,
+    hasPaymentBlock,
     playerUsernames: usernames,
     playerRefs,
     scheduledAt: scheduledAt.toISOString(),

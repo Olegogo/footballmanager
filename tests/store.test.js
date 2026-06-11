@@ -376,6 +376,73 @@ test('recordGameFromAnnouncement updates edited announcement with same message i
   }
 });
 
+test('recordGameFromAnnouncement keeps payment fields when edited announcement omits payment block', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const firstRaw = withRequiredPayment(`
+Воскресенье 17 мая
+Полежаевская
+19:30
+
+1. @teterko
+2. @dbabanin
+3. @dimasharovv
+4. @Satwerz
+5. @kirriiillll
+6. @Birarov
+    `);
+    const editedRaw = `
+Воскресенье 17 мая
+Полежаевская
+20:15
+
+1. @teterko
+2. @dbabanin
+3. @dimasharovv
+4. @Satwerz
+5. @kirriiillll
+6. @Birarov
+7. @O_legacy
+    `;
+
+    const firstAnnouncement = parseAnnouncementText(firstRaw, new Date('2099-05-17T10:00:00+03:00'));
+    const editedAnnouncement = parseAnnouncementText(editedRaw, new Date('2099-05-17T11:00:00+03:00'), {
+      requirePaymentBlock: false
+    });
+
+    assert.ok(firstAnnouncement);
+    assert.ok(editedAnnouncement);
+
+    const firstResult = await store.recordGameFromAnnouncement({
+      chatId: '-1001',
+      chatTitle: 'Football Chat',
+      rawText: firstRaw,
+      messageId: 10,
+      announcement: firstAnnouncement,
+      sourceDate: new Date('2099-05-17T10:00:00+03:00')
+    });
+    const secondResult = await store.recordGameFromAnnouncement({
+      chatId: '-1001',
+      chatTitle: 'Football Chat',
+      rawText: editedRaw,
+      messageId: 10,
+      announcement: editedAnnouncement,
+      sourceDate: new Date('2099-05-17T11:00:00+03:00')
+    });
+
+    assert.equal(firstResult.created, true);
+    assert.equal(secondResult.updated, true);
+
+    const game = store.state.games[firstResult.game.id];
+    assert.equal(game.time, '20:15');
+    assert.equal(game.priceLine, '1000р');
+    assert.deepEqual(game.paymentLines, ['89295991499', 'Альфа, Тинь, Сбер']);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('recordGameFromAnnouncement creates game from compact field announcement', async () => {
   const { directory, store } = await createStore();
 

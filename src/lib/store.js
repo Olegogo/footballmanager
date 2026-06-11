@@ -180,6 +180,10 @@ function isGameEditableBeforeStart(game, now) {
   return new Date(game.scheduledAt) > now;
 }
 
+function isSameTelegramMessageId(left, right) {
+  return left !== null && left !== undefined && right !== null && right !== undefined && String(left) === String(right);
+}
+
 function isGameJoinable(game, now = new Date()) {
   return Boolean(
     game?.organizerPlayerId &&
@@ -855,8 +859,10 @@ function applyAnnouncementToGame(state, game, {
   game.time = announcement.time;
   game.scheduledAt = announcement.scheduledAt;
   game.date = announcement.date;
-  game.priceLine = announcement.priceLine;
-  game.paymentLines = announcement.paymentLines;
+  if (announcement.hasPaymentBlock) {
+    game.priceLine = announcement.priceLine;
+    game.paymentLines = announcement.paymentLines;
+  }
   game.playerUsernames = announcement.playerUsernames;
   game.playerRefs = getAnnouncementPlayerRefs(announcement).map((item) => normalizePlayerRef(item));
   game.playerIds = playerIds;
@@ -1011,6 +1017,12 @@ export class AppStore {
     return this.mutate((state) => ensureChatState(state, chat));
   }
 
+  findGameByMessage(chatId, messageId) {
+    return Object.values(this.state.games).find(
+      (game) => game.chatId === String(chatId) && isSameTelegramMessageId(game.messageId, messageId)
+    ) ?? null;
+  }
+
   async rememberTelegramUser(chatId, user, extra = {}) {
     return this.mutate((state) => {
       const chat = ensureChatState(state, {
@@ -1085,7 +1097,7 @@ export class AppStore {
       });
       const currentGame = chat.currentGameId ? state.games[chat.currentGameId] : null;
       const existingByMessageId = Object.values(state.games).find(
-        (game) => game.chatId === String(chatId) && game.messageId === messageId && messageId !== null
+        (game) => game.chatId === String(chatId) && isSameTelegramMessageId(game.messageId, messageId)
       );
 
       if (existingByMessageId) {

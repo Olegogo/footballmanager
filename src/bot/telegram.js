@@ -894,7 +894,16 @@ export class TelegramBot {
       return;
     }
 
-    const announcement = parseAnnouncementText(rawText, new Date((message.date ?? Math.floor(Date.now() / 1000)) * 1000));
+    const messageTimestamp = options.isEdited
+      ? (message.edit_date ?? message.date ?? Math.floor(Date.now() / 1000))
+      : (message.date ?? Math.floor(Date.now() / 1000));
+    const sourceDate = new Date(messageTimestamp * 1000);
+    const existingEditedGame = options.isEdited
+      ? this.store.findGameByMessage?.(message.chat.id, message.message_id)
+      : null;
+    const announcement = parseAnnouncementText(rawText, sourceDate, {
+      requirePaymentBlock: !existingEditedGame
+    });
 
     if (!announcement) {
       if (rawText.includes('89295991499')) {
@@ -923,7 +932,7 @@ export class TelegramBot {
       rawText,
       announcement,
       source: 'telegram-message',
-      sourceDate: new Date((message.date ?? Math.floor(Date.now() / 1000)) * 1000)
+      sourceDate
     });
 
     if (result?.game) {

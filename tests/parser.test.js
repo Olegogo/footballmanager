@@ -163,6 +163,30 @@ test('parseAnnouncementText ignores messages without required payment block', ()
   assert.equal(parseAnnouncementText(text, new Date('2026-05-18T10:00:00+04:00')), null);
 });
 
+test('parseAnnouncementText can relax payment block for edited known announcements', () => {
+  const text = `
+18 мая
+Полежаевская
+20:15
+
+@guttt
+@gutoperchivyi
+@O_legacy
+@username1
+@username2
+@username3
+  `;
+  const parsed = parseAnnouncementText(text, new Date('2026-05-18T10:00:00+04:00'), {
+    requirePaymentBlock: false
+  });
+
+  assert.ok(parsed);
+  assert.equal(parsed.hasPaymentBlock, false);
+  assert.equal(parsed.time, '20:15');
+  assert.equal(parsed.location, 'Полежаевская');
+  assert.equal(parsed.playerUsernames.length, 6);
+});
+
 test('parseAnnouncementTextLog extracts multiple announcements from plain text history', () => {
   const text = `
 что по игре?

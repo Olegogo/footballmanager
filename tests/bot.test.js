@@ -368,6 +368,77 @@ test('handleAnnouncement sends details button only for fresh messages', async ()
   assert.equal(sent.length, 0);
 });
 
+test('handleAnnouncement updates known edited message without payment block', async () => {
+  const calls = [];
+  const store = {
+    state: {
+      chats: {},
+      games: {}
+    },
+    findGameByMessage(chatId, messageId) {
+      assert.equal(String(chatId), '-1007');
+      assert.equal(messageId, 77);
+      return {
+        id: 'game_7',
+        chatId: '-1007',
+        messageId: 77,
+        scheduledAt: '2099-05-24T16:30:00.000Z'
+      };
+    },
+    async recordGameFromAnnouncement(payload) {
+      calls.push(payload);
+      return {
+        created: false,
+        updated: true,
+        game: {
+          id: 'game_7',
+          chatId: '-1007',
+          scheduledAt: payload.announcement.scheduledAt
+        }
+      };
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+  const sent = [];
+
+  bot.botUsername = 'football_test_bot';
+  bot.sendText = async (chatId, text, options = {}) => {
+    sent.push({ chatId, text, options });
+    return { message_id: 104 };
+  };
+
+  await bot.handleAnnouncement({
+    text: `24 мая
+Сокольники, поле 10
+20:15
+
+1. @teterko
+2. @dbabanin
+3. @satwerz
+4. @olegogo
+5. @birarov
+6. @dimasharovv`,
+    chat: {
+      id: -1007,
+      type: 'supergroup',
+      title: 'Football'
+    },
+    date: Math.floor(new Date('2099-05-24T10:00:00Z').getTime() / 1000),
+    edit_date: Math.floor(new Date('2099-05-24T12:00:00Z').getTime() / 1000),
+    message_id: 77
+  }, { isEdited: true });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].sourceDate.toISOString(), '2099-05-24T12:00:00.000Z');
+  assert.equal(calls[0].announcement.hasPaymentBlock, false);
+  assert.equal(calls[0].announcement.time, '20:15');
+  assert.equal(calls[0].announcement.playerUsernames.length, 6);
+  assert.equal(sent.length, 0);
+});
+
 test('handleAnnouncement parses game announcement from message captions', async () => {
   const calls = [];
   const store = {
