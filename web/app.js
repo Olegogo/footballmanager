@@ -1413,9 +1413,9 @@ function renderGameTab() {
     ${renderGameHeader(game)}
     ${renderJoinControls(game)}
     ${renderField(game)}
+    ${renderRatingBanner(game)}
     ${renderGamePlayersList(game)}
     ${renderWaitingPlayersSection(game)}
-    ${renderRatingBanner(game)}
     ${renderQuickRatingPanel(game)}
   `;
 }
