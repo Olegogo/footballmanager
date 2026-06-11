@@ -969,6 +969,10 @@ p {
   text-transform: uppercase;
 }
 
+.roster-status-title--inline {
+  justify-content: flex-start;
+}
+
 .roster-status-title strong {
   min-width: 26px;
   padding: 5px 8px;

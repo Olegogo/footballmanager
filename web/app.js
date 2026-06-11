@@ -1297,14 +1297,14 @@ function renderJoinRequestCard(player, game) {
     ? 'Ожидает ответа'
     : player.inviteStatus === 'pending'
       ? 'Заявка'
-      : 'В составе';
+      : '';
 
   return `
     <article class="join-request-card">
       <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
       <div class="join-request-main">
         <strong>${escapeHtml(player.displayName)}</strong>
-        <span>@${escapeHtml(player.username || 'unknown')} · ${escapeHtml(statusLabel)}</span>
+        <span>@${escapeHtml(player.username || 'unknown')}${statusLabel ? ` · ${escapeHtml(statusLabel)}` : ''}</span>
       </div>
       <div class="join-request-meta">
         ${rating ? `<strong>${escapeHtml(rating)}</strong>` : '<span class="game-player-unrated">Не оценён</span>'}
@@ -1368,14 +1368,13 @@ function renderRosterStatusSection(game) {
     <section class="panel join-requests-panel">
       <div class="join-requests-head">
         <h3>Состав</h3>
-        <span>${escapeHtml(acceptedPlayers.length + waitingPlayers.length)}</span>
       </div>
       ${
         acceptedPlayers.length
           ? `
             <div class="roster-status-group">
-              <div class="roster-status-title">
-                <span>Приняли</span>
+              <div class="roster-status-title roster-status-title--inline">
+                <span>В составе</span>
                 <strong>${escapeHtml(acceptedPlayers.length)}</strong>
               </div>
               <div class="join-requests-list">
