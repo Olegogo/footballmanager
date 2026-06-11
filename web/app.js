@@ -1095,11 +1095,13 @@ function renderRatingBanner(game) {
     `;
   }
 
+  if (game.hasStarted && !game.ratingWindowOpen) {
+    return '';
+  }
+
   let message = 'Оцените игроков после начала игры';
 
-  if (game.hasStarted && !game.ratingWindowOpen) {
-    message = 'Оценка завершена';
-  } else if (game.hasStarted && !game.viewerIsParticipant) {
+  if (game.hasStarted && !game.viewerIsParticipant) {
     message = 'Оценивать могут только участники текущего матча.';
   }
 
@@ -1349,56 +1351,48 @@ function renderJoinControls(game) {
   `;
 }
 
-function renderRosterStatusSection(game) {
-  const acceptedPlayers = game.participants ?? [];
+function getWaitingPlayers(game) {
   const invitedPlayers = game.invitedPlayers ?? [];
   const pendingPlayers = game.pendingJoinPlayers ?? [];
-  const waitingPlayers = [
+
+  return [
     ...invitedPlayers,
     ...(game.canViewerManage
       ? pendingPlayers
       : pendingPlayers.filter((player) => player.canViewerCancelJoin))
   ];
+}
 
-  if (!acceptedPlayers.length && !waitingPlayers.length) {
+function renderGamePlayersList(game) {
+  const players = game.participants ?? [];
+
+  if (!players.length) {
+    return '';
+  }
+
+  return `
+    <section class="game-player-list">
+      ${players.map((player) => renderGamePlayerRow(player)).join('')}
+    </section>
+  `;
+}
+
+function renderWaitingPlayersSection(game) {
+  const waitingPlayers = getWaitingPlayers(game);
+  const ratingIsClosed = Boolean(game.hasStarted && !game.ratingWindowOpen);
+
+  if (ratingIsClosed || !waitingPlayers.length) {
     return '';
   }
 
   return `
     <section class="panel join-requests-panel">
       <div class="join-requests-head">
-        <h3>Состав</h3>
+        <h3>Ожидают</h3>
       </div>
-      ${
-        acceptedPlayers.length
-          ? `
-            <div class="roster-status-group">
-              <div class="roster-status-title roster-status-title--inline">
-                <span>В составе</span>
-                <strong>${escapeHtml(acceptedPlayers.length)}</strong>
-              </div>
-              <div class="join-requests-list">
-                ${acceptedPlayers.map((player) => renderJoinRequestCard({ ...player, inviteStatus: 'accepted' }, game)).join('')}
-              </div>
-            </div>
-          `
-          : ''
-      }
-      ${
-        waitingPlayers.length
-          ? `
-            <div class="roster-status-group">
-              <div class="roster-status-title">
-                <span>Ожидают</span>
-                <strong>${escapeHtml(waitingPlayers.length)}</strong>
-              </div>
-              <div class="join-requests-list">
-                ${waitingPlayers.map((player) => renderJoinRequestCard(player, game)).join('')}
-              </div>
-            </div>
-          `
-          : ''
-      }
+      <div class="join-requests-list">
+        ${waitingPlayers.map((player) => renderJoinRequestCard(player, game)).join('')}
+      </div>
     </section>
   `;
 }
@@ -1418,19 +1412,11 @@ function renderGameTab() {
   return `
     ${renderGameHeader(game)}
     ${renderJoinControls(game)}
-    ${renderRosterStatusSection(game)}
     ${renderField(game)}
+    ${renderGamePlayersList(game)}
+    ${renderWaitingPlayersSection(game)}
     ${renderRatingBanner(game)}
     ${renderQuickRatingPanel(game)}
-    ${
-      game.hasStarted
-        ? `
-          <section class="game-player-list">
-            ${game.participants.map((player) => renderGamePlayerRow(player)).join('')}
-          </section>
-        `
-        : ''
-    }
   `;
 }
 
