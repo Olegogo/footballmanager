@@ -2346,6 +2346,7 @@ function render() {
   }
   appShellNode?.classList.toggle('app-shell--profile', state.activeTab === 'profile');
   appShellNode?.classList.toggle('app-shell--manual', state.manualGameOpen);
+  appShellNode?.classList.toggle('app-shell--game', !state.manualGameOpen && state.activeTab === 'game');
   syncTabbar();
 
   if (!state.snapshot?.chat) {

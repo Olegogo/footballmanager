@@ -82,6 +82,14 @@ p {
   display: none;
 }
 
+.app-shell--game {
+  padding-bottom: 18px;
+}
+
+.app-shell--game .tabbar {
+  display: none;
+}
+
 .topbar {
   display: flex;
   align-items: center;
