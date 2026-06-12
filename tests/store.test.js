@@ -494,6 +494,123 @@ test('recordGameFromAnnouncement creates game from compact field announcement', 
   }
 });
 
+test('recordGameFromAnnouncement lets announcement author edit the created game', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const author = await store.upsertPlayerByUsername('-1001', 'O_legacy');
+    const rawText = `
+30 мая, суббота
+
+16:00. Поле 10
+
+1. @teterko
+2. @Mot0strelok
+3. @AlekseyYaselsky
+4. @O_legacy
+5. @alex_leb999
+6. @totArkady
+
+1000р
+89295991499
+Альфа, Тинь, Сбер
+    `;
+    const announcement = parseAnnouncementText(rawText, new Date('2099-05-28T12:00:00+03:00'));
+
+    assert.ok(announcement);
+
+    const result = await store.recordGameFromAnnouncement({
+      chatId: '-1001',
+      chatTitle: 'Football Chat',
+      rawText,
+      messageId: 30,
+      announcement,
+      organizerPlayerId: author.id,
+      sourceDate: new Date('2099-05-28T12:00:00+03:00')
+    });
+
+    assert.equal(result.game.organizerPlayerId, author.id);
+
+    const updated = await store.updateManualGame({
+      chatId: '-1001',
+      gameId: result.game.id,
+      requesterPlayerId: author.id,
+      date: '2099-05-30',
+      time: '17:00',
+      location: 'Поле 11',
+      playerIds: result.game.playerIds,
+      timezoneOffset: '+03:00'
+    });
+
+    assert.equal(updated.updated, true);
+    assert.equal(updated.game.time, '17:00');
+    assert.equal(updated.game.location, 'Поле 11');
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('chat admin can manage announcement games in their chat', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const admin = await store.upsertPlayerByUsername('-1001', 'chat_admin');
+    const rawText = `
+30 мая, суббота
+
+16:00. Поле 10
+
+1. @teterko
+2. @Mot0strelok
+3. @AlekseyYaselsky
+4. @O_legacy
+5. @alex_leb999
+6. @totArkady
+
+1000р
+89295991499
+Альфа, Тинь, Сбер
+    `;
+    const announcement = parseAnnouncementText(rawText, new Date('2099-05-28T12:00:00+03:00'));
+
+    assert.ok(announcement);
+
+    const result = await store.recordGameFromAnnouncement({
+      chatId: '-1001',
+      chatTitle: 'Football Chat',
+      rawText,
+      messageId: 31,
+      announcement,
+      sourceDate: new Date('2099-05-28T12:00:00+03:00')
+    });
+
+    await store.setChatAdminStatus('-1001', admin.id, true);
+
+    const snapshot = store.getSnapshot('global', admin.id, {
+      selectedGameId: result.game.id
+    });
+
+    assert.equal(snapshot.currentGame.canViewerManage, true);
+
+    const updated = await store.updateManualGame({
+      chatId: '-1001',
+      gameId: result.game.id,
+      requesterPlayerId: admin.id,
+      date: '2099-05-30',
+      time: '17:30',
+      location: 'Поле 12',
+      playerIds: result.game.playerIds,
+      timezoneOffset: '+03:00'
+    });
+
+    assert.equal(updated.updated, true);
+    assert.equal(updated.game.time, '17:30');
+    assert.equal(updated.game.location, 'Поле 12');
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('submitRating stores goalkeeper goals and assists as zero', async () => {
   const { directory, store } = await createStore();
   const startedAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();

@@ -439,6 +439,67 @@ test('handleAnnouncement updates known edited message without payment block', as
   assert.equal(sent.length, 0);
 });
 
+test('handleAnnouncement stores telegram announcement author as organizer', async () => {
+  const calls = [];
+  const store = {
+    state: {
+      chats: {},
+      games: {}
+    },
+    getPlayerByTelegramUserId(telegramUserId) {
+      assert.equal(telegramUserId, 12345);
+      return { id: 'player_author' };
+    },
+    async recordGameFromAnnouncement(payload) {
+      calls.push(payload);
+      return {
+        created: false,
+        updated: false,
+        game: {
+          id: 'game_author',
+          chatId: String(payload.chatId),
+          scheduledAt: payload.announcement.scheduledAt,
+          ratingsOpenedAt: true
+        }
+      };
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+
+  await bot.handleAnnouncement({
+    text: `24 мая
+Сокольники, поле 10
+19:30
+
+1. @teterko
+2. @dbabanin
+3. @satwerz
+4. @olegogo
+5. @birarov
+
+1000р
+89295991499
+Альфа, Тинь, Сбер`,
+    from: {
+      id: 12345,
+      username: 'organizer'
+    },
+    chat: {
+      id: -1007,
+      type: 'supergroup',
+      title: 'Football'
+    },
+    date: Math.floor(new Date('2099-05-24T12:00:00Z').getTime() / 1000),
+    message_id: 77
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].organizerPlayerId, 'player_author');
+});
+
 test('handleAnnouncement parses game announcement from message captions', async () => {
   const calls = [];
   const store = {

@@ -67,6 +67,7 @@ function ensureChatState(state, chat) {
     username: chat.username ?? '',
     currentGameId: null,
     playerIds: [],
+    adminPlayerIds: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -74,6 +75,7 @@ function ensureChatState(state, chat) {
   existing.title = chat.title ?? existing.title;
   existing.type = chat.type ?? existing.type;
   existing.username = chat.username ?? existing.username;
+  existing.adminPlayerIds = Array.isArray(existing.adminPlayerIds) ? existing.adminPlayerIds : [];
   existing.updatedAt = new Date().toISOString();
   state.chats[id] = existing;
   return existing;
@@ -343,8 +345,13 @@ function applyManualInviteState(state, game, {
 
 function assertCanManageGame(state, game, requesterPlayerId) {
   const requester = findPlayerById(state, requesterPlayerId);
+  const chat = state.chats[String(game.chatId)];
 
   if (isSuperAdminPlayer(requester)) {
+    return;
+  }
+
+  if (chat?.adminPlayerIds?.includes(requesterPlayerId)) {
     return;
   }
 
@@ -843,6 +850,7 @@ function applyAnnouncementToGame(state, game, {
   messageId,
   rawText,
   announcement,
+  organizerPlayerId = null,
   source,
   sourceDate,
   nowIso
@@ -854,6 +862,7 @@ function applyAnnouncementToGame(state, game, {
   game.key = announcement.key;
   game.source = source;
   game.sourceDate = sourceDate ? toIsoString(sourceDate) : nowIso;
+  game.organizerPlayerId = game.organizerPlayerId || organizerPlayerId || null;
   game.dateLabel = announcement.dateLabel;
   game.location = announcement.location;
   game.time = announcement.time;
@@ -1017,6 +1026,22 @@ export class AppStore {
     return this.mutate((state) => ensureChatState(state, chat));
   }
 
+  async setChatAdminStatus(chatId, playerId, isAdmin) {
+    return this.mutate((state) => {
+      const chat = ensureChatState(state, { id: chatId, title: '', type: 'supergroup' });
+      const adminPlayerIds = new Set(chat.adminPlayerIds ?? []);
+
+      if (isAdmin) {
+        adminPlayerIds.add(playerId);
+      } else {
+        adminPlayerIds.delete(playerId);
+      }
+
+      chat.adminPlayerIds = [...adminPlayerIds];
+      return chat;
+    });
+  }
+
   findGameByMessage(chatId, messageId) {
     return Object.values(this.state.games).find(
       (game) => game.chatId === String(chatId) && isSameTelegramMessageId(game.messageId, messageId)
@@ -1084,6 +1109,7 @@ export class AppStore {
     messageId = null,
     rawText,
     announcement,
+    organizerPlayerId = null,
     source = 'telegram-message',
     sourceDate = null
   }) {
@@ -1107,6 +1133,7 @@ export class AppStore {
             messageId,
             rawText,
             announcement,
+            organizerPlayerId,
             source,
             sourceDate,
             nowIso: now
@@ -1129,6 +1156,7 @@ export class AppStore {
             messageId,
             rawText,
             announcement,
+            organizerPlayerId,
             source,
             sourceDate,
             nowIso: now
@@ -1146,9 +1174,10 @@ export class AppStore {
           messageId,
           rawText,
           announcement,
+          organizerPlayerId,
           source,
-            sourceDate,
-            nowIso: now
+          sourceDate,
+          nowIso: now
         });
         setCurrentGame(chat, game, now, currentGame);
         return { created: false, updated: true, game };
@@ -1172,6 +1201,7 @@ export class AppStore {
         key: announcement.key,
         source,
         sourceDate: sourceDate ? toIsoString(sourceDate) : now,
+        organizerPlayerId: organizerPlayerId || null,
         dateLabel: announcement.dateLabel,
         location: announcement.location,
         time: announcement.time,

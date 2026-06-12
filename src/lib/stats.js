@@ -1062,7 +1062,11 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
             : 'none';
     const canViewerManage = Boolean(
       viewerPlayerId &&
-      (game.organizerPlayerId === viewerPlayerId || isSuperAdminPlayer(viewerPlayer))
+      (
+        game.organizerPlayerId === viewerPlayerId ||
+        isSuperAdminPlayer(viewerPlayer) ||
+        state.chats[String(game.chatId)]?.adminPlayerIds?.includes(viewerPlayerId)
+      )
     );
     const viewerRatings = new Map(
       Object.values(state.ratings)

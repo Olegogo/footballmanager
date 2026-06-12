@@ -681,6 +681,24 @@ export class TelegramBot {
     }
   }
 
+  async isUserAdminOfChat(chatId, telegramUserId) {
+    if (!this.enabled || !chatId || !telegramUserId) {
+      return false;
+    }
+
+    try {
+      const member = await this.callApi('getChatMember', {
+        chat_id: chatId,
+        user_id: telegramUserId
+      });
+
+      return ['creator', 'administrator'].includes(member?.status);
+    } catch (error) {
+      console.error('Unable to verify chat admin status:', error.message);
+      return false;
+    }
+  }
+
   clearPromptTimer(gameId) {
     const timer = this.promptTimers.get(gameId);
 
@@ -864,6 +882,9 @@ export class TelegramBot {
 
     const targetChatType = message.chat.type === 'private' ? 'supergroup' : message.chat.type;
     const targetChatTitle = message.chat.type === 'private' ? '' : message.chat.title ?? '';
+    const organizerPlayer = message.from?.id
+      ? this.store.getPlayerByTelegramUserId?.(message.from.id)
+      : null;
     const result = await this.store.recordGameFromAnnouncement({
       chatId: targetChatId,
       chatTitle: targetChatTitle,
@@ -871,6 +892,7 @@ export class TelegramBot {
       messageId: source.sourceMessage?.message_id ?? message.message_id,
       rawText: source.rawText,
       announcement,
+      organizerPlayerId: organizerPlayer?.id ?? null,
       source: 'telegram-command',
       sourceDate
     });
@@ -924,6 +946,11 @@ export class TelegramBot {
       players: announcement.playerUsernames.length
     });
 
+    const organizerPlayer = options.authorPlayerId
+      ? { id: options.authorPlayerId }
+      : message.from?.id
+        ? this.store.getPlayerByTelegramUserId?.(message.from.id)
+        : null;
     const result = await this.store.recordGameFromAnnouncement({
       chatId: message.chat.id,
       chatTitle: message.chat.title ?? '',
@@ -931,6 +958,7 @@ export class TelegramBot {
       messageId: message.message_id,
       rawText,
       announcement,
+      organizerPlayerId: organizerPlayer?.id ?? null,
       source: 'telegram-message',
       sourceDate
     });
@@ -952,12 +980,14 @@ export class TelegramBot {
       username: message.chat.username ?? ''
     });
 
+    let authorPlayer = null;
+
     if (message.from) {
-      const player = await this.store.rememberTelegramUser(message.chat.id, message.from, {
+      authorPlayer = await this.store.rememberTelegramUser(message.chat.id, message.from, {
         chatTitle: message.chat.title ?? '',
         chatType: message.chat.type
       });
-      await this.maybeRefreshPlayerPhoto(message.chat.id, player);
+      await this.maybeRefreshPlayerPhoto(message.chat.id, authorPlayer);
     }
 
     if (getMessageText(message).trim().startsWith('/')) {
@@ -965,7 +995,10 @@ export class TelegramBot {
       return;
     }
 
-    await this.handleAnnouncement(message, options);
+    await this.handleAnnouncement(message, {
+      ...options,
+      authorPlayerId: authorPlayer?.id ?? options.authorPlayerId
+    });
   }
 
   async handleChatMember(update) {

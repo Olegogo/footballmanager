@@ -41,6 +41,24 @@ function getGlobalSnapshot(viewerPlayerId = null, options = {}) {
   return store.getSnapshot(GLOBAL_SNAPSHOT_CHAT_ID, viewerPlayerId, options);
 }
 
+async function refreshTelegramChatAdminStatus(chatId, player) {
+  const targetChatId = String(chatId || '');
+
+  if (
+    !targetChatId ||
+    targetChatId === GLOBAL_SNAPSHOT_CHAT_ID ||
+    !targetChatId.startsWith('-') ||
+    !player?.id ||
+    !player.telegramUserId ||
+    !bot.enabled
+  ) {
+    return;
+  }
+
+  const isAdmin = await bot.isUserAdminOfChat(targetChatId, player.telegramUserId);
+  await store.setChatAdminStatus(targetChatId, player.id, isAdmin);
+}
+
 function redirect(res, location) {
   res.writeHead(302, {
     Location: location,
@@ -253,6 +271,7 @@ const server = http.createServer(async (req, res) => {
           photoUrl: auth.user.photo_url ?? '',
           chatType: 'supergroup'
         });
+        await refreshTelegramChatAdminStatus(chatId, player);
       }
 
       const token = await store.createSession(player.id, GLOBAL_SNAPSHOT_CHAT_ID);
@@ -277,6 +296,12 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/api/bootstrap') {
       const session = getViewerSession(req);
+      const bootstrapChatId = String(url.searchParams.get('chatId') || '');
+
+      if (session && bootstrapChatId) {
+        await refreshTelegramChatAdminStatus(bootstrapChatId, store.getPlayerById(session.playerId));
+      }
+
       const snapshot = getGlobalSnapshot(session?.playerId ?? null, {
         selectedGameId: url.searchParams.get('gameId') || ''
       });
@@ -314,6 +339,7 @@ const server = http.createServer(async (req, res) => {
           photoUrl: auth.user.photo_url ?? '',
           chatType: 'supergroup'
         });
+        await refreshTelegramChatAdminStatus(requestedChatId, player);
       }
 
       const token = await store.createSession(player.id, GLOBAL_SNAPSHOT_CHAT_ID);

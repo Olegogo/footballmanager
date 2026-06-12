@@ -325,7 +325,17 @@ async function loginDev(username, displayName = '') {
 }
 
 async function loadSnapshot() {
-  const query = state.selectedGameId ? `?gameId=${encodeURIComponent(state.selectedGameId)}` : '';
+  const params = new URLSearchParams();
+
+  if (state.selectedGameId) {
+    params.set('gameId', state.selectedGameId);
+  }
+
+  if (state.chatId) {
+    params.set('chatId', state.chatId);
+  }
+
+  const query = params.toString() ? `?${params.toString()}` : '';
   const data = await api(`/api/bootstrap${query}`);
   state.snapshot = data.snapshot;
   state.allowDevLogin = data.allowDevLogin;
