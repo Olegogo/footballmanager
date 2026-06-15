@@ -104,6 +104,7 @@ function createEmptySummary() {
 function createEmptyBoostSummary() {
   return {
     totalPoints: 0,
+    mvpVotes: 0,
     statPoints: Object.fromEntries(STAT_KEYS.map((key) => [key, 0])),
     raterIds: new Set()
   };
@@ -246,6 +247,85 @@ function applyBoostsToStats(baseStats, boostSummary) {
 
 function getStatsOverall(stats) {
   return round(STAT_KEYS.reduce((sum, key) => sum + Number(stats[key] ?? 0), 0) / STAT_KEYS.length);
+}
+
+function getQuickFormLearningRate(ratedGames) {
+  const games = Math.max(0, Math.round(Number(ratedGames ?? 0)));
+  return Math.max(0.15, 0.25 - Math.min(games, 10) * 0.01);
+}
+
+function getQuickFormBaseStats(entry, player) {
+  if (entry.ratedGames > 0) {
+    return finalizeCareerEntry(entry).stats;
+  }
+
+  return player?.selfProfile?.stats || FALLBACK_STATS;
+}
+
+function getQuickFormPosition(entry, player) {
+  const career = finalizeCareerEntry(entry);
+
+  if (career.position !== 'N/A') {
+    return career.position;
+  }
+
+  return player?.selfProfile?.position || player?.defaultPosition || 'N/A';
+}
+
+function buildQuickFormStats(entry, boostSummary, quickContext, player) {
+  const raterCount = Math.max(1, Number(quickContext?.raterCount ?? 0));
+  const visibility = (Number(boostSummary?.totalPoints ?? 0) + Number(boostSummary?.mvpVotes ?? 0) * 2) / raterCount;
+  const delta = Math.max(-8, Math.min(12, -8 + visibility * 4));
+  const baseStats = getQuickFormBaseStats(entry, player);
+
+  return Object.fromEntries(
+    STAT_KEYS.map((key) => {
+      const statFocus = Math.min(3, Number(boostSummary?.statPoints?.[key] ?? 0));
+      return [
+        key,
+        Math.max(1, Math.min(99, round(Number(baseStats[key] ?? FALLBACK_STATS[key]) + delta + statFocus)))
+      ];
+    })
+  );
+}
+
+function applyQuickFormToCareerEntry(entry, boostSummary, quickContext, player) {
+  if (!quickContext?.hasActivity) {
+    return;
+  }
+
+  const baseStats = getQuickFormBaseStats(entry, player);
+  const matchStats = buildQuickFormStats(entry, boostSummary, quickContext, player);
+  const learningRate = getQuickFormLearningRate(entry.ratedGames);
+  const ratedGames = entry.ratedGames + 1;
+  const position = getQuickFormPosition(entry, player);
+
+  entry.ratedGames = ratedGames;
+
+  if (position !== 'N/A') {
+    entry.positionCounts[position] = (entry.positionCounts[position] ?? 0) + 1;
+  }
+
+  for (const key of STAT_KEYS) {
+    const current = Number(baseStats[key] ?? FALLBACK_STATS[key]);
+    const next = current + (Number(matchStats[key]) - current) * learningRate;
+    entry.statSums[key] = next * ratedGames;
+  }
+}
+
+function previewQuickFormOverallAfterGame(entry, boostSummary, quickContext, player) {
+  if (!quickContext?.hasActivity) {
+    return finalizeCareerEntry(entry).overall;
+  }
+
+  const copy = {
+    ...entry,
+    positionCounts: { ...(entry.positionCounts ?? {}) },
+    statSums: { ...(entry.statSums ?? {}) }
+  };
+
+  applyQuickFormToCareerEntry(copy, boostSummary, quickContext, player);
+  return finalizeCareerEntry(copy).overall;
 }
 
 function ensureCareerEntry(career, playerId) {
@@ -402,6 +482,7 @@ export function buildGameBoostAggregation(state, gameId) {
   }
 
   const byPlayer = new Map();
+  const gameRaterIds = new Set();
 
   for (const playerId of game.playerIds) {
     byPlayer.set(playerId, createEmptyBoostSummary());
@@ -423,17 +504,39 @@ export function buildGameBoostAggregation(state, gameId) {
 
     if (boost.raterPlayerId) {
       summary.raterIds.add(boost.raterPlayerId);
+      gameRaterIds.add(boost.raterPlayerId);
+    }
+  }
+
+  for (const vote of Object.values(state.mvpVotes ?? {})) {
+    if (vote.gameId !== gameId || !game.playerIds.includes(vote.targetPlayerId)) {
+      continue;
+    }
+
+    if (!byPlayer.has(vote.targetPlayerId)) {
+      byPlayer.set(vote.targetPlayerId, createEmptyBoostSummary());
+    }
+
+    const summary = byPlayer.get(vote.targetPlayerId);
+    summary.mvpVotes += 1;
+
+    if (vote.raterPlayerId) {
+      summary.raterIds.add(vote.raterPlayerId);
+      gameRaterIds.add(vote.raterPlayerId);
     }
   }
 
   return {
     gameId,
+    hasActivity: gameRaterIds.size > 0,
+    raterCount: gameRaterIds.size,
     players: Object.fromEntries(
       [...byPlayer.entries()].map(([playerId, summary]) => [
         playerId,
         {
           hasBoosts: summary.totalPoints > 0,
           totalPoints: summary.totalPoints,
+          mvpVotes: summary.mvpVotes,
           statPoints: { ...summary.statPoints },
           ratingsCount: summary.raterIds.size
         }
@@ -510,11 +613,17 @@ function buildCareerIndexForPlayersAndGames(state, players, games, now = new Dat
       const gameStats = aggregation?.players[playerId];
       const entry = ensureCareerEntry(career, playerId);
       applyGameToCareerEntry(entry, gameStats);
-      applyBoostsToCareerEntry(
+
+      if (gameStats?.hasRatings) {
+        applyBoostsToCareerEntry(entry, boostAggregation?.players[playerId], playersById.get(playerId), true);
+        continue;
+      }
+
+      applyQuickFormToCareerEntry(
         entry,
         boostAggregation?.players[playerId],
-        playersById.get(playerId),
-        Boolean(gameStats?.hasRatings)
+        boostAggregation,
+        playersById.get(playerId)
       );
     }
   }
@@ -561,15 +670,17 @@ function buildGameMvpIndexForGames(state, games, now = new Date()) {
     }
 
     const aggregation = buildGameAggregation(state, game.id);
+    const boostAggregation = buildGameBoostAggregation(state, game.id);
     const voteWinner = getGameMvpVoteWinner(state, game);
 
     if (voteWinner) {
       const entry = ensureCareerEntry(career, voteWinner.playerId);
       const summary = aggregation?.players[voteWinner.playerId];
+      const boostSummary = boostAggregation?.players[voteWinner.playerId];
       const previousOverall = finalizeCareerEntry(entry).overall;
       const nextOverall = summary?.hasRatings
         ? previewCareerOverallAfterGame(entry, summary)
-        : previousOverall;
+        : previewQuickFormOverallAfterGame(entry, boostSummary, boostAggregation, state.players[voteWinner.playerId]);
 
       mvpIndex.set(game.id, {
         gameId: game.id,
@@ -577,7 +688,7 @@ function buildGameMvpIndexForGames(state, games, now = new Date()) {
         overall: nextOverall,
         ratingIncrease: round(nextOverall - previousOverall, 2),
         previousOverall,
-        gameOverall: summary?.overall ?? previousOverall,
+        gameOverall: summary?.overall ?? nextOverall,
         votes: voteWinner.votes
       });
     }
@@ -586,18 +697,26 @@ function buildGameMvpIndexForGames(state, games, now = new Date()) {
       .map((playerId) => {
         const entry = ensureCareerEntry(career, playerId);
         const summary = aggregation?.players[playerId];
+        const boostSummary = boostAggregation?.players[playerId];
 
-        if (!summary?.hasRatings) {
+        if (!summary?.hasRatings && !boostAggregation?.hasActivity) {
           return null;
         }
 
         const previousOverall = finalizeCareerEntry(entry).overall;
-        const nextOverall = previewCareerOverallAfterGame(entry, summary);
+        const nextOverall = summary?.hasRatings
+          ? previewCareerOverallAfterGame(entry, summary)
+          : previewQuickFormOverallAfterGame(entry, boostSummary, boostAggregation, state.players[playerId]);
         const increase = round(nextOverall - previousOverall, 2);
 
         return {
           playerId,
-          summary,
+          summary: summary?.hasRatings ? summary : {
+            overall: nextOverall,
+            ratingsCount: boostSummary?.ratingsCount ?? 0,
+            goals: 0,
+            assists: 0
+          },
           previousOverall,
           nextOverall,
           increase
@@ -640,13 +759,17 @@ function buildGameMvpIndexForGames(state, games, now = new Date()) {
       });
     }
 
-    const boostAggregation = buildGameBoostAggregation(state, game.id);
-
     for (const playerId of game.playerIds) {
       const gameStats = aggregation?.players[playerId];
       const entry = ensureCareerEntry(career, playerId);
       applyGameToCareerEntry(entry, gameStats);
-      applyBoostsToCareerEntry(entry, boostAggregation?.players[playerId], state.players[playerId], Boolean(gameStats?.hasRatings));
+
+      if (gameStats?.hasRatings) {
+        applyBoostsToCareerEntry(entry, boostAggregation?.players[playerId], state.players[playerId], true);
+        continue;
+      }
+
+      applyQuickFormToCareerEntry(entry, boostAggregation?.players[playerId], boostAggregation, state.players[playerId]);
     }
   }
 

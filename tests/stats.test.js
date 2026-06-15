@@ -414,10 +414,127 @@ test('buildChatSnapshot applies quick stat boosts and MVP votes globally', () =>
   const boostedPlayer = finishedSnapshot.players.find((player) => player.id === 'player_2');
 
   assert.equal(boostedPlayer.ratedGames, 1);
-  assert.equal(boostedPlayer.overall, 51);
+  assert.equal(boostedPlayer.overall, 52);
   assert.equal(boostedPlayer.isMvp, true);
   assert.equal(finishedSnapshot.games[0].mvp.playerId, 'player_2');
   assert.equal(finishedSnapshot.games[0].mvp.votes, 2);
+});
+
+test('buildChatSnapshot softly lowers quiet participants after quick ratings', () => {
+  const seededStats = rating({ overall: 72 });
+  const state = {
+    version: 1,
+    meta: {},
+    chats: {
+      '-1001': {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        username: '',
+        currentGameId: 'game_1',
+        playerIds: ['player_quiet', 'player_standout', 'player_rater', 'player_rested']
+      }
+    },
+    players: {
+      player_quiet: {
+        id: 'player_quiet',
+        telegramUserId: 1,
+        username: 'quiet',
+        displayName: 'Quiet Player',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'CM',
+        chatIds: ['-1001'],
+        careerSeed: {
+          ratedGames: 1,
+          position: 'CM',
+          stats: seededStats
+        }
+      },
+      player_standout: {
+        id: 'player_standout',
+        telegramUserId: 2,
+        username: 'standout',
+        displayName: 'Standout',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'ST',
+        chatIds: ['-1001']
+      },
+      player_rater: {
+        id: 'player_rater',
+        telegramUserId: 3,
+        username: 'rater',
+        displayName: 'Rater',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'CM',
+        chatIds: ['-1001']
+      },
+      player_rested: {
+        id: 'player_rested',
+        telegramUserId: 4,
+        username: 'rested',
+        displayName: 'Rested Player',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        defaultPosition: 'CM',
+        chatIds: ['-1001'],
+        careerSeed: {
+          ratedGames: 1,
+          position: 'CM',
+          stats: seededStats
+        }
+      }
+    },
+    games: {
+      game_1: {
+        id: 'game_1',
+        chatId: '-1001',
+        dateLabel: '1 июня',
+        location: 'Поле',
+        time: '19:00',
+        scheduledAt: '2026-06-01T16:00:00.000Z',
+        playerIds: ['player_quiet', 'player_standout', 'player_rater'],
+        paymentLines: [],
+        priceLine: ''
+      }
+    },
+    ratings: {},
+    statBoosts: {
+      stat_boost_1: {
+        id: 'stat_boost_1',
+        chatId: '-1001',
+        gameId: 'game_1',
+        raterPlayerId: 'player_rater',
+        targetPlayerId: 'player_standout',
+        statKey: 'pace',
+        points: 3
+      }
+    },
+    mvpVotes: {
+      mvp_vote_1: {
+        id: 'mvp_vote_1',
+        chatId: '-1001',
+        gameId: 'game_1',
+        raterPlayerId: 'player_rater',
+        targetPlayerId: 'player_standout'
+      }
+    }
+  };
+
+  const snapshot = buildChatSnapshot(state, '-1001', 'player_rater', new Date('2026-06-03T17:00:00.000Z'));
+  const quietPlayer = snapshot.players.find((player) => player.id === 'player_quiet');
+  const restedPlayer = snapshot.players.find((player) => player.id === 'player_rested');
+
+  assert.equal(quietPlayer.ratedGames, 2);
+  assert.equal(quietPlayer.overall, 70);
+  assert.equal(restedPlayer.ratedGames, 1);
+  assert.equal(restedPlayer.overall, 72);
 });
 
 test('buildChatSnapshot keeps rating window open for 24 hours after kickoff', () => {
