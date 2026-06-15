@@ -7,6 +7,28 @@ export const RATING_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const MAX_YELLOW_CARDS = 2;
 export const MAX_RED_CARDS = 1;
 export const QUICK_RATING_POINTS = 3;
+export const QUICK_ACHIEVEMENT_DEFINITIONS = [
+  { key: 'goleador', title: 'Голеадор', category: 'Базовые', ratingWeight: 2, automatic: false },
+  { key: 'hat_trick', title: 'Хет-трикер', category: 'Голы и атака', ratingWeight: 3, automatic: false },
+  { key: 'pokerface', title: 'Покерфейс', category: 'Голы и атака', ratingWeight: 4, automatic: false },
+  { key: 'comeback_maker', title: 'Камбэк-мейкер', category: 'Голы и атака', ratingWeight: 2, automatic: false },
+  { key: 'long_shot', title: 'Дальний выстрел', category: 'Голы и атака', ratingWeight: 1.5, automatic: false },
+  { key: 'assistant', title: 'Ассистент', category: 'Пасы и командная игра', ratingWeight: 2, automatic: false },
+  { key: 'playmaker', title: 'Плеймейкер', category: 'Пасы и командная игра', ratingWeight: 3, automatic: false },
+  { key: 'unselfish', title: 'Не жадный', category: 'Пасы и командная игра', ratingWeight: 1.5, automatic: false },
+  { key: 'conductor', title: 'Дирижёр', category: 'Пасы и командная игра', ratingWeight: 2.5, automatic: false },
+  { key: 'wall', title: 'Стена', category: 'Защита', ratingWeight: 2.5, automatic: false },
+  { key: 'pickpocket', title: 'Карманник', category: 'Защита', ratingWeight: 2, automatic: false },
+  { key: 'cat', title: 'Кошка', category: 'Вратарь', ratingWeight: 2.5, automatic: false },
+  { key: 'no_toxic', title: 'Без токсика', category: 'Другие', ratingWeight: 1, automatic: false },
+  { key: 'maguire_day', title: 'Магуайр дня', category: 'Другие', ratingWeight: -1.5, automatic: false },
+  { key: 'planned_it', title: 'Я так и задумал', category: 'Другие', ratingWeight: 1, automatic: false },
+  { key: 'woodworker', title: 'Штангист', category: 'Другие', ratingWeight: -0.5, automatic: false }
+];
+
+const QUICK_ACHIEVEMENT_META = Object.fromEntries(
+  QUICK_ACHIEVEMENT_DEFINITIONS.map((item) => [item.key, item])
+);
 
 const FALLBACK_STATS = {
   pace: 50,
@@ -50,7 +72,7 @@ export function isRatingWindowOpen(game, now = new Date()) {
 }
 
 function isFinalizedForCareer(game, now = new Date()) {
-  if (game?.excludeFromCareer) {
+  if (game?.excludeFromCareer || ['history-import', 'text-import', 'bootstrap-import'].includes(game?.source)) {
     return false;
   }
 
@@ -105,6 +127,8 @@ function createEmptyBoostSummary() {
   return {
     totalPoints: 0,
     mvpVotes: 0,
+    achievementScore: 0,
+    achievementCounts: {},
     statPoints: Object.fromEntries(STAT_KEYS.map((key) => [key, 0])),
     raterIds: new Set()
   };
@@ -237,10 +261,16 @@ function finalizeCareerEntry(entry) {
 }
 
 function applyBoostsToStats(baseStats, boostSummary) {
+  const signalScore = Number(boostSummary?.achievementScore ?? 0);
+
   return Object.fromEntries(
     STAT_KEYS.map((key) => [
       key,
-      Math.max(1, Math.min(99, Math.round(Number(baseStats?.[key] ?? FALLBACK_STATS[key]) + Number(boostSummary?.statPoints?.[key] ?? 0))))
+      Math.max(1, Math.min(99, Math.round(
+        Number(baseStats?.[key] ?? FALLBACK_STATS[key]) +
+        Number(boostSummary?.statPoints?.[key] ?? 0) +
+        signalScore
+      )))
     ])
   );
 }
@@ -274,7 +304,11 @@ function getQuickFormPosition(entry, player) {
 
 function buildQuickFormStats(entry, boostSummary, quickContext, player) {
   const raterCount = Math.max(1, Number(quickContext?.raterCount ?? 0));
-  const visibility = (Number(boostSummary?.totalPoints ?? 0) + Number(boostSummary?.mvpVotes ?? 0) * 2) / raterCount;
+  const visibility = (
+    Number(boostSummary?.totalPoints ?? 0) +
+    Number(boostSummary?.mvpVotes ?? 0) * 2 +
+    Number(boostSummary?.achievementScore ?? 0)
+  ) / raterCount;
   const delta = Math.max(-8, Math.min(12, -8 + visibility * 4));
   const baseStats = getQuickFormBaseStats(entry, player);
 
@@ -356,13 +390,13 @@ function applyGameToCareerEntry(entry, gameStats) {
 }
 
 function applyBoostsToCareerEntry(entry, boostSummary, player, fullGameStatsApplied = false) {
-  if (!boostSummary?.hasBoosts) {
+  if (!boostSummary?.hasQuickRating) {
     return;
   }
 
   if (fullGameStatsApplied && entry.ratedGames > 0) {
     for (const key of STAT_KEYS) {
-      entry.statSums[key] += boostSummary.statPoints[key] ?? 0;
+      entry.statSums[key] += Number(boostSummary.statPoints[key] ?? 0) + Number(boostSummary.achievementScore ?? 0);
     }
     return;
   }
@@ -526,6 +560,28 @@ export function buildGameBoostAggregation(state, gameId) {
     }
   }
 
+  for (const vote of Object.values(state.achievementVotes ?? {})) {
+    const achievementKey = String(vote.achievementKey ?? '');
+    const achievement = QUICK_ACHIEVEMENT_META[achievementKey];
+
+    if (!achievement || vote.gameId !== gameId || !game.playerIds.includes(vote.targetPlayerId)) {
+      continue;
+    }
+
+    if (!byPlayer.has(vote.targetPlayerId)) {
+      byPlayer.set(vote.targetPlayerId, createEmptyBoostSummary());
+    }
+
+    const summary = byPlayer.get(vote.targetPlayerId);
+    summary.achievementScore += Number(achievement.ratingWeight ?? 0);
+    summary.achievementCounts[achievementKey] = (summary.achievementCounts[achievementKey] ?? 0) + 1;
+
+    if (vote.raterPlayerId) {
+      summary.raterIds.add(vote.raterPlayerId);
+      gameRaterIds.add(vote.raterPlayerId);
+    }
+  }
+
   return {
     gameId,
     hasActivity: gameRaterIds.size > 0,
@@ -535,8 +591,12 @@ export function buildGameBoostAggregation(state, gameId) {
         playerId,
         {
           hasBoosts: summary.totalPoints > 0,
+          hasAchievements: Object.keys(summary.achievementCounts).length > 0,
+          hasQuickRating: summary.totalPoints > 0 || summary.mvpVotes > 0 || Object.keys(summary.achievementCounts).length > 0,
           totalPoints: summary.totalPoints,
           mvpVotes: summary.mvpVotes,
+          achievementScore: summary.achievementScore,
+          achievementCounts: { ...summary.achievementCounts },
           statPoints: { ...summary.statPoints },
           ratingsCount: summary.raterIds.size
         }
@@ -546,7 +606,7 @@ export function buildGameBoostAggregation(state, gameId) {
 }
 
 function combineGameStatsWithBoosts(gameStats, boostSummary, playerCard = null) {
-  if (!boostSummary?.hasBoosts) {
+  if (!boostSummary?.hasQuickRating) {
     return gameStats ?? null;
   }
 
@@ -581,7 +641,9 @@ function combineGameStatsWithBoosts(gameStats, boostSummary, playerCard = null) 
       Number(gameStats?.ratingsCount ?? 0) + Number(boostSummary.ratingsCount ?? 0)
     ),
     boostPoints: boostSummary.totalPoints,
-    statPoints: boostSummary.statPoints
+    statPoints: boostSummary.statPoints,
+    achievementCounts: boostSummary.achievementCounts ?? {},
+    achievementScore: boostSummary.achievementScore ?? 0
   };
 }
 
@@ -804,6 +866,184 @@ function getGameMvpVoteWinner(state, game) {
   return candidates[0];
 }
 
+function getGameAchievementWinner(state, game, achievementKey) {
+  const voteCounts = new Map();
+
+  for (const vote of Object.values(state.achievementVotes ?? {})) {
+    if (
+      vote.gameId !== game.id ||
+      vote.achievementKey !== achievementKey ||
+      !game.playerIds.includes(vote.targetPlayerId)
+    ) {
+      continue;
+    }
+
+    voteCounts.set(vote.targetPlayerId, (voteCounts.get(vote.targetPlayerId) ?? 0) + 1);
+  }
+
+  const candidates = [...voteCounts.entries()].map(([playerId, votes]) => ({ playerId, votes }));
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  candidates.sort((left, right) => {
+    if (right.votes !== left.votes) {
+      return right.votes - left.votes;
+    }
+
+    return left.playerId.localeCompare(right.playerId);
+  });
+
+  return candidates[0];
+}
+
+function incrementAchievement(achievementIndex, playerId, achievementKey, count = 1) {
+  if (!playerId || !achievementKey || count <= 0) {
+    return;
+  }
+
+  if (!achievementIndex[playerId]) {
+    achievementIndex[playerId] = {};
+  }
+
+  achievementIndex[playerId][achievementKey] = (achievementIndex[playerId][achievementKey] ?? 0) + count;
+}
+
+function hasPlayerRatingActivity(state, game, playerId) {
+  const targetIds = game.playerIds.filter((targetPlayerId) => targetPlayerId !== playerId);
+  const ratedTargets = new Set(
+    Object.values(state.ratings ?? {})
+      .filter((rating) => rating.gameId === game.id && rating.raterPlayerId === playerId)
+      .map((rating) => rating.targetPlayerId)
+  );
+
+  if (targetIds.length && targetIds.every((targetPlayerId) => ratedTargets.has(targetPlayerId))) {
+    return true;
+  }
+
+  return Boolean(
+    Object.values(state.statBoosts ?? {}).some((boost) => boost.gameId === game.id && boost.raterPlayerId === playerId) ||
+    Object.values(state.mvpVotes ?? {}).some((vote) => vote.gameId === game.id && vote.raterPlayerId === playerId) ||
+    Object.values(state.achievementVotes ?? {}).some((vote) => vote.gameId === game.id && vote.raterPlayerId === playerId)
+  );
+}
+
+function buildPlayerAchievementIndex(state, games, career, now = new Date()) {
+  const achievementIndex = {};
+  const finalizedGames = games
+    .filter((game) => isFinalizedForCareer(game, now))
+    .sort(compareByDate);
+  const mvpIndex = buildGameMvpIndexForGames(state, finalizedGames, now);
+  const gamesByPlayerId = {};
+  const locationsByPlayerId = {};
+  const consecutiveByPlayerId = {};
+  const bestConsecutiveByPlayerId = {};
+
+  for (const game of finalizedGames) {
+    const mvp = mvpIndex.get(game.id);
+    const goleadorWinner = getGameAchievementWinner(state, game, 'goleador');
+    const seenAchievements = new Set();
+
+    if (mvp) {
+      incrementAchievement(achievementIndex, mvp.playerId, 'mvp');
+
+      const mvpPlayer = state.players[mvp.playerId];
+      const mvpCareer = career.get(mvp.playerId);
+
+      if ((mvpCareer?.position || mvpPlayer?.defaultPosition) === 'GK') {
+        incrementAchievement(achievementIndex, mvp.playerId, 'last_line');
+      }
+
+      if (Number(mvp.previousOverall ?? mvpCareer?.overall ?? 50) < 55) {
+        incrementAchievement(achievementIndex, mvp.playerId, 'dark_horse');
+      }
+    }
+
+    if (goleadorWinner) {
+      incrementAchievement(achievementIndex, goleadorWinner.playerId, 'goleador');
+    }
+
+    for (const vote of Object.values(state.achievementVotes ?? {})) {
+      if (vote.gameId !== game.id || vote.achievementKey === 'goleador') {
+        continue;
+      }
+
+      const key = `${vote.targetPlayerId}:${vote.achievementKey}`;
+
+      if (seenAchievements.has(key)) {
+        continue;
+      }
+
+      seenAchievements.add(key);
+      incrementAchievement(achievementIndex, vote.targetPlayerId, vote.achievementKey);
+    }
+
+    for (const playerId of game.playerIds) {
+      gamesByPlayerId[playerId] = (gamesByPlayerId[playerId] ?? 0) + 1;
+      consecutiveByPlayerId[playerId] = (consecutiveByPlayerId[playerId] ?? 0) + 1;
+      bestConsecutiveByPlayerId[playerId] = Math.max(
+        bestConsecutiveByPlayerId[playerId] ?? 0,
+        consecutiveByPlayerId[playerId]
+      );
+
+      const locationKey = String(game.location || '').trim().toLowerCase();
+
+      if (locationKey) {
+        if (!locationsByPlayerId[playerId]) {
+          locationsByPlayerId[playerId] = {};
+        }
+
+        locationsByPlayerId[playerId][locationKey] = (locationsByPlayerId[playerId][locationKey] ?? 0) + 1;
+      }
+
+      if (hasPlayerRatingActivity(state, game, playerId)) {
+        incrementAchievement(achievementIndex, playerId, 'support');
+      }
+    }
+
+    for (const playerId of Object.keys(state.players ?? {})) {
+      if (!game.playerIds.includes(playerId)) {
+        consecutiveByPlayerId[playerId] = 0;
+      }
+    }
+
+    if (game.organizerPlayerId) {
+      incrementAchievement(achievementIndex, game.organizerPlayerId, 'organizer');
+    }
+  }
+
+  const topTenPlayerIds = [...career.entries()]
+    .filter(([, entry]) => entry.ratedGames > 0)
+    .sort((left, right) => Number(right[1].overall ?? 0) - Number(left[1].overall ?? 0))
+    .slice(0, 10)
+    .map(([playerId]) => playerId);
+
+  for (const [playerId, entry] of career.entries()) {
+    if ((gamesByPlayerId[playerId] ?? entry.games ?? 0) > 0) {
+      incrementAchievement(achievementIndex, playerId, 'debutant');
+    }
+
+    if ((gamesByPlayerId[playerId] ?? entry.games ?? 0) >= 50) {
+      incrementAchievement(achievementIndex, playerId, 'yard_veteran');
+    }
+
+    if ((bestConsecutiveByPlayerId[playerId] ?? 0) >= 5) {
+      incrementAchievement(achievementIndex, playerId, 'stable_guy');
+    }
+
+    if (Object.values(locationsByPlayerId[playerId] ?? {}).some((count) => count >= 10)) {
+      incrementAchievement(achievementIndex, playerId, 'local_guy');
+    }
+
+    if (topTenPlayerIds.includes(playerId)) {
+      incrementAchievement(achievementIndex, playerId, 'yard_elite');
+    }
+  }
+
+  return achievementIndex;
+}
+
 function getLatestMvpForGames(state, games, now = new Date()) {
   const mvpIndex = buildGameMvpIndexForGames(state, games, now);
 
@@ -979,7 +1219,9 @@ function buildGamesView(state, games, playerCards, now) {
 
           return right.ratingsCount - left.ratingsCount;
         })[0] ?? null : null;
+      const goleadorWinner = isFinalizedForCareer(game, now) ? getGameAchievementWinner(state, game, 'goleador') : null;
       const topScorerPlayer = topScorer ? playersById.get(topScorer.playerId) : null;
+      const goleadorPlayer = goleadorWinner ? playersById.get(goleadorWinner.playerId) : null;
 
       return {
         id: game.id,
@@ -1010,7 +1252,16 @@ function buildGamesView(state, games, playerCards, now) {
               goals: topScorer.goals,
               overall: topScorer.overall
             }
-          : importedTopScorer
+          : goleadorWinner
+            ? {
+                playerId: goleadorWinner.playerId,
+                displayName: goleadorPlayer?.displayName || 'Игрок',
+                username: goleadorPlayer?.username || '',
+                goals: 0,
+                votes: goleadorWinner.votes,
+                overall: goleadorPlayer?.overall ?? 0
+              }
+            : importedTopScorer
       };
     })
     .sort((left, right) => new Date(right.scheduledAt) - new Date(left.scheduledAt));
@@ -1094,6 +1345,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
 
   const globalCareer = buildGlobalCareerIndex(state, now);
   const latestMvp = getLatestMvpForGames(state, allGames, now);
+  const achievementIndex = buildPlayerAchievementIndex(state, allGames, globalCareer, now);
   const buildPlayerCard = (player, playerCareer, isMvp = false) => {
     const careerEntry = playerCareer ?? {
       games: 0,
@@ -1128,6 +1380,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       yellowCards: careerEntry.yellowCards,
       redCards: careerEntry.redCards,
       cards: careerEntry.cards,
+      achievementCounts: achievementIndex[player.id] ?? {},
       hasSelfProfile: Boolean(player.selfProfile),
       isMvp
     };
@@ -1206,6 +1459,12 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     const boostedTargetIdsByViewer = new Set(viewerBoosts.map((boost) => boost.targetPlayerId));
     const viewerMvpVote = Object.values(state.mvpVotes ?? {})
       .find((vote) => vote.gameId === game.id && vote.raterPlayerId === viewerPlayerId) ?? null;
+    const viewerAchievementVotes = Object.values(state.achievementVotes ?? {})
+      .filter((vote) => vote.gameId === game.id && vote.raterPlayerId === viewerPlayerId)
+      .map((vote) => ({
+        targetPlayerId: vote.targetPlayerId,
+        achievementKey: vote.achievementKey
+      }));
 
     return {
       id: game.id,
@@ -1233,7 +1492,8 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       ratingsPromptSent: Boolean(game.ratingsOpenedAt),
       viewerQuickRating: {
         mvpPlayerId: viewerMvpVote?.targetPlayerId ?? '',
-        boosts: viewerBoosts
+        boosts: viewerBoosts,
+        achievements: viewerAchievementVotes
       },
       organizerPlayerId: game.organizerPlayerId ?? null,
       canViewerManage,

@@ -28,6 +28,38 @@ const GOALKEEPER_STAT_META = [
   ['passing', 'Скорость'],
   ['physical', 'Выбор позиции']
 ];
+const QUICK_ACHIEVEMENTS = [
+  { key: 'mvp', title: 'MVP', category: 'Базовые', description: 'Игрок матча по голосам участников.', automatic: false, special: true },
+  { key: 'goleador', title: 'Голеадор', category: 'Базовые', description: 'За игрока больше всего проголосовали как за главного голеадора матча.', automatic: false },
+  { key: 'hat_trick', title: 'Хет-трикер', category: 'Голы и атака', description: 'Забил 3 гола за матч.', automatic: false },
+  { key: 'pokerface', title: 'Покерфейс', category: 'Голы и атака', description: 'Забил 4 гола за матч.', automatic: false },
+  { key: 'comeback_maker', title: 'Камбэк-мейкер', category: 'Голы и атака', description: 'Переломил ход игры.', automatic: false },
+  { key: 'long_shot', title: 'Дальний выстрел', category: 'Голы и атака', description: 'Забил гол из-за пределов штрафной.', automatic: false },
+  { key: 'assistant', title: 'Ассистент', category: 'Пасы и командная игра', description: 'Сделал больше всех голевых передач.', automatic: false },
+  { key: 'playmaker', title: 'Плеймейкер', category: 'Пасы и командная игра', description: 'Сделал 3+ голевых передачи за матч.', automatic: false },
+  { key: 'unselfish', title: 'Не жадный', category: 'Пасы и командная игра', description: 'Отдал пас на пустые ворота вместо удара.', automatic: false },
+  { key: 'conductor', title: 'Дирижёр', category: 'Пасы и командная игра', description: 'Больше всех вовлечён в голевые атаки: голы + ассисты.', automatic: false },
+  { key: 'wall', title: 'Стена', category: 'Защита', description: 'Лучший защитник матча.', automatic: false },
+  { key: 'pickpocket', title: 'Карманник', category: 'Защита', description: 'Больше всех отборов.', automatic: false },
+  { key: 'cat', title: 'Кошка', category: 'Вратарь', description: 'Лучший сейв матча.', automatic: false },
+  { key: 'no_toxic', title: 'Без токсика', category: 'Другие', description: '10 матчей без жалоб и конфликтов.', automatic: false },
+  { key: 'maguire_day', title: 'Магуайр дня', category: 'Другие', description: 'Смешная ошибка матча.', automatic: false },
+  { key: 'planned_it', title: 'Я так и задумал', category: 'Другие', description: 'Забил случайный гол.', automatic: false },
+  { key: 'woodworker', title: 'Штангист', category: 'Другие', description: 'Попал в каркас ворот 3 раза.', automatic: false },
+  { key: 'debutant', title: 'Дебютант', category: 'Автоматические', description: 'Сыграл первый матч.', automatic: true },
+  { key: 'stable_guy', title: 'Стабильный тип', category: 'Автоматические', description: 'Сыграл 5 матчей подряд без пропусков.', automatic: true },
+  { key: 'local_guy', title: 'Свой на районе', category: 'Автоматические', description: 'Сыграл 10 матчей на одной площадке.', automatic: true },
+  { key: 'yard_veteran', title: 'Ветеран двора', category: 'Автоматические', description: 'Сыграл 50 матчей.', automatic: true },
+  { key: 'last_line', title: 'Последний рубеж', category: 'Автоматические', description: 'Получил MVP, играя в воротах.', automatic: true },
+  { key: 'support', title: 'Поддержка', category: 'Автоматические', description: 'Поставил оценки всем игрокам после матча.', automatic: true },
+  { key: 'organizer', title: 'Организатор', category: 'Автоматические', description: 'Создал первый матч.', automatic: true },
+  { key: 'form_up', title: 'Апнул форму', category: 'Автоматические', description: 'Поднял среднюю оценку за последние 5 игр.', automatic: true },
+  { key: 'dark_horse', title: 'Темная лошадка', category: 'Автоматические', description: 'Пришёл с низким рейтингом и получил MVP.', automatic: true },
+  { key: 'yard_elite', title: 'Элита двора', category: 'Автоматические', description: 'Достиг топ-10 рейтинга.', automatic: true },
+  { key: 'underrated', title: 'Недооценённый', category: 'Автоматические', description: 'Высокая статистика, но мало голосов за MVP.', automatic: true }
+];
+const QUICK_ACHIEVEMENT_BY_KEY = Object.fromEntries(QUICK_ACHIEVEMENTS.map((achievement) => [achievement.key, achievement]));
+const QUICK_SELECTABLE_ACHIEVEMENTS = QUICK_ACHIEVEMENTS.filter((achievement) => !achievement.automatic && !achievement.special);
 
 const VENUE_DIRECTORY = [
   {
@@ -122,6 +154,7 @@ const state = {
   selfProfileDraft: null,
   selfProfileEditing: false,
   gameActionsOpen: false,
+  achievementDetailKey: '',
   ratingDrafts: {},
   quickRatingDrafts: {},
   manualGameOpen: false,
@@ -496,11 +529,33 @@ function normalizeQuickBoosts(boosts = []) {
   return [...boostMap.values()];
 }
 
+function normalizeQuickAchievements(achievements = []) {
+  const achievementMap = new Map();
+
+  for (const achievement of Array.isArray(achievements) ? achievements : []) {
+    const targetPlayerId = String(achievement?.targetPlayerId || '');
+    const achievementKey = String(achievement?.achievementKey || '');
+
+    if (!achievementKey || !QUICK_SELECTABLE_ACHIEVEMENTS.some((item) => item.key === achievementKey)) {
+      continue;
+    }
+
+    achievementMap.set(achievementKey, {
+      targetPlayerId,
+      achievementKey
+    });
+  }
+
+  return [...achievementMap.values()];
+}
+
 function getQuickRatingDraft(game) {
   if (!game?.id) {
     return {
       mvpPlayerId: '',
-      boosts: []
+      boosts: [],
+      achievements: [],
+      achievementPickerOpen: false
     };
   }
 
@@ -509,7 +564,9 @@ function getQuickRatingDraft(game) {
   if (!state.quickRatingDrafts[draftKey]) {
     state.quickRatingDrafts[draftKey] = {
       mvpPlayerId: game.viewerQuickRating?.mvpPlayerId || '',
-      boosts: normalizeQuickBoosts(game.viewerQuickRating?.boosts)
+      boosts: normalizeQuickBoosts(game.viewerQuickRating?.boosts),
+      achievements: normalizeQuickAchievements(game.viewerQuickRating?.achievements),
+      achievementPickerOpen: false
     };
   }
 
@@ -540,6 +597,27 @@ function setQuickBoostPoints(game, targetPlayerId, statKey, points) {
   }
 
   draft.boosts = normalizeQuickBoosts(nextBoosts);
+}
+
+function setQuickAchievementTarget(game, achievementKey, targetPlayerId) {
+  const draft = getQuickRatingDraft(game);
+  const nextAchievements = normalizeQuickAchievements(draft.achievements)
+    .filter((achievement) => achievement.achievementKey !== achievementKey);
+
+  if (targetPlayerId) {
+    nextAchievements.push({
+      achievementKey,
+      targetPlayerId
+    });
+  }
+
+  draft.achievements = normalizeQuickAchievements(nextAchievements);
+}
+
+function getQuickAchievementTarget(draft, achievementKey) {
+  return normalizeQuickAchievements(draft?.achievements).find(
+    (achievement) => achievement.achievementKey === achievementKey
+  )?.targetPlayerId ?? '';
 }
 
 function hasVisibleRating(player, currentStats = null) {
@@ -864,17 +942,8 @@ function renderFifaCard(player, options = {}) {
   const statusLabel = isUnrated ? 'Не оценён' : '';
   const statPlaceholder = '-';
   const statMeta = getStatMetaForPosition(effectivePosition);
-  const isGoalkeeper = isGoalkeeperPosition(effectivePosition);
   const overviewCells = [
-    { label: 'игр', value: hideMatchDetailsUntilViewerRates ? statPlaceholder : player.games, emphasis: true },
-    ...(
-      isGoalkeeper
-        ? []
-        : [
-            { label: 'голов', value: showRatedTotals ? (hasCurrentRatings ? currentStats.goals : player.goals) : statPlaceholder, outlined: isRatingCard },
-            { label: 'голевых', value: showRatedTotals ? (hasCurrentRatings ? currentStats.assists : player.assists) : statPlaceholder, outlined: isRatingCard }
-          ]
-    )
+    { label: 'игр', value: hideMatchDetailsUntilViewerRates ? statPlaceholder : player.games, emphasis: true }
   ];
   const statCells = statMeta.map(([key, label]) => [
     label.toLowerCase(),
@@ -882,6 +951,7 @@ function renderFifaCard(player, options = {}) {
   ]);
   const openAttribute = clickable ? ` data-open-player="${escapeHtml(player.id)}"` : '';
   const actionNote = isRatingCard && ratingsCount > 0 ? `${ratingsCount} уже оценили` : '';
+  const achievements = getUnlockedPlayerAchievements(player, currentStats);
 
   return `
     <article class="fifa-card fifa-card--${escapeHtml(variant)} ${player.isMvp ? 'is-mvp' : ''} ${clickable ? 'is-clickable' : ''}"${openAttribute}>
@@ -915,6 +985,7 @@ function renderFifaCard(player, options = {}) {
         <div class="metric-grid metric-grid--stats">
           ${statCells.map(([label, value]) => renderMetricCell(label, value, { outlined: isRatingCard })).join('')}
         </div>
+        ${renderAchievementPills(achievements)}
         ${
           actionLabel
             ? `
@@ -1138,6 +1209,171 @@ function renderQuickRatingMvpButton(player, game, draft) {
   `;
 }
 
+function getQuickRatingTargets(game) {
+  return (game.participants ?? []).filter((player) => player.canRateTarget);
+}
+
+function renderQuickPlayerSelect(game, selectedPlayerId, attributes = '') {
+  const targets = getQuickRatingTargets(game);
+
+  return `
+    <select ${attributes}>
+      <option value="">не выбран</option>
+      ${targets
+        .map((player) => `
+          <option value="${escapeHtml(player.id)}" ${selectedPlayerId === player.id ? 'selected' : ''}>
+            ${escapeHtml(player.displayName)}
+          </option>
+        `)
+        .join('')}
+    </select>
+  `;
+}
+
+function renderQuickAchievementInfoButton(achievementKey) {
+  const achievement = QUICK_ACHIEVEMENT_BY_KEY[achievementKey];
+
+  if (!achievement) {
+    return '';
+  }
+
+  return `
+    <button
+      type="button"
+      class="achievement-info-button"
+      data-achievement-detail="${escapeHtml(achievement.key)}"
+      aria-label="${escapeHtml(achievement.title)}"
+    >i</button>
+  `;
+}
+
+function renderQuickSelectField({ label, valueLabel, selectHtml, achievementKey = '' }) {
+  return `
+    <label class="quick-select-field">
+      <span>
+        ${escapeHtml(label)}
+        ${achievementKey ? renderQuickAchievementInfoButton(achievementKey) : ''}
+      </span>
+      <div class="quick-select-control">
+        ${selectHtml}
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6.7 8.8a1 1 0 0 1 1.4 0L12 12.7l3.9-3.9a1 1 0 1 1 1.4 1.4l-4.6 4.6a1 1 0 0 1-1.4 0L6.7 10.2a1 1 0 0 1 0-1.4z"></path>
+        </svg>
+      </div>
+      ${valueLabel ? `<strong>${escapeHtml(valueLabel)}</strong>` : ''}
+    </label>
+  `;
+}
+
+function renderQuickAchievementField(game, draft, achievementKey) {
+  const achievement = QUICK_ACHIEVEMENT_BY_KEY[achievementKey];
+
+  if (!achievement) {
+    return '';
+  }
+
+  const selectedPlayerId = getQuickAchievementTarget(draft, achievementKey);
+
+  return renderQuickSelectField({
+    label: achievement.title,
+    achievementKey,
+    selectHtml: renderQuickPlayerSelect(
+      game,
+      selectedPlayerId,
+      `data-quick-achievement-target="${escapeHtml(achievementKey)}" data-game-id="${escapeHtml(game.id)}"`
+    )
+  });
+}
+
+function renderQuickAchievementPicker(game, draft) {
+  if (!draft.achievementPickerOpen) {
+    return '';
+  }
+
+  const usedKeys = new Set(normalizeQuickAchievements(draft.achievements).map((achievement) => achievement.achievementKey));
+  const grouped = QUICK_SELECTABLE_ACHIEVEMENTS
+    .filter((achievement) => !usedKeys.has(achievement.key))
+    .reduce((acc, achievement) => {
+      acc[achievement.category] = [...(acc[achievement.category] ?? []), achievement];
+      return acc;
+    }, {});
+
+  return `
+    <div class="quick-achievement-picker">
+      ${Object.entries(grouped)
+        .map(([category, achievements]) => `
+          <div class="quick-achievement-group">
+            <span>${escapeHtml(category)}</span>
+            ${achievements
+              .map((achievement) => `
+                <div class="quick-achievement-option">
+                  <button
+                    type="button"
+                    data-add-quick-achievement="${escapeHtml(achievement.key)}"
+                    data-game-id="${escapeHtml(game.id)}"
+                  >
+                    ${escapeHtml(achievement.title)}
+                  </button>
+                  ${renderQuickAchievementInfoButton(achievement.key)}
+                </div>
+              `)
+              .join('')}
+          </div>
+        `)
+        .join('')}
+    </div>
+  `;
+}
+
+function renderQuickAchievementFields(game, draft) {
+  const selectedAchievements = normalizeQuickAchievements(draft.achievements);
+  const extraAchievementKeys = selectedAchievements
+    .map((achievement) => achievement.achievementKey)
+    .filter((key) => key !== 'goleador');
+  const showGoleador = Boolean(draft.mvpPlayerId || getQuickAchievementTarget(draft, 'goleador') || extraAchievementKeys.length);
+  const showExtra = Boolean(showGoleador && getQuickAchievementTarget(draft, 'goleador'));
+
+  return `
+    <section class="panel quick-rating-panel quick-rating-panel--simple">
+      <div class="quick-rating-head">
+        <div>
+          <h3>Оценка матча</h3>
+          <p>Выбери заметных игроков, раздай до ${QUICK_RATING_POINTS} очков статов и добавь ачивки.</p>
+        </div>
+        <strong>${escapeHtml(Math.max(0, QUICK_RATING_POINTS - getQuickRatingPointsUsed(draft)))} осталось</strong>
+      </div>
+      <div class="quick-rating-fields">
+        ${renderQuickSelectField({
+          label: 'MVP',
+          achievementKey: 'mvp',
+          selectHtml: renderQuickPlayerSelect(
+            game,
+            draft.mvpPlayerId,
+            `data-quick-mvp-select data-game-id="${escapeHtml(game.id)}"`
+          )
+        })}
+        ${showGoleador ? renderQuickAchievementField(game, draft, 'goleador') : ''}
+        ${
+          showExtra
+            ? `
+              ${extraAchievementKeys.map((key) => renderQuickAchievementField(game, draft, key)).join('')}
+              <div class="quick-add-achievement-wrap">
+                <button type="button" class="quick-add-achievement" data-toggle-quick-achievements="${escapeHtml(game.id)}">
+                  + Добавить ачивку
+                </button>
+                ${renderQuickAchievementPicker(game, draft)}
+              </div>
+            `
+            : ''
+        }
+      </div>
+      <button type="button" class="primary-button quick-rating-submit" data-submit-quick-rating="${escapeHtml(game.id)}">
+        Добавить оценку
+      </button>
+    </section>
+  `;
+}
+
 function renderQuickStatControls(player, game, draft) {
   const used = getQuickRatingPointsUsed(draft);
   const remaining = Math.max(0, QUICK_RATING_POINTS - used);
@@ -1178,6 +1414,154 @@ function renderQuickStatControls(player, game, draft) {
   `;
 }
 
+function getPlayerDraftAchievements(player, game, draft) {
+  const achievements = normalizeQuickAchievements(draft?.achievements)
+    .filter((achievement) => achievement.targetPlayerId === player.id)
+    .map((achievement) => ({
+      key: achievement.achievementKey,
+      count: 1,
+      source: 'draft'
+    }));
+
+  if (!game?.ratingWindowOpen && game?.mvp?.playerId === player.id) {
+    achievements.push({ key: 'mvp', count: 1, source: 'result' });
+  }
+
+  const counts = player.currentGameStats?.achievementCounts ?? {};
+
+  for (const [key, count] of Object.entries(counts)) {
+    if (key === 'mvp' && game?.ratingWindowOpen) {
+      continue;
+    }
+
+    if (!achievements.some((achievement) => achievement.key === key)) {
+      achievements.push({ key, count, source: 'result' });
+    }
+  }
+
+  return achievements;
+}
+
+function getUnlockedPlayerAchievements(player, currentStats = null) {
+  const counts = {
+    ...(player.achievementCounts ?? {}),
+    ...(currentStats?.achievementCounts ?? {})
+  };
+
+  return Object.entries(counts)
+    .map(([key, count]) => ({
+      key,
+      count: Math.max(0, Math.round(Number(count ?? 0))),
+      source: 'career'
+    }))
+    .filter((achievement) => achievement.count > 0 && QUICK_ACHIEVEMENT_BY_KEY[achievement.key])
+    .sort((left, right) => {
+      const leftIndex = QUICK_ACHIEVEMENTS.findIndex((achievement) => achievement.key === left.key);
+      const rightIndex = QUICK_ACHIEVEMENTS.findIndex((achievement) => achievement.key === right.key);
+      return leftIndex - rightIndex;
+    });
+}
+
+function renderAchievementPills(achievements) {
+  if (!achievements.length) {
+    return '';
+  }
+
+  return `
+    <div class="quick-achievement-pills">
+      ${achievements
+        .map((achievement) => {
+          const meta = QUICK_ACHIEVEMENT_BY_KEY[achievement.key];
+
+          if (!meta) {
+            return '';
+          }
+
+          return `
+            <button type="button" class="quick-achievement-pill" data-achievement-detail="${escapeHtml(meta.key)}">
+              ${renderAchievementIcon(meta.key)}
+              ${achievement.count > 1 ? `<span>${escapeHtml(achievement.count)}</span>` : ''}
+            </button>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
+}
+
+function renderQuickPlayerStatControl(player, game, draft, key, label) {
+  const points = getQuickBoostPoints(draft, player.id, key);
+  const used = getQuickRatingPointsUsed(draft);
+  const remaining = Math.max(0, QUICK_RATING_POINTS - used);
+  const disabled = remaining <= 0 && points <= 0;
+  const currentStats = player.currentGameStats ?? null;
+  const statValue = currentStats?.hasRatings
+    ? currentStats.stats?.[key]
+    : player.ratedGames > 0 || player.hasSelfProfile
+      ? player.stats?.[key]
+      : null;
+
+  return `
+    <div class="quick-card-stat ${points ? 'is-active' : ''}">
+      <button
+        type="button"
+        data-quick-boost-remove="${escapeHtml(player.id)}"
+        data-quick-boost-stat="${escapeHtml(key)}"
+        data-game-id="${escapeHtml(game.id)}"
+        ${points ? '' : 'disabled'}
+        aria-label="Убрать очко ${escapeHtml(label)}"
+      >−</button>
+      <span>${escapeHtml(label.toLowerCase())}</span>
+      <strong>
+        ${statValue ? escapeHtml(Math.round(Number(statValue))) : '-'}
+        ${points ? `<em>+${escapeHtml(points)}</em>` : ''}
+      </strong>
+      <button
+        type="button"
+        data-quick-boost-add="${escapeHtml(player.id)}"
+        data-quick-boost-stat="${escapeHtml(key)}"
+        data-game-id="${escapeHtml(game.id)}"
+        ${disabled ? 'disabled' : ''}
+        aria-label="Добавить очко ${escapeHtml(label)}"
+      >+</button>
+    </div>
+  `;
+}
+
+function renderQuickGamePlayerCard(player, game, draft) {
+  const ratingState = getGamePlayerRatingState(player, game);
+  const currentStats = player.currentGameStats ?? null;
+  const ratingLabel = ratingState.rating || (player.ratedGames > 0 ? Math.round(Number(player.overall)) : '');
+  const positionLabel = getGamePlayerPositionLabel(player);
+  const statMeta = getStatMetaForPosition(currentStats?.position || player.position || 'N/A');
+  const achievements = getPlayerDraftAchievements(player, game, draft);
+
+  return `
+    <article class="quick-game-card ${ratingState.phase === 'live-empty' ? 'is-unrated' : ''}">
+      <div class="quick-game-card-head">
+        <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
+        <div class="quick-game-card-title">
+          <strong>${escapeHtml(player.displayName)}</strong>
+          <span>${escapeHtml(positionLabel)}</span>
+        </div>
+        ${
+          ratingLabel
+            ? `<div class="quick-game-card-rating">${escapeHtml(ratingLabel)}</div>`
+            : '<div class="game-player-unrated">Не оценён</div>'
+        }
+      </div>
+      <div class="quick-card-grid">
+        <div class="quick-card-games">
+          <span>игр</span>
+          <strong>${escapeHtml(player.games)}</strong>
+        </div>
+        ${statMeta.map(([key, label]) => renderQuickPlayerStatControl(player, game, draft, key, label)).join('')}
+      </div>
+      ${renderAchievementPills(achievements)}
+    </article>
+  `;
+}
+
 function renderQuickRatingPanel(game) {
   if (!game.canViewerRate) {
     return '';
@@ -1190,48 +1574,8 @@ function renderQuickRatingPanel(game) {
   }
 
   const draft = getQuickRatingDraft(game);
-  const used = getQuickRatingPointsUsed(draft);
-  const remaining = Math.max(0, QUICK_RATING_POINTS - used);
 
-  return `
-    <section class="panel quick-rating-panel">
-      <div class="quick-rating-head">
-        <div>
-          <h3>Быстрая оценка</h3>
-          <p>Выбери MVP и раздай до ${QUICK_RATING_POINTS} очков параметров тем, кто был заметен в игре.</p>
-        </div>
-        <strong>${escapeHtml(remaining)} осталось</strong>
-      </div>
-      <div class="quick-rating-block">
-        <span class="quick-rating-label">MVP матча</span>
-        <div class="quick-mvp-row">
-          ${targets.map((player) => renderQuickRatingMvpButton(player, game, draft)).join('')}
-        </div>
-      </div>
-      <div class="quick-rating-block">
-        <span class="quick-rating-label">Очки статов</span>
-        <div class="quick-players-list">
-          ${targets
-            .map((player) => `
-              <article class="quick-player-card">
-                <div class="quick-player-head">
-                  <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
-                  <div>
-                    <strong>${escapeHtml(player.displayName)}</strong>
-                    <span>${escapeHtml(getGamePlayerPositionLabel(player))}</span>
-                  </div>
-                </div>
-                ${renderQuickStatControls(player, game, draft)}
-              </article>
-            `)
-            .join('')}
-        </div>
-      </div>
-      <button type="button" class="primary-button quick-rating-submit" data-submit-quick-rating="${escapeHtml(game.id)}">
-        Сохранить оценку
-      </button>
-    </section>
-  `;
+  return renderQuickAchievementFields(game, draft);
 }
 
 function renderField(game, options = {}) {
@@ -1380,6 +1724,19 @@ function renderGamePlayersList(game) {
     return '';
   }
 
+  if (game.ratingWindowOpen && game.canViewerRate) {
+    const draft = getQuickRatingDraft(game);
+
+    return `
+      <section class="quick-game-cards">
+        ${players
+          .filter((player) => player.id !== state.snapshot?.viewerPlayerId)
+          .map((player) => renderQuickGamePlayerCard(player, game, draft))
+          .join('')}
+      </section>
+    `;
+  }
+
   return `
     <section class="game-player-list">
       ${players.map((player) => renderGamePlayerRow(player)).join('')}
@@ -1419,14 +1776,17 @@ function renderGameTab() {
     `;
   }
 
+  const isRatingMode = Boolean(game.ratingWindowOpen && game.canViewerRate);
+
   return `
     ${renderGameHeader(game)}
-    ${renderJoinControls(game)}
-    ${renderField(game)}
     ${renderRatingBanner(game)}
+    ${isRatingMode ? renderQuickRatingPanel(game) : ''}
+    ${isRatingMode ? '' : renderJoinControls(game)}
+    ${isRatingMode ? '' : renderField(game)}
     ${renderGamePlayersList(game)}
-    ${renderWaitingPlayersSection(game)}
-    ${renderQuickRatingPanel(game)}
+    ${isRatingMode ? '' : renderWaitingPlayersSection(game)}
+    ${isRatingMode ? '' : renderQuickRatingPanel(game)}
   `;
 }
 
@@ -1827,6 +2187,26 @@ function renderGameActionsModal() {
   `;
 }
 
+function renderAchievementDetailModal() {
+  const achievement = QUICK_ACHIEVEMENT_BY_KEY[state.achievementDetailKey];
+
+  if (!achievement) {
+    return '';
+  }
+
+  return `
+    <div class="modal-backdrop" data-achievement-detail-backdrop="true">
+      <section class="modal-card achievement-detail-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(achievement.title)}">
+        <button type="button" class="editor-close achievement-detail-close" data-close-achievement-detail="true">×</button>
+        <div class="achievement-detail-icon">${renderAchievementIcon(achievement.key)}</div>
+        <span class="achievement-detail-category">${escapeHtml(achievement.category)}</span>
+        <h2>${escapeHtml(achievement.title)}</h2>
+        <p>${escapeHtml(achievement.description)}</p>
+      </section>
+    </div>
+  `;
+}
+
 function renderGamesTab() {
   const games = getFilteredGames();
 
@@ -2018,27 +2398,15 @@ function formatAchievementCount(count) {
 }
 
 function getPlayerAchievements(player) {
-  const games = getGames();
-  const mvpGames = games.filter((game) => game.mvp?.playerId === player.id);
-  const scorerGames = games.filter((game) => game.topScorer?.playerId === player.id);
-  const bestGoals = scorerGames.reduce((max, game) => Math.max(max, Number(game.topScorer?.goals || 0)), 0);
+  const achievementCounts = player.achievementCounts ?? {};
 
-  return [
-    {
-      key: 'mvp',
-      title: 'MVP',
-      description: 'Лучший скачок рейтинга',
-      count: mvpGames.length,
-      detail: mvpGames.length ? formatAchievementCount(mvpGames.length) : 'ещё не получено'
-    },
-    {
-      key: 'goleador',
-      title: 'Голеадор',
-      description: 'Больше всех голов за игру',
-      count: scorerGames.length,
-      detail: scorerGames.length ? `${formatAchievementCount(scorerGames.length)} • рекорд ${bestGoals}` : 'ещё не получено'
-    }
-  ];
+  return QUICK_ACHIEVEMENTS.map((achievement) => ({
+    ...achievement,
+    count: achievementCounts[achievement.key] ?? 0,
+    detail: achievementCounts[achievement.key]
+      ? formatAchievementCount(achievementCounts[achievement.key])
+      : 'ещё не получено'
+  }));
 }
 
 function renderAchievementCard(achievement) {
@@ -2048,7 +2416,7 @@ function renderAchievementCard(achievement) {
     <button
       type="button"
       class="achievement-button"
-      data-achievement="${escapeHtml(achievement.key)}"
+      data-achievement-detail="${escapeHtml(achievement.key)}"
       aria-label="${escapeHtml(tooltip)}"
     >
       ${renderAchievementIcon(achievement.key)}
@@ -2300,9 +2668,10 @@ function renderModal() {
   const gamePlayer = game?.participants?.find((item) => item.id === state.selectedPlayerId) ?? null;
   const createGameModal = renderCreateGameModal();
   const gameActionsModal = renderGameActionsModal();
+  const achievementDetailModal = renderAchievementDetailModal();
 
   if (!player) {
-    modalRoot.innerHTML = [createGameModal, gameActionsModal].join('');
+    modalRoot.innerHTML = [createGameModal, gameActionsModal, achievementDetailModal].join('');
     return;
   }
 
@@ -2327,7 +2696,8 @@ function renderModal() {
   modalRoot.innerHTML = [
     renderEditorScreen(player, gamePlayer, editable, defaults, game),
     createGameModal,
-    gameActionsModal
+    gameActionsModal,
+    achievementDetailModal
   ].join('');
 }
 
@@ -2420,7 +2790,8 @@ async function submitQuickRating(gameId) {
   const draft = getQuickRatingDraft(game);
   const payload = {
     mvpPlayerId: draft.mvpPlayerId || '',
-    boosts: normalizeQuickBoosts(draft.boosts)
+    boosts: normalizeQuickBoosts(draft.boosts),
+    achievements: normalizeQuickAchievements(draft.achievements)
   };
 
   const data = await api(`/api/games/${encodeURIComponent(gameId)}/quick-rating`, {
@@ -2776,6 +3147,16 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
+  const achievementDetailButton = event.target.closest('[data-achievement-detail]');
+
+  if (achievementDetailButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    state.achievementDetailKey = achievementDetailButton.dataset.achievementDetail || '';
+    renderModal();
+    return;
+  }
+
   const openCreateButton = event.target.closest('[data-open-create-game]');
 
   if (openCreateButton) {
@@ -2809,6 +3190,12 @@ document.addEventListener('click', async (event) => {
 
   if (gameActionsBackdrop) {
     state.gameActionsOpen = false;
+    renderModal();
+    return;
+  }
+
+  if (event.target.matches('[data-achievement-detail-backdrop]') || event.target.closest('[data-close-achievement-detail]')) {
+    state.achievementDetailKey = '';
     renderModal();
     return;
   }
@@ -2997,6 +3384,34 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
+  const toggleQuickAchievementsButton = event.target.closest('[data-toggle-quick-achievements]');
+
+  if (toggleQuickAchievementsButton) {
+    const game = getGameDays().find((item) => item.id === toggleQuickAchievementsButton.dataset.toggleQuickAchievements) ?? getCurrentGame();
+    const draft = getQuickRatingDraft(game);
+    draft.achievementPickerOpen = !draft.achievementPickerOpen;
+    render();
+    return;
+  }
+
+  const addQuickAchievementButton = event.target.closest('[data-add-quick-achievement]');
+
+  if (addQuickAchievementButton) {
+    const game = getGameDays().find((item) => item.id === addQuickAchievementButton.dataset.gameId) ?? getCurrentGame();
+    const draft = getQuickRatingDraft(game);
+    const achievementKey = addQuickAchievementButton.dataset.addQuickAchievement;
+    const nextAchievements = normalizeQuickAchievements(draft.achievements);
+
+    if (!nextAchievements.some((achievement) => achievement.achievementKey === achievementKey)) {
+      nextAchievements.push({ achievementKey, targetPlayerId: '' });
+    }
+
+    draft.achievements = nextAchievements;
+    draft.achievementPickerOpen = false;
+    render();
+    return;
+  }
+
   const quickBoostAddButton = event.target.closest('[data-quick-boost-add]');
 
   if (quickBoostAddButton) {
@@ -3111,6 +3526,21 @@ document.addEventListener('change', (event) => {
 
   if (event.target.id === 'positionFilter') {
     state.positionFilter = event.target.value;
+    render();
+    return;
+  }
+
+  if (event.target.matches('[data-quick-mvp-select]')) {
+    const game = getGameDays().find((item) => item.id === event.target.dataset.gameId) ?? getCurrentGame();
+    const draft = getQuickRatingDraft(game);
+    draft.mvpPlayerId = event.target.value || '';
+    render();
+    return;
+  }
+
+  if (event.target.matches('[data-quick-achievement-target]')) {
+    const game = getGameDays().find((item) => item.id === event.target.dataset.gameId) ?? getCurrentGame();
+    setQuickAchievementTarget(game, event.target.dataset.quickAchievementTarget, event.target.value || '');
     render();
     return;
   }

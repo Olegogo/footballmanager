@@ -4,7 +4,7 @@ import path from 'node:path';
 import { isSuperAdminPlayer } from './admins.js';
 import { createSessionToken } from './auth.js';
 import { parseAnnouncementTextLog, parseTelegramExportGames } from './parser.js';
-import { MAX_RED_CARDS, MAX_YELLOW_CARDS, POSITION_OPTIONS, QUICK_RATING_POINTS, RATING_WINDOW_MS, STAT_KEYS, buildChatSnapshot, buildGlobalCareerIndex, isRatingWindowOpen } from './stats.js';
+import { MAX_RED_CARDS, MAX_YELLOW_CARDS, POSITION_OPTIONS, QUICK_ACHIEVEMENT_DEFINITIONS, QUICK_RATING_POINTS, RATING_WINDOW_MS, STAT_KEYS, buildChatSnapshot, buildGlobalCareerIndex, isRatingWindowOpen } from './stats.js';
 import { clamp, formatDisplayName, normalizeUsername, toIsoString, unique } from './utils.js';
 
 const DEFAULT_POSITION_BY_USERNAME = {
@@ -20,7 +20,8 @@ function defaultState() {
       nextGameId: 1,
       nextRatingId: 1,
       nextStatBoostId: 1,
-      nextMvpVoteId: 1
+      nextMvpVoteId: 1,
+      nextAchievementVoteId: 1
     },
     chats: {},
     players: {},
@@ -28,9 +29,16 @@ function defaultState() {
     ratings: {},
     statBoosts: {},
     mvpVotes: {},
+    achievementVotes: {},
     sessions: {}
   };
 }
+
+const QUICK_ACHIEVEMENT_KEYS = new Set(
+  QUICK_ACHIEVEMENT_DEFINITIONS
+    .filter((achievement) => !achievement.automatic)
+    .map((achievement) => achievement.key)
+);
 
 function findPlayerByTelegramUserId(state, telegramUserId) {
   return Object.values(state.players).find((player) => player.telegramUserId === telegramUserId) ?? null;
@@ -451,6 +459,7 @@ function copyExternalGameFields(targetGame, externalGame, playerIdMap, nowIso) {
       .filter(Boolean)
   ]);
   targetGame.ratingsClosedByGameId = externalGame.ratingsClosedByGameId || targetGame.ratingsClosedByGameId || null;
+  targetGame.excludeFromCareer = Boolean(externalGame.excludeFromCareer ?? targetGame.excludeFromCareer ?? false);
   targetGame.closedAt = externalGame.closedAt || targetGame.closedAt || null;
   targetGame.createdAt = externalGame.createdAt || targetGame.createdAt || nowIso;
   targetGame.updatedAt = nowIso;
@@ -467,6 +476,7 @@ function mergeExternalState(state, externalState) {
   let ratingsMerged = 0;
   let statBoostsMerged = 0;
   let mvpVotesMerged = 0;
+  let achievementVotesMerged = 0;
 
   for (const chat of Object.values(externalState?.chats ?? {})) {
     ensureChatState(state, chat);
@@ -601,6 +611,38 @@ function mergeExternalState(state, externalState) {
     mvpVotesMerged += 1;
   }
 
+  for (const externalVote of Object.values(externalState?.achievementVotes ?? {})) {
+    const gameId = gameIdMap.get(String(externalVote.gameId));
+    const targetPlayerId = playerIdMap.get(String(externalVote.targetPlayerId));
+    const raterPlayerId = playerIdMap.get(String(externalVote.raterPlayerId));
+    const achievementKey = String(externalVote.achievementKey ?? '');
+
+    if (!gameId || !targetPlayerId || !raterPlayerId || !QUICK_ACHIEVEMENT_KEYS.has(achievementKey)) {
+      continue;
+    }
+
+    const existingVote = Object.values(state.achievementVotes ?? {}).find(
+      (vote) =>
+        vote.gameId === gameId &&
+        vote.raterPlayerId === raterPlayerId &&
+        vote.targetPlayerId === targetPlayerId &&
+        vote.achievementKey === achievementKey
+    );
+    const vote = existingVote ?? {
+      id: `achievement_vote_${state.meta.nextAchievementVoteId++}`,
+      createdAt: externalVote.createdAt || now
+    };
+
+    vote.chatId = String(state.games[gameId]?.chatId || externalVote.chatId || 'global');
+    vote.gameId = gameId;
+    vote.raterPlayerId = raterPlayerId;
+    vote.targetPlayerId = targetPlayerId;
+    vote.achievementKey = achievementKey;
+    vote.updatedAt = externalVote.updatedAt || now;
+    state.achievementVotes[vote.id] = vote;
+    achievementVotesMerged += 1;
+  }
+
   for (const externalPlayerId of playersWithExternalRatings) {
     const playerId = playerIdMap.get(externalPlayerId);
 
@@ -609,7 +651,7 @@ function mergeExternalState(state, externalState) {
     }
   }
 
-  return { playersMerged, gamesMerged, ratingsMerged, statBoostsMerged, mvpVotesMerged };
+  return { playersMerged, gamesMerged, ratingsMerged, statBoostsMerged, mvpVotesMerged, achievementVotesMerged };
 }
 
 function getBootstrapDetailedGames(snapshot) {
@@ -954,6 +996,7 @@ function mergeImportedAnnouncements(state, {
       ratingSummaryChatMessageId: null,
       ratingSummaryPrivatePlayerIds: [],
       ratingsClosedByGameId: null,
+      excludeFromCareer: true,
       closedAt: null,
       createdAt: now,
       updatedAt: now
@@ -1703,6 +1746,7 @@ export class AppStore {
     const gamesWithRatings = new Set(Object.values(this.state.ratings).map((rating) => rating.gameId));
     const gamesWithBoosts = new Set(Object.values(this.state.statBoosts ?? {}).map((boost) => boost.gameId));
     const gamesWithMvpVotes = new Set(Object.values(this.state.mvpVotes ?? {}).map((vote) => vote.gameId));
+    const gamesWithAchievementVotes = new Set(Object.values(this.state.achievementVotes ?? {}).map((vote) => vote.gameId));
 
     return Object.values(this.state.games).filter((game) => {
       if (game.ratingSummarySentAt || game.excludeFromCareer) {
@@ -1719,7 +1763,8 @@ export class AppStore {
         game.ratingsOpenedAt ||
         gamesWithRatings.has(game.id) ||
         gamesWithBoosts.has(game.id) ||
-        gamesWithMvpVotes.has(game.id)
+        gamesWithMvpVotes.has(game.id) ||
+        gamesWithAchievementVotes.has(game.id)
       );
     });
   }
@@ -1884,13 +1929,42 @@ export class AppStore {
         points: sanitizeBoostPoints(item.points)
       }));
       const totalPoints = boosts.reduce((sum, item) => sum + item.points, 0);
+      const achievementMap = new Map();
+
+      for (const item of Array.isArray(payload?.achievements) ? payload.achievements : []) {
+        const targetPlayerId = String(item?.targetPlayerId ?? '');
+        const achievementKey = String(item?.achievementKey ?? '');
+
+        if (!targetPlayerId || !achievementKey) {
+          continue;
+        }
+
+        if (targetPlayerId === raterPlayerId) {
+          throw new Error('Нельзя выдавать ачивки себе');
+        }
+
+        if (!game.playerIds.includes(targetPlayerId)) {
+          throw new Error('Ачивки можно выдавать только участникам игры');
+        }
+
+        if (!QUICK_ACHIEVEMENT_KEYS.has(achievementKey)) {
+          throw new Error('Неизвестная ачивка');
+        }
+
+        achievementMap.set(achievementKey, {
+          targetPlayerId,
+          achievementKey
+        });
+      }
+
+      const achievements = [...achievementMap.values()];
 
       if (totalPoints > QUICK_RATING_POINTS) {
         throw new Error(`Можно раздать максимум ${QUICK_RATING_POINTS} очка`);
       }
 
-      if (!mvpPlayerId && totalPoints === 0) {
-        throw new Error('Выберите MVP или раздайте очки параметров');
+      if (!mvpPlayerId && totalPoints === 0 && achievements.length === 0) {
+        throw new Error('Выберите MVP, ачивку или раздайте очки параметров');
       }
 
       for (const boostId of Object.keys(state.statBoosts ?? {})) {
@@ -1898,6 +1972,14 @@ export class AppStore {
 
         if (boost.gameId === gameId && boost.raterPlayerId === raterPlayerId) {
           delete state.statBoosts[boostId];
+        }
+      }
+
+      for (const voteId of Object.keys(state.achievementVotes ?? {})) {
+        const vote = state.achievementVotes[voteId];
+
+        if (vote.gameId === gameId && vote.raterPlayerId === raterPlayerId) {
+          delete state.achievementVotes[voteId];
         }
       }
 
@@ -1936,11 +2018,26 @@ export class AppStore {
         delete state.mvpVotes[existingVote.id];
       }
 
+      for (const achievement of achievements) {
+        const id = `achievement_vote_${state.meta.nextAchievementVoteId++}`;
+        state.achievementVotes[id] = {
+          id,
+          chatId: String(game.chatId),
+          gameId,
+          raterPlayerId,
+          targetPlayerId: achievement.targetPlayerId,
+          achievementKey: achievement.achievementKey,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      }
+
       game.updatedAt = new Date().toISOString();
 
       return {
         boosts,
-        mvpPlayerId
+        mvpPlayerId,
+        achievements
       };
     });
   }

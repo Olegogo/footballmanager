@@ -148,12 +148,22 @@ test('submitQuickRating stores MVP vote and up to three stat points', async () =
         boosts: [
           { targetPlayerId: 'player_2', statKey: 'pace', points: 2 },
           { targetPlayerId: 'player_3', statKey: 'passing', points: 1 }
+        ],
+        achievements: [
+          { targetPlayerId: 'player_2', achievementKey: 'goleador' }
         ]
       }
     });
 
     assert.equal(Object.keys(store.state.statBoosts).length, 2);
     assert.equal(Object.values(store.state.mvpVotes)[0].targetPlayerId, 'player_2');
+    assert.equal(Object.keys(store.state.achievementVotes).length, 1);
+    assert.equal(Object.values(store.state.achievementVotes)[0].achievementKey, 'goleador');
+
+    const snapshot = store.getSnapshot('-1001', 'player_1');
+    assert.deepEqual(snapshot.currentGame.viewerQuickRating.achievements, [
+      { targetPlayerId: 'player_2', achievementKey: 'goleador' }
+    ]);
 
     await assert.rejects(
       () => store.submitQuickRating({
