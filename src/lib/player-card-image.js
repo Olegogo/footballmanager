@@ -54,6 +54,18 @@ function hasVisibleStats(player) {
   return hasRating(player) || Boolean(player?.hasSelfProfile);
 }
 
+function getCardStatusLabel(player) {
+  if (!player?.hasSelfProfile) {
+    return 'Не заполнен';
+  }
+
+  if (!hasRating(player)) {
+    return 'Нет рейтинга';
+  }
+
+  return '';
+}
+
 async function fetchPhotoDataUrl(photoUrl) {
   if (!photoUrl) {
     return '';
@@ -102,10 +114,12 @@ function renderHero(player, photoDataUrl) {
 }
 
 function renderHeroBadge(player) {
+  const statusLabel = getCardStatusLabel(player);
+
   if (!hasRating(player)) {
     return `
-      <rect x="24" y="24" width="154" height="50" rx="14" fill="#fffaf0"></rect>
-      <text x="101" y="57" text-anchor="middle" font-size="24" font-weight="900" fill="#1d160a">Не оценён</text>
+      <rect x="24" y="24" width="${statusLabel === 'Не заполнен' ? 170 : 168}" height="50" rx="14" fill="#fffaf0"></rect>
+      <text x="${statusLabel === 'Не заполнен' ? 109 : 108}" y="57" text-anchor="middle" font-size="24" font-weight="900" fill="#1d160a">${escapeXml(statusLabel)}</text>
     `;
   }
 
@@ -113,6 +127,14 @@ function renderHeroBadge(player) {
   return `
     <text x="32" y="82" font-size="72" font-weight="900" fill="#fffaf0">${escapeXml(Math.round(Number(player.overall)))}</text>
     <text x="36" y="124" font-size="34" font-weight="900" fill="#fffaf0">${escapeXml(position)}</text>
+    ${
+      statusLabel
+        ? `
+          <rect x="24" y="146" width="170" height="50" rx="14" fill="#fffaf0"></rect>
+          <text x="109" y="179" text-anchor="middle" font-size="24" font-weight="900" fill="#1d160a">${escapeXml(statusLabel)}</text>
+        `
+        : ''
+    }
   `;
 }
 

@@ -629,6 +629,30 @@ function hasVisibleStats(player, currentStats = null) {
   return Boolean(currentStats?.hasRatings || player.ratedGames > 0 || player.hasSelfProfile);
 }
 
+function getEmptyPlayerStatusLabel(player, game = null) {
+  if (!player?.hasSelfProfile) {
+    return 'Не заполнен';
+  }
+
+  if (game?.hasStarted || game?.ratingWindowOpen || game?.status === 'live' || game?.status === 'finished') {
+    return 'Не оценён';
+  }
+
+  return 'Нет рейтинга';
+}
+
+function getCardStatusLabel(player, currentStats = null) {
+  if (!player?.hasSelfProfile) {
+    return 'Не заполнен';
+  }
+
+  if (!hasVisibleRating(player, currentStats)) {
+    return 'Нет рейтинга';
+  }
+
+  return '';
+}
+
 function getPlayerOverallLabel(player, currentStats = null) {
   if (!hasVisibleRating(player, currentStats)) {
     return '';
@@ -751,7 +775,7 @@ function renderGamePlayerState(player, game) {
     return ratingValue;
   }
 
-  return '<div class="game-player-unrated">Не оценён</div>';
+  return `<div class="game-player-unrated">${escapeHtml(getEmptyPlayerStatusLabel(player, game))}</div>`;
 }
 
 function renderEditorStateBadge(player, gamePlayer, game) {
@@ -778,7 +802,7 @@ function renderEditorStateBadge(player, gamePlayer, game) {
     return '<span class="editor-status">Оценка матча</span>';
   }
 
-  return '<span class="editor-status">Не оценён</span>';
+  return `<span class="editor-status">${escapeHtml(getEmptyPlayerStatusLabel(gamePlayer, game))}</span>`;
 }
 
 function getGameDateShort(dateLabel = '') {
@@ -960,7 +984,6 @@ function renderFifaCard(player, options = {}) {
   const hasCareerRatings = player.ratedGames > 0;
   const hasRating = hasVisibleRating(player, currentStats);
   const hasStats = hasVisibleStats(player, currentStats);
-  const isUnrated = !hasRating;
   const isRatingCard = variant === 'game-rating';
   const viewerHasRatedTarget = Boolean(player.viewerHasRatedTarget);
   const hideMatchDetailsUntilViewerRates = isRatingCard && !viewerHasRatedTarget;
@@ -969,9 +992,9 @@ function renderFifaCard(player, options = {}) {
   const overall = hasCurrentRatings ? currentStats.overall : hasCareerRatings ? player.overall : null;
   const ratingDelta = currentStats?.ratingDelta ?? player.ratingDelta ?? null;
   const effectivePosition = hasCurrentRatings ? (currentStats?.position || player.position || 'N/A') : (player.position || 'N/A');
-  const position = hasRating ? effectivePosition : null;
+  const position = hasRating || player.hasSelfProfile ? effectivePosition : null;
   const statValues = hasCurrentRatings ? currentStats?.stats : player.stats;
-  const statusLabel = isUnrated ? 'Не оценён' : '';
+  const statusLabel = getCardStatusLabel(player, currentStats);
   const statPlaceholder = '-';
   const statMeta = getStatMetaForPosition(effectivePosition);
   const overviewCells = [
@@ -990,15 +1013,16 @@ function renderFifaCard(player, options = {}) {
       ${player.isMvp ? '<span class="mvp-badge">MVP</span>' : ''}
       <div class="fifa-card-hero">
         ${renderCardHero(player)}
+        ${statusLabel ? `<div class="status-badge">${escapeHtml(statusLabel)}</div>` : ''}
         ${
-          statusLabel
-            ? `<div class="status-badge">${escapeHtml(statusLabel)}</div>`
-            : `
-              <div class="hero-score">
+          hasRating
+            ? `
+              <div class="hero-score ${statusLabel ? 'hero-score--with-status' : ''}">
                 ${renderRatingValue(overall, ratingDelta, 'hero-rating-value')}
                 <span>${escapeHtml(getPositionMeta(position).card)}</span>
               </div>
             `
+            : ''
         }
       </div>
       <div class="fifa-card-panel">
@@ -1621,11 +1645,12 @@ function renderQuickGamePlayerCard(player, game, draft) {
         <div class="quick-game-card-title">
           <strong>${escapeHtml(player.displayName)}</strong>
           <span>${escapeHtml(positionLabel)}</span>
+          ${!player.hasSelfProfile ? '<em class="player-fill-status">Не заполнен</em>' : ''}
         </div>
         ${
           ratingLabel
             ? renderRatingValue(ratingLabel, currentStats?.ratingDelta, 'quick-game-card-rating')
-            : '<div class="game-player-unrated">Не оценён</div>'
+            : `<div class="game-player-unrated">${escapeHtml(getEmptyPlayerStatusLabel(player, game))}</div>`
         }
       </div>
       <div class="quick-card-grid">
@@ -1679,7 +1704,11 @@ function renderField(game, options = {}) {
                     const isInteractive = Boolean(player.canRateTarget);
                     const openAttribute = isInteractive ? `data-open-player="${escapeHtml(player.id)}"` : '';
                     const ratingLabel = getGameMiniCardRatingLabel(player, game);
-                    const showUnratedBadge = game.hasStarted && !ratingLabel;
+                    const fieldStatusLabel = !player.hasSelfProfile
+                      ? 'Не заполнен'
+                      : game.hasStarted && !ratingLabel
+                        ? 'Не оценён'
+                        : '';
                     return `
                       <button
                         type="button"
@@ -1690,7 +1719,7 @@ function renderField(game, options = {}) {
                         <div class="field-player-photo">${renderMiniAvatar(player)}</div>
                         <div class="field-player-info">
                           ${ratingLabel ? `<strong>${escapeHtml(ratingLabel)}</strong>` : ''}
-                          ${showUnratedBadge ? '<span class="field-player-unrated">Не оценён</span>' : ''}
+                          ${fieldStatusLabel ? `<span class="field-player-unrated">${escapeHtml(fieldStatusLabel)}</span>` : ''}
                           <span>${escapeHtml(player.displayName.split(' ')[0])}</span>
                           ${renderDisciplineCards(player.currentGameStats, 'field-player-cards')}
                         </div>
@@ -1718,6 +1747,7 @@ function renderGamePlayerRow(player) {
       <div class="game-player-main">
         <strong>${escapeHtml(player.displayName)}</strong>
         <span>${escapeHtml(positionLabel)}</span>
+        ${!player.hasSelfProfile ? '<em class="player-fill-status">Не заполнен</em>' : ''}
         ${renderDisciplineCards(player.currentGameStats, 'game-player-cards')}
       </div>
       ${renderGamePlayerState(player, game)}
@@ -1739,9 +1769,10 @@ function renderJoinRequestCard(player, game) {
       <div class="join-request-main">
         <strong>${escapeHtml(player.displayName)}</strong>
         <span>@${escapeHtml(player.username || 'unknown')}${statusLabel ? ` · ${escapeHtml(statusLabel)}` : ''}</span>
+        ${!player.hasSelfProfile ? '<em class="player-fill-status">Не заполнен</em>' : ''}
       </div>
       <div class="join-request-meta">
-        ${rating ? `<strong>${escapeHtml(rating)}</strong>` : '<span class="game-player-unrated">Не оценён</span>'}
+        ${rating ? `<strong>${escapeHtml(rating)}</strong>` : `<span class="game-player-unrated">${escapeHtml(getEmptyPlayerStatusLabel(player, game))}</span>`}
         ${
           player.canViewerAcceptInvite
             ? `<button type="button" class="primary-button join-request-action" data-accept-game-invite="${escapeHtml(game.id)}">Принять</button>`
@@ -2431,50 +2462,83 @@ function renderPlayersTab() {
 
 function renderAchievementBall(cx, cy, radius = 12) {
   return `
-    <circle cx="${cx}" cy="${cy}" r="${radius}" fill="currentColor"></circle>
-    <path d="M${cx - radius * 0.55} ${cy}h${radius * 1.1}M${cx} ${cy - radius * 0.55}v${radius * 1.1}" stroke="#102418" stroke-width="${Math.max(2, radius * 0.18)}" stroke-linecap="round"></path>
+    <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="currentColor" stroke-width="5"></circle>
+    <path d="M${cx - radius * 0.5} ${cy}h${radius}M${cx} ${cy - radius * 0.5}v${radius}" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
   `;
 }
 
 function renderAchievementIcon(type) {
-  const ball = renderAchievementBall;
-  const glyphs = {
-    mvp: `<path d="M48 75 59 49l20 21 24-27 10 32Z" fill="currentColor"></path>${ball(80, 95, 25)}<path d="M72 91h16l-13 10 5-16 5 16Z" fill="#12261a"></path><path d="M80 24 87 39l16 2-12 11 3 16-14-8-14 8 3-16-12-11 16-2Z" fill="currentColor"></path>`,
-    goleador: `<path d="M42 97V51h74v46M48 57h62M58 57v40M72 57v40M86 57v40M100 57v40" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path><path d="M40 106c22-16 36-24 58-28" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"></path>${ball(102, 76, 15)}`,
-    hat_trick: `${ball(80, 87, 19)}${ball(55, 58, 13)}${ball(104, 58, 13)}<path d="M54 87 35 101M106 87l19 14M80 62V41" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path>`,
-    pokerface: `<rect x="42" y="43" width="33" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="6" transform="rotate(-10 58 66)"></rect><rect x="84" y="43" width="33" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="6" transform="rotate(10 100 66)"></rect><rect x="45" y="92" width="33" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="6" transform="rotate(8 61 115)"></rect><rect x="85" y="92" width="33" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="6" transform="rotate(-8 101 115)"></rect>${ball(80, 82, 11)}`,
-    comeback_maker: `${ball(73, 87, 18)}<path d="M48 108a48 48 0 0 1 48-69" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round"></path><path d="M98 39v25h25" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"></path>`,
-    long_shot: `<path d="M44 106c22-32 48-47 78-52" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"></path><path d="M88 64V46h40v46" fill="none" stroke="currentColor" stroke-width="6"></path>${ball(50, 108, 15)}${ball(119, 53, 9)}`,
-    assistant: `<circle cx="48" cy="103" r="11" fill="currentColor"></circle><path d="M36 132c1-20 8-30 24-30s23 10 25 30" fill="currentColor"></path><circle cx="109" cy="77" r="10" fill="currentColor"></circle><path d="M98 102c0-16 7-24 20-24s19 8 21 24" fill="currentColor"></path><path d="M66 105c20-18 34-26 55-29" fill="none" stroke="currentColor" stroke-width="6" stroke-dasharray="8 8" stroke-linecap="round"></path>${ball(90, 90, 10)}`,
-    playmaker: `${ball(80, 82, 15)}<path d="M41 53 58 70M119 53l-17 17M44 112l27-17M116 112 89 95" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path><circle cx="38" cy="50" r="7" fill="currentColor"></circle><circle cx="122" cy="50" r="7" fill="currentColor"></circle><circle cx="38" cy="116" r="7" fill="currentColor"></circle><circle cx="122" cy="116" r="7" fill="currentColor"></circle>`,
-    unselfish: `<circle cx="43" cy="111" r="10" fill="currentColor"></circle><path d="M31 136c2-17 8-25 23-25s21 8 23 25" fill="currentColor"></path><path d="M53 100c22-22 39-34 69-38" fill="none" stroke="currentColor" stroke-width="6" stroke-dasharray="9 8" stroke-linecap="round"></path><path d="M91 69V43h46v38" fill="none" stroke="currentColor" stroke-width="6"></path>${ball(94, 74, 11)}`,
-    conductor: `<path d="M42 109 71 52" stroke="currentColor" stroke-width="8" stroke-linecap="round"></path>${ball(87, 80, 18)}<path d="M75 34a52 52 0 0 1 51 47M126 81l-15-8M126 81l-10 14M81 127a52 52 0 0 1-48-48M33 79l15 8M33 79l10-14" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path>`,
-    wall: `<path d="M39 51h24v18H39zM68 51h24v18H68zM97 51h24v18H97zM50 74h24v18H50zM79 74h24v18H79zM108 74h16v18h-16zM39 97h24v18H39zM68 97h24v18H68zM97 97h24v18H97z" fill="currentColor"></path>${ball(111, 84, 15)}<path d="M93 84 75 75M93 84 75 94" stroke="currentColor" stroke-width="7" stroke-linecap="round"></path>`,
-    pickpocket: `<circle cx="53" cy="58" r="10" fill="currentColor"></circle><path d="M38 98c8-20 17-29 34-33l20 16" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="116" cy="88" r="10" fill="currentColor"></circle><path d="M97 112c10-18 21-24 37-22" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round"></path>${ball(76, 103, 10)}`,
-    cat: `<path d="M39 93V55h79v50" fill="none" stroke="currentColor" stroke-width="6"></path><path d="M43 112c22-39 48-48 78-54" fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round"></path>${ball(121, 56, 12)}<path d="M59 106 42 124" stroke="currentColor" stroke-width="7" stroke-linecap="round"></path>`,
-    no_toxic: `<circle cx="55" cy="102" r="15" fill="currentColor"></circle><circle cx="105" cy="102" r="15" fill="currentColor"></circle><path d="M39 132c3-16 12-25 28-25M93 107c16 0 25 9 28 25M69 88c8-15 22-15 30 0l-15 15Z" fill="currentColor"></path><path d="M61 122c12 8 26 8 38 0" fill="none" stroke="#102418" stroke-width="5" stroke-linecap="round"></path>`,
-    maguire_day: `<circle cx="66" cy="52" r="10" fill="currentColor"></circle><path d="M51 70 82 92 63 120M82 92l34 11M42 101l24-7" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path>${ball(110, 119, 10)}<path d="M48 37c-8-11 8-16 0-26M80 34c12-8 21 4 32-4" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>`,
-    planned_it: `<path d="M42 112c19-22 47-30 76-54" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"></path><path d="M103 55h25v25" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path><path d="M45 119c0-13 12-22 27-17" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path><path d="M84 49V32h39v36" fill="none" stroke="currentColor" stroke-width="5"></path>${ball(57, 112, 12)}${ball(118, 60, 10)}`,
-    woodworker: `<path d="M113 39v86" stroke="currentColor" stroke-width="9" stroke-linecap="round"></path><path d="M47 112c18-34 37-52 66-70" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"></path>${ball(58, 93, 17)}<path d="M115 65 130 53M116 84l17 3M112 45l8-17" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>`,
-    debutant: `<path d="M51 54 68 42h24l17 12-11 19-7-4v52H69V69l-7 4Z" fill="currentColor"></path><path d="M80 69 87 84l16 2-12 11 3 16-14-8-14 8 3-16-12-11 16-2Z" fill="#102418"></path><circle cx="116" cy="110" r="11" fill="none" stroke="currentColor" stroke-width="6"></circle><path d="M124 101l14-10" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path>`,
-    stable_guy: `<rect x="41" y="46" width="78" height="70" rx="8" fill="none" stroke="currentColor" stroke-width="7"></rect><path d="M56 35v22M80 35v22M104 35v22M50 73h60" stroke="currentColor" stroke-width="7" stroke-linecap="round"></path><path d="m55 93 9 9 15-20M86 93l9 9 15-20" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path>`,
-    local_guy: `<path d="M80 36c20 0 34 14 34 33 0 26-34 58-34 58S46 95 46 69c0-19 14-33 34-33Z" fill="currentColor"></path><circle cx="80" cy="68" r="13" fill="#102418"></circle><path d="M43 125h74M55 111h50" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path>`,
-    yard_veteran: `<path d="M47 113c14 14 52 14 66 0l-10 22H57Z" fill="currentColor"></path><path d="M57 112c0-30 46-30 46 0" fill="none" stroke="currentColor" stroke-width="8"></path><path d="M38 100c-10-26 0-45 20-58M122 100c10-26 0-45-20-58" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path><path d="M80 74 88 90l18 3-13 13 3 18-16-8-16 8 3-18-13-13 18-3Z" fill="#102418"></path>`,
-    last_line: `<path d="M46 92V54h68v38M55 102c7-21 24-34 51-39" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"></path>${ball(112, 63, 12)}<path d="M61 112c18 13 39 13 57 0l-9 20H70Z" fill="currentColor"></path>`,
-    support: `<circle cx="52" cy="60" r="10" fill="currentColor"></circle><circle cx="80" cy="56" r="12" fill="currentColor"></circle><circle cx="108" cy="60" r="10" fill="currentColor"></circle><path d="M35 103c2-17 10-25 24-25M61 105c3-21 12-31 30-31M101 78c14 0 22 8 24 25" fill="currentColor"></path><path d="m62 119 9 9 21-26" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"></path>`,
-    organizer: `<rect x="44" y="39" width="72" height="88" rx="9" fill="none" stroke="currentColor" stroke-width="7"></rect><path d="M65 39h30l5 14H60Z" fill="currentColor"></path><path d="M60 76l10 10 17-22M60 106l10 10 17-22M98 70h13M98 100h13" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path>`,
-    form_up: `<path d="M44 119h68M52 119V86M75 119V70M98 119V50" stroke="currentColor" stroke-width="10" stroke-linecap="round"></path><path d="M39 78c28-27 48-37 81-44M120 34v24h-24" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"></path>`,
-    dark_horse: `<path d="M48 99c13-35 33-52 72-56l-15 21 20 14-27 7-8 30-18-18Z" fill="currentColor"></path><path d="M64 109 43 128M93 112l15 17" stroke="currentColor" stroke-width="7" stroke-linecap="round"></path><path d="M58 92 67 109l18 3-13 13 3 18-17-9-16 9 3-18-13-13 18-3Z" fill="#102418"></path>`,
-    yard_elite: `<path d="M45 80 56 48l22 25 26-31 12 38Z" fill="currentColor"></path><path d="M54 92h52l-8 29H62Z" fill="currentColor"></path><path d="M41 121c-12-25-7-46 13-64M119 121c12-25 7-46-13-64" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path>`,
-    underrated: `<path d="M47 119V82M74 119V64M101 119V45" stroke="currentColor" stroke-width="12" stroke-linecap="round"></path><path d="M89 87 98 105l20 3-14 14 3 20-18-9-18 9 3-20-14-14 20-3Z" fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="round"></path>`
+  const shapes = {
+    crown: `<path class="achievement-icon-shape" d="M45 79 57 49l23 22 25-30 12 38H45Z"></path>`,
+    goal: `<path class="achievement-icon-shape achievement-icon-stroke" d="M41 96V53h78v43M49 61h62M63 61v35M80 61v35M97 61v35"></path>`,
+    balls: `${renderAchievementBall(80, 79, 22)}${renderAchievementBall(52, 57, 12)}${renderAchievementBall(108, 57, 12)}`,
+    cards: `<rect class="achievement-icon-shape achievement-icon-stroke" x="48" y="45" width="33" height="45" rx="7" transform="rotate(-9 64 68)"></rect><rect class="achievement-icon-shape achievement-icon-stroke" x="80" y="45" width="33" height="45" rx="7" transform="rotate(9 96 68)"></rect>`,
+    arrow: `<path class="achievement-icon-shape achievement-icon-stroke" d="M45 92a38 38 0 0 1 55-45M100 47V70h23"></path>`,
+    target: `<circle class="achievement-icon-shape achievement-icon-stroke" cx="80" cy="73" r="34"></circle><circle class="achievement-icon-shape achievement-icon-stroke" cx="80" cy="73" r="18"></circle><path class="achievement-icon-shape achievement-icon-stroke" d="M80 39v68M46 73h68"></path>`,
+    pass: `<path class="achievement-icon-shape achievement-icon-stroke" d="M44 92c25-28 48-41 76-44M102 40l18 8-13 16"></path>${renderAchievementBall(48, 96, 11)}`,
+    network: `<circle class="achievement-icon-shape" cx="50" cy="62" r="9"></circle><circle class="achievement-icon-shape" cx="110" cy="62" r="9"></circle><circle class="achievement-icon-shape" cx="80" cy="97" r="9"></circle><path class="achievement-icon-shape achievement-icon-stroke" d="M58 67 72 90M102 67 88 90M60 62h40"></path>`,
+    heart: `<path class="achievement-icon-shape" d="M80 103S49 85 49 63c0-12 8-20 19-20 6 0 10 3 12 7 2-4 6-7 12-7 11 0 19 8 19 20 0 22-31 40-31 40Z"></path>`,
+    baton: `<path class="achievement-icon-shape achievement-icon-stroke" d="M48 101 103 46"></path><path class="achievement-icon-shape achievement-icon-stroke" d="M98 45c16 15 19 37 8 55M54 45c-14 17-14 38 0 55"></path>`,
+    shield: `<path class="achievement-icon-shape" d="M80 39 116 54v28c0 24-15 40-36 49-21-9-36-25-36-49V54Z"></path>`,
+    boot: `<path class="achievement-icon-shape" d="M43 85h39c17 0 26 7 35 18l-8 15H47c-12 0-18-9-14-20Z"></path><path class="achievement-icon-shape achievement-icon-cut" d="M62 85v18M82 85v18"></path>`,
+    gloves: `<path class="achievement-icon-shape" d="M49 50c8 0 13 6 13 15v34H39V65c0-9 3-15 10-15ZM86 49c8 0 13 6 13 15v35H76V64c0-9 3-15 10-15ZM111 57c8 0 12 6 12 15v27h-20V72c0-9 2-15 8-15Z"></path>`,
+    peace: `<circle class="achievement-icon-shape" cx="61" cy="80" r="16"></circle><circle class="achievement-icon-shape" cx="99" cy="80" r="16"></circle><path class="achievement-icon-shape achievement-icon-stroke" d="M50 108c19 14 41 14 60 0"></path>`,
+    alert: `<path class="achievement-icon-shape" d="M80 39 122 113H38Z"></path><path class="achievement-icon-shape achievement-icon-cut" d="M80 62v28M80 103h.1"></path>`,
+    spark: `<path class="achievement-icon-shape" d="M80 38 89 65l27 9-27 9-9 27-9-27-27-9 27-9Z"></path><path class="achievement-icon-shape achievement-icon-stroke" d="M107 42l14-14M48 112l-12 12"></path>`,
+    post: `<path class="achievement-icon-shape achievement-icon-stroke" d="M105 38v82M51 38h54"></path>${renderAchievementBall(57, 64, 16)}`,
+    shirt: `<path class="achievement-icon-shape" d="M50 54 68 43h24l18 11-12 20-8-5v54H70V69l-8 5Z"></path>`,
+    calendar: `<rect class="achievement-icon-shape achievement-icon-stroke" x="43" y="48" width="74" height="66" rx="8"></rect><path class="achievement-icon-shape achievement-icon-stroke" d="M58 38v22M102 38v22M43 70h74"></path>`,
+    pin: `<path class="achievement-icon-shape" d="M80 39c20 0 34 14 34 33 0 25-34 58-34 58S46 97 46 72c0-19 14-33 34-33Z"></path><circle class="achievement-icon-cut-fill" cx="80" cy="72" r="12"></circle>`,
+    medal: `<circle class="achievement-icon-shape achievement-icon-stroke" cx="80" cy="82" r="30"></circle><path class="achievement-icon-shape achievement-icon-stroke" d="M62 37 80 58 98 37"></path>`,
+    keeper: `<path class="achievement-icon-shape achievement-icon-stroke" d="M42 94V55h76v39M55 103c14-23 32-34 56-40"></path>${renderAchievementBall(112, 61, 11)}`,
+    support: `<circle class="achievement-icon-shape" cx="55" cy="67" r="11"></circle><circle class="achievement-icon-shape" cx="105" cy="67" r="11"></circle><path class="achievement-icon-shape achievement-icon-stroke" d="M43 106c7-16 19-24 37-24s30 8 37 24M65 111l10 10 23-28"></path>`,
+    clipboard: `<rect class="achievement-icon-shape achievement-icon-stroke" x="48" y="45" width="64" height="78" rx="8"></rect><path class="achievement-icon-shape" d="M66 38h28l5 16H61Z"></path><path class="achievement-icon-shape achievement-icon-stroke" d="M63 78h34M63 99h34"></path>`,
+    chart: `<path class="achievement-icon-shape achievement-icon-stroke" d="M44 119h72M56 119V91M80 119V72M104 119V51M50 78c24-23 43-34 68-40M118 38v22H96"></path>`,
+    horse: `<path class="achievement-icon-shape" d="M49 101c10-30 32-51 70-58l-13 22 18 14-29 8-7 28-18-17Z"></path>`,
+    top: `<path class="achievement-icon-shape" d="M46 78 58 48l21 25 25-31 12 36Z"></path><path class="achievement-icon-shape achievement-icon-stroke" d="M50 105h60"></path>`,
+    hidden: `<path class="achievement-icon-shape achievement-icon-stroke" d="M39 80c19-26 63-26 82 0-19 26-63 26-82 0Z"></path><circle class="achievement-icon-shape" cx="80" cy="80" r="14"></circle>`
   };
-  const glyph = glyphs[type] || glyphs.mvp;
+  const glyphs = {
+    mvp: { shape: shapes.crown, mark: '★', label: 'MVP' },
+    goleador: { shape: shapes.goal, mark: 'ГОЛ', label: 'снайпер' },
+    hat_trick: { shape: shapes.balls, mark: '3', label: 'гола' },
+    pokerface: { shape: shapes.cards, mark: '4', label: 'гола' },
+    comeback_maker: { shape: shapes.arrow, mark: '↺', label: 'камбэк' },
+    long_shot: { shape: shapes.target, mark: '◎', label: 'дальний' },
+    assistant: { shape: shapes.pass, mark: '→', label: 'ассист' },
+    playmaker: { shape: shapes.network, mark: '✦', label: 'плей' },
+    unselfish: { shape: shapes.heart, mark: '♡', label: 'пас' },
+    conductor: { shape: shapes.baton, mark: '∿', label: 'дирижёр' },
+    wall: { shape: shapes.shield, mark: 'ЩИТ', label: 'стена' },
+    pickpocket: { shape: shapes.boot, mark: '!', label: 'отбор' },
+    cat: { shape: shapes.gloves, mark: 'SAVE', label: 'сейв' },
+    no_toxic: { shape: shapes.peace, mark: 'OK', label: 'fair' },
+    maguire_day: { shape: shapes.alert, mark: '!', label: 'ошибка' },
+    planned_it: { shape: shapes.spark, mark: '*', label: 'случай' },
+    woodworker: { shape: shapes.post, mark: 'ШТ', label: 'каркас' },
+    debutant: { shape: shapes.shirt, mark: '1', label: 'дебют' },
+    stable_guy: { shape: shapes.calendar, mark: '5', label: 'серия' },
+    local_guy: { shape: shapes.pin, mark: '10', label: 'район' },
+    yard_veteran: { shape: shapes.medal, mark: '50', label: 'ветеран' },
+    last_line: { shape: shapes.keeper, mark: 'ВР', label: 'рубеж' },
+    support: { shape: shapes.support, mark: '✓', label: 'оценил' },
+    organizer: { shape: shapes.clipboard, mark: '+', label: 'организ.' },
+    form_up: { shape: shapes.chart, mark: '↑', label: 'форма' },
+    dark_horse: { shape: shapes.horse, mark: '★', label: 'лошадка' },
+    yard_elite: { shape: shapes.top, mark: 'TOP', label: '3' },
+    underrated: { shape: shapes.hidden, mark: '?', label: 'скрытый' }
+  };
+  const icon = glyphs[type] || glyphs.mvp;
 
   return `
     <svg class="achievement-icon achievement-icon--${escapeHtml(type)}" viewBox="0 0 160 160" aria-hidden="true">
       <rect class="achievement-icon-bg" x="10" y="10" width="140" height="140" rx="28"></rect>
       <rect class="achievement-icon-frame" x="10" y="10" width="140" height="140" rx="28"></rect>
-      <g class="achievement-icon-glyph">${glyph}</g>
+      <g class="achievement-icon-glyph">
+        ${icon.shape}
+        <text class="achievement-icon-mark" x="80" y="84">${escapeHtml(icon.mark)}</text>
+        <text class="achievement-icon-label" x="80" y="125">${escapeHtml(icon.label)}</text>
+      </g>
     </svg>
   `;
 }
@@ -2593,6 +2657,7 @@ function renderProfileTab() {
   ]);
   const achievements = getPlayerAchievements(player);
   const unlockedAchievements = achievements.filter((achievement) => achievement.count > 0);
+  const profileStatusLabel = getCardStatusLabel(player);
 
   return `
     <section class="editor-screen profile-screen" aria-label="Профиль игрока">
@@ -2601,15 +2666,16 @@ function renderProfileTab() {
         <button type="button" class="profile-share-button" data-share-profile aria-label="Поделиться профилем">
           ${renderShareIcon()}
         </button>
+        ${profileStatusLabel ? `<span class="editor-status">${escapeHtml(profileStatusLabel)}</span>` : ''}
         ${
           hasCareerRatings
             ? `
-              <div class="hero-score">
+              <div class="hero-score ${profileStatusLabel ? 'hero-score--with-status' : ''}">
                 ${renderRatingValue(player.overall, player.ratingDelta, 'hero-rating-value')}
                 <span>${escapeHtml(getPositionMeta(effectivePosition).card)}</span>
               </div>
             `
-            : '<span class="editor-status">Не оценён</span>'
+            : ''
         }
       </div>
       <div class="editor-body profile-body">
