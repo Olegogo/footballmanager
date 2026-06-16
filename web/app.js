@@ -967,6 +967,7 @@ function renderFifaCard(player, options = {}) {
   const showKnownStats = !hideMatchDetailsUntilViewerRates && hasStats;
   const showRatedTotals = !hideMatchDetailsUntilViewerRates && hasRating;
   const overall = hasCurrentRatings ? currentStats.overall : hasCareerRatings ? player.overall : null;
+  const ratingDelta = currentStats?.ratingDelta ?? player.ratingDelta ?? null;
   const effectivePosition = hasCurrentRatings ? (currentStats?.position || player.position || 'N/A') : (player.position || 'N/A');
   const position = hasRating ? effectivePosition : null;
   const statValues = hasCurrentRatings ? currentStats?.stats : player.stats;
@@ -994,7 +995,7 @@ function renderFifaCard(player, options = {}) {
             ? `<div class="status-badge">${escapeHtml(statusLabel)}</div>`
             : `
               <div class="hero-score">
-                ${renderRatingValue(overall, currentStats?.ratingDelta, 'hero-rating-value')}
+                ${renderRatingValue(overall, ratingDelta, 'hero-rating-value')}
                 <span>${escapeHtml(getPositionMeta(position).card)}</span>
               </div>
             `
@@ -1219,8 +1220,7 @@ function renderRatingBanner(game) {
       <section class="notice-banner notice-banner--rating-live">
         <div class="rating-live-main">
           <div>
-            <p>Оценка стартовала</p>
-            <span>Раздай до ${escapeHtml(game.quickRatingPoints ?? QUICK_RATING_POINTS)} очков и выбери MVP</span>
+            <p>Раздай до ${escapeHtml(game.quickRatingPoints ?? QUICK_RATING_POINTS)} очков и выбери MVP</p>
           </div>
           ${
             countdownLabel
@@ -1404,6 +1404,7 @@ function renderQuickAchievementFields(game, draft) {
 
   return `
     <section class="panel quick-rating-panel quick-rating-panel--simple">
+      <h2>Оценка</h2>
       <div class="quick-rating-fields">
         ${renderQuickSelectField({
           label: 'MVP',
@@ -1947,9 +1948,7 @@ function renderGameCard(game) {
         ${
           game.mvp.votes
             ? `<span class="game-level-badge game-level-rating">${escapeHtml(game.mvp.votes)} ${escapeHtml(getPlural(game.mvp.votes, ['голос', 'голоса', 'голосов']))}</span>`
-            : game.mvp.ratingIncrease
-              ? `<span class="game-level-badge game-level-rating">+${escapeHtml(game.mvp.ratingIncrease)}</span>`
-              : ''
+            : ''
         }
       </span>
     `
@@ -1983,16 +1982,6 @@ function renderGameCard(game) {
               <div>
                 <span>Уровень игры</span>
                 <strong class="game-card-badges-value">${gameLevelBadges}</strong>
-              </div>
-            `
-            : ''
-        }
-        ${
-          game.status !== 'upcoming'
-            ? `
-              <div>
-                <span>Всего голов</span>
-                <strong>${escapeHtml(game.totalGoals)}</strong>
               </div>
             `
             : ''
@@ -2277,7 +2266,6 @@ function renderAchievementDetailModal() {
       <section class="modal-card achievement-detail-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(achievement.title)}">
         <button type="button" class="editor-close achievement-detail-close" data-close-achievement-detail="true">×</button>
         <div class="achievement-detail-icon">${renderAchievementIcon(achievement.key)}</div>
-        <span class="achievement-detail-category">${escapeHtml(achievement.category)}</span>
         <h2>${escapeHtml(achievement.title)}</h2>
         <p>${escapeHtml(achievement.description)}</p>
       </section>
@@ -2441,64 +2429,52 @@ function renderPlayersTab() {
   `;
 }
 
+function renderAchievementBall(cx, cy, radius = 12) {
+  return `
+    <circle cx="${cx}" cy="${cy}" r="${radius}" fill="currentColor"></circle>
+    <path d="M${cx - radius * 0.55} ${cy}h${radius * 1.1}M${cx} ${cy - radius * 0.55}v${radius * 1.1}" stroke="#102418" stroke-width="${Math.max(2, radius * 0.18)}" stroke-linecap="round"></path>
+  `;
+}
+
 function renderAchievementIcon(type) {
-  if (type === 'mvp') {
-    return `
-      <svg class="achievement-icon" viewBox="0 0 160 160" aria-hidden="true">
-        <defs>
-          <radialGradient id="mvp-medal-glow" cx="36%" cy="22%" r="78%">
-            <stop offset="0" stop-color="#fff8ca"></stop>
-            <stop offset="0.38" stop-color="#f4cf58"></stop>
-            <stop offset="0.72" stop-color="#b37412"></stop>
-            <stop offset="1" stop-color="#5b3005"></stop>
-          </radialGradient>
-          <linearGradient id="mvp-crown" x1="23" x2="136" y1="27" y2="93">
-            <stop offset="0" stop-color="#fff8cc"></stop>
-            <stop offset="0.48" stop-color="#f6c83e"></stop>
-            <stop offset="1" stop-color="#9c5b08"></stop>
-          </linearGradient>
-          <filter id="mvp-shadow" x="-30%" y="-30%" width="160%" height="170%">
-            <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#2d1600" flood-opacity="0.45"></feDropShadow>
-          </filter>
-        </defs>
-        <g filter="url(#mvp-shadow)">
-          <path d="M37 67 53 31l25 30 29-36 14 42H37Z" fill="url(#mvp-crown)" stroke="#fff0a2" stroke-width="5" stroke-linejoin="round"></path>
-          <circle cx="80" cy="93" r="47" fill="url(#mvp-medal-glow)" stroke="#fff0a2" stroke-width="6"></circle>
-          <circle cx="80" cy="93" r="34" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="3"></circle>
-          <text x="80" y="103" text-anchor="middle" fill="#fff1a8" font-size="31" font-weight="900" font-family="Trebuchet MS, sans-serif">MVP</text>
-          <circle cx="53" cy="31" r="8" fill="#fff0a2"></circle>
-          <circle cx="107" cy="25" r="8" fill="#fff0a2"></circle>
-          <circle cx="121" cy="67" r="7" fill="#ffe07b"></circle>
-        </g>
-      </svg>
-    `;
-  }
+  const ball = renderAchievementBall;
+  const glyphs = {
+    mvp: `<path d="M48 75 59 49l20 21 24-27 10 32Z" fill="currentColor"></path>${ball(80, 95, 25)}<path d="M72 91h16l-13 10 5-16 5 16Z" fill="#12261a"></path><path d="M80 24 87 39l16 2-12 11 3 16-14-8-14 8 3-16-12-11 16-2Z" fill="currentColor"></path>`,
+    goleador: `<path d="M42 97V51h74v46M48 57h62M58 57v40M72 57v40M86 57v40M100 57v40" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path><path d="M40 106c22-16 36-24 58-28" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"></path>${ball(102, 76, 15)}`,
+    hat_trick: `${ball(80, 87, 19)}${ball(55, 58, 13)}${ball(104, 58, 13)}<path d="M54 87 35 101M106 87l19 14M80 62V41" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path>`,
+    pokerface: `<rect x="42" y="43" width="33" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="6" transform="rotate(-10 58 66)"></rect><rect x="84" y="43" width="33" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="6" transform="rotate(10 100 66)"></rect><rect x="45" y="92" width="33" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="6" transform="rotate(8 61 115)"></rect><rect x="85" y="92" width="33" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="6" transform="rotate(-8 101 115)"></rect>${ball(80, 82, 11)}`,
+    comeback_maker: `${ball(73, 87, 18)}<path d="M48 108a48 48 0 0 1 48-69" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round"></path><path d="M98 39v25h25" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"></path>`,
+    long_shot: `<path d="M44 106c22-32 48-47 78-52" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"></path><path d="M88 64V46h40v46" fill="none" stroke="currentColor" stroke-width="6"></path>${ball(50, 108, 15)}${ball(119, 53, 9)}`,
+    assistant: `<circle cx="48" cy="103" r="11" fill="currentColor"></circle><path d="M36 132c1-20 8-30 24-30s23 10 25 30" fill="currentColor"></path><circle cx="109" cy="77" r="10" fill="currentColor"></circle><path d="M98 102c0-16 7-24 20-24s19 8 21 24" fill="currentColor"></path><path d="M66 105c20-18 34-26 55-29" fill="none" stroke="currentColor" stroke-width="6" stroke-dasharray="8 8" stroke-linecap="round"></path>${ball(90, 90, 10)}`,
+    playmaker: `${ball(80, 82, 15)}<path d="M41 53 58 70M119 53l-17 17M44 112l27-17M116 112 89 95" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path><circle cx="38" cy="50" r="7" fill="currentColor"></circle><circle cx="122" cy="50" r="7" fill="currentColor"></circle><circle cx="38" cy="116" r="7" fill="currentColor"></circle><circle cx="122" cy="116" r="7" fill="currentColor"></circle>`,
+    unselfish: `<circle cx="43" cy="111" r="10" fill="currentColor"></circle><path d="M31 136c2-17 8-25 23-25s21 8 23 25" fill="currentColor"></path><path d="M53 100c22-22 39-34 69-38" fill="none" stroke="currentColor" stroke-width="6" stroke-dasharray="9 8" stroke-linecap="round"></path><path d="M91 69V43h46v38" fill="none" stroke="currentColor" stroke-width="6"></path>${ball(94, 74, 11)}`,
+    conductor: `<path d="M42 109 71 52" stroke="currentColor" stroke-width="8" stroke-linecap="round"></path>${ball(87, 80, 18)}<path d="M75 34a52 52 0 0 1 51 47M126 81l-15-8M126 81l-10 14M81 127a52 52 0 0 1-48-48M33 79l15 8M33 79l10-14" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path>`,
+    wall: `<path d="M39 51h24v18H39zM68 51h24v18H68zM97 51h24v18H97zM50 74h24v18H50zM79 74h24v18H79zM108 74h16v18h-16zM39 97h24v18H39zM68 97h24v18H68zM97 97h24v18H97z" fill="currentColor"></path>${ball(111, 84, 15)}<path d="M93 84 75 75M93 84 75 94" stroke="currentColor" stroke-width="7" stroke-linecap="round"></path>`,
+    pickpocket: `<circle cx="53" cy="58" r="10" fill="currentColor"></circle><path d="M38 98c8-20 17-29 34-33l20 16" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="116" cy="88" r="10" fill="currentColor"></circle><path d="M97 112c10-18 21-24 37-22" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round"></path>${ball(76, 103, 10)}`,
+    cat: `<path d="M39 93V55h79v50" fill="none" stroke="currentColor" stroke-width="6"></path><path d="M43 112c22-39 48-48 78-54" fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round"></path>${ball(121, 56, 12)}<path d="M59 106 42 124" stroke="currentColor" stroke-width="7" stroke-linecap="round"></path>`,
+    no_toxic: `<circle cx="55" cy="102" r="15" fill="currentColor"></circle><circle cx="105" cy="102" r="15" fill="currentColor"></circle><path d="M39 132c3-16 12-25 28-25M93 107c16 0 25 9 28 25M69 88c8-15 22-15 30 0l-15 15Z" fill="currentColor"></path><path d="M61 122c12 8 26 8 38 0" fill="none" stroke="#102418" stroke-width="5" stroke-linecap="round"></path>`,
+    maguire_day: `<circle cx="66" cy="52" r="10" fill="currentColor"></circle><path d="M51 70 82 92 63 120M82 92l34 11M42 101l24-7" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path>${ball(110, 119, 10)}<path d="M48 37c-8-11 8-16 0-26M80 34c12-8 21 4 32-4" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>`,
+    planned_it: `<path d="M42 112c19-22 47-30 76-54" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"></path><path d="M103 55h25v25" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path><path d="M45 119c0-13 12-22 27-17" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path><path d="M84 49V32h39v36" fill="none" stroke="currentColor" stroke-width="5"></path>${ball(57, 112, 12)}${ball(118, 60, 10)}`,
+    woodworker: `<path d="M113 39v86" stroke="currentColor" stroke-width="9" stroke-linecap="round"></path><path d="M47 112c18-34 37-52 66-70" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"></path>${ball(58, 93, 17)}<path d="M115 65 130 53M116 84l17 3M112 45l8-17" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>`,
+    debutant: `<path d="M51 54 68 42h24l17 12-11 19-7-4v52H69V69l-7 4Z" fill="currentColor"></path><path d="M80 69 87 84l16 2-12 11 3 16-14-8-14 8 3-16-12-11 16-2Z" fill="#102418"></path><circle cx="116" cy="110" r="11" fill="none" stroke="currentColor" stroke-width="6"></circle><path d="M124 101l14-10" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path>`,
+    stable_guy: `<rect x="41" y="46" width="78" height="70" rx="8" fill="none" stroke="currentColor" stroke-width="7"></rect><path d="M56 35v22M80 35v22M104 35v22M50 73h60" stroke="currentColor" stroke-width="7" stroke-linecap="round"></path><path d="m55 93 9 9 15-20M86 93l9 9 15-20" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path>`,
+    local_guy: `<path d="M80 36c20 0 34 14 34 33 0 26-34 58-34 58S46 95 46 69c0-19 14-33 34-33Z" fill="currentColor"></path><circle cx="80" cy="68" r="13" fill="#102418"></circle><path d="M43 125h74M55 111h50" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path>`,
+    yard_veteran: `<path d="M47 113c14 14 52 14 66 0l-10 22H57Z" fill="currentColor"></path><path d="M57 112c0-30 46-30 46 0" fill="none" stroke="currentColor" stroke-width="8"></path><path d="M38 100c-10-26 0-45 20-58M122 100c10-26 0-45-20-58" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path><path d="M80 74 88 90l18 3-13 13 3 18-16-8-16 8 3-18-13-13 18-3Z" fill="#102418"></path>`,
+    last_line: `<path d="M46 92V54h68v38M55 102c7-21 24-34 51-39" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"></path>${ball(112, 63, 12)}<path d="M61 112c18 13 39 13 57 0l-9 20H70Z" fill="currentColor"></path>`,
+    support: `<circle cx="52" cy="60" r="10" fill="currentColor"></circle><circle cx="80" cy="56" r="12" fill="currentColor"></circle><circle cx="108" cy="60" r="10" fill="currentColor"></circle><path d="M35 103c2-17 10-25 24-25M61 105c3-21 12-31 30-31M101 78c14 0 22 8 24 25" fill="currentColor"></path><path d="m62 119 9 9 21-26" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"></path>`,
+    organizer: `<rect x="44" y="39" width="72" height="88" rx="9" fill="none" stroke="currentColor" stroke-width="7"></rect><path d="M65 39h30l5 14H60Z" fill="currentColor"></path><path d="M60 76l10 10 17-22M60 106l10 10 17-22M98 70h13M98 100h13" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path>`,
+    form_up: `<path d="M44 119h68M52 119V86M75 119V70M98 119V50" stroke="currentColor" stroke-width="10" stroke-linecap="round"></path><path d="M39 78c28-27 48-37 81-44M120 34v24h-24" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"></path>`,
+    dark_horse: `<path d="M48 99c13-35 33-52 72-56l-15 21 20 14-27 7-8 30-18-18Z" fill="currentColor"></path><path d="M64 109 43 128M93 112l15 17" stroke="currentColor" stroke-width="7" stroke-linecap="round"></path><path d="M58 92 67 109l18 3-13 13 3 18-17-9-16 9 3-18-13-13 18-3Z" fill="#102418"></path>`,
+    yard_elite: `<path d="M45 80 56 48l22 25 26-31 12 38Z" fill="currentColor"></path><path d="M54 92h52l-8 29H62Z" fill="currentColor"></path><path d="M41 121c-12-25-7-46 13-64M119 121c12-25 7-46-13-64" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path>`,
+    underrated: `<path d="M47 119V82M74 119V64M101 119V45" stroke="currentColor" stroke-width="12" stroke-linecap="round"></path><path d="M89 87 98 105l20 3-14 14 3 20-18-9-18 9 3-20-14-14 20-3Z" fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="round"></path>`
+  };
+  const glyph = glyphs[type] || glyphs.mvp;
 
   return `
-    <svg class="achievement-icon" viewBox="0 0 160 160" aria-hidden="true">
-      <defs>
-        <radialGradient id="goal-ball" cx="34%" cy="22%" r="72%">
-          <stop offset="0" stop-color="#ffffff"></stop>
-          <stop offset="0.46" stop-color="#f7f2dd"></stop>
-          <stop offset="1" stop-color="#9a9a90"></stop>
-        </radialGradient>
-        <linearGradient id="goal-base" x1="35" x2="126" y1="112" y2="148">
-          <stop offset="0" stop-color="#ffe79b"></stop>
-          <stop offset="0.5" stop-color="#cb8724"></stop>
-          <stop offset="1" stop-color="#5b3408"></stop>
-        </linearGradient>
-        <filter id="goal-shadow" x="-30%" y="-30%" width="160%" height="170%">
-          <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#07140f" flood-opacity="0.55"></feDropShadow>
-        </filter>
-      </defs>
-      <g filter="url(#goal-shadow)">
-        <path d="M50 121h60l12 22H38l12-22Z" fill="url(#goal-base)" stroke="#ffe7a1" stroke-width="4" stroke-linejoin="round"></path>
-        <path d="M66 100h28l8 22H58l8-22Z" fill="#d7a547" stroke="#ffefb4" stroke-width="4"></path>
-        <circle cx="80" cy="65" r="45" fill="url(#goal-ball)" stroke="#fbf8e9" stroke-width="5"></circle>
-        <path d="m80 39 16 12-6 19H70l-6-19 16-12Z" fill="#26322d"></path>
-        <path d="m43 62 21-11 6 19-13 15-16-7M117 62 96 51l-6 19 13 15 16-7M62 101l8-31h20l8 31M51 34l13 17M109 34 96 51" fill="none" stroke="#26322d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
-        <path d="M80 52 85 63l12 1-9 8 3 12-11-6-11 6 3-12-9-8 12-1 5-11Z" fill="#ffe27b"></path>
-      </g>
+    <svg class="achievement-icon achievement-icon--${escapeHtml(type)}" viewBox="0 0 160 160" aria-hidden="true">
+      <rect class="achievement-icon-bg" x="10" y="10" width="140" height="140" rx="28"></rect>
+      <rect class="achievement-icon-frame" x="10" y="10" width="140" height="140" rx="28"></rect>
+      <g class="achievement-icon-glyph">${glyph}</g>
     </svg>
   `;
 }
@@ -2629,7 +2605,7 @@ function renderProfileTab() {
           hasCareerRatings
             ? `
               <div class="hero-score">
-                <strong>${escapeHtml(player.overall)}</strong>
+                ${renderRatingValue(player.overall, player.ratingDelta, 'hero-rating-value')}
                 <span>${escapeHtml(getPositionMeta(effectivePosition).card)}</span>
               </div>
             `

@@ -1044,6 +1044,45 @@ function buildPlayerAchievementIndex(state, games, career, now = new Date()) {
   return achievementIndex;
 }
 
+function buildLatestRatingDeltaIndex(state, games, now = new Date()) {
+  const career = new Map();
+  const playersById = new Map(Object.values(state.players ?? {}).map((player) => [player.id, player]));
+  const latestDeltaByPlayerId = {};
+
+  for (const player of playersById.values()) {
+    const entry = createEmptyCareerEntry();
+    applyCareerSeedToEntry(entry, player.careerSeed);
+    career.set(player.id, entry);
+  }
+
+  for (const game of games.filter((item) => isFinalizedForCareer(item, now)).sort(compareByDate)) {
+    const aggregation = buildGameAggregation(state, game.id);
+    const boostAggregation = buildGameBoostAggregation(state, game.id);
+
+    for (const playerId of game.playerIds) {
+      const entry = ensureCareerEntry(career, playerId);
+      const previousOverall = entry.ratedGames > 0 ? Number(finalizeCareerEntry(entry).overall) : null;
+      const gameStats = aggregation?.players[playerId];
+      const boostSummary = boostAggregation?.players[playerId];
+      const hasRatingActivity = Boolean(gameStats?.hasRatings || boostAggregation?.hasActivity);
+
+      applyGameToCareerEntry(entry, gameStats);
+
+      if (gameStats?.hasRatings) {
+        applyBoostsToCareerEntry(entry, boostSummary, playersById.get(playerId), true);
+      } else {
+        applyQuickFormToCareerEntry(entry, boostSummary, boostAggregation, playersById.get(playerId));
+      }
+
+      if (hasRatingActivity && previousOverall !== null) {
+        latestDeltaByPlayerId[playerId] = round(finalizeCareerEntry(entry).overall - previousOverall, 2);
+      }
+    }
+  }
+
+  return latestDeltaByPlayerId;
+}
+
 function getLatestMvpForGames(state, games, now = new Date()) {
   const mvpIndex = buildGameMvpIndexForGames(state, games, now);
 
@@ -1357,6 +1396,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
   const globalCareer = buildGlobalCareerIndex(state, now);
   const latestMvp = getLatestMvpForGames(state, allGames, now);
   const achievementIndex = buildPlayerAchievementIndex(state, allGames, globalCareer, now);
+  const ratingDeltaIndex = buildLatestRatingDeltaIndex(state, allGames, now);
   const buildPlayerCard = (player, playerCareer, isMvp = false) => {
     const careerEntry = playerCareer ?? {
       games: 0,
@@ -1382,6 +1422,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       lastName: player.lastName,
       photoUrl: player.photoUrl,
       overall: careerEntry.overall,
+      ratingDelta: ratingDeltaIndex[player.id] ?? null,
       position: careerEntry.ratedGames ? careerEntry.position : (player.selfProfile?.position || player.defaultPosition || 'N/A'),
       stats: careerEntry.ratedGames ? careerEntry.stats : (player.selfProfile?.stats || careerEntry.stats),
       games: careerEntry.games,

@@ -548,10 +548,7 @@ export class TelegramBot {
           .map((achievement) => achievement?.title)
           .filter(Boolean)
       : [];
-    const suffix = [
-      mvp.ratingIncrease ? `+${mvp.ratingIncrease}` : '',
-      achievementTitles.length ? achievementTitles.join(', ') : ''
-    ].filter(Boolean).join(' · ');
+    const suffix = achievementTitles.length ? achievementTitles.join(', ') : '';
 
     return `${mvp.displayName}${suffix ? ` (${suffix})` : ''}`;
   }
