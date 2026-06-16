@@ -289,6 +289,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'GET' && /^\/assets\/achievements\/[a-z0-9-]+\.svg$/.test(url.pathname)) {
+      serveStaticFile(res, path.join(config.webDir, url.pathname.slice(1)));
+      return;
+    }
+
     if (req.method === 'GET' && url.pathname === '/lib/lineup.js') {
       serveStaticFile(res, path.join(config.rootDir, 'src/lib/lineup.js'));
       return;

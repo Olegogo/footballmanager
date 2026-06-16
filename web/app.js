@@ -2487,6 +2487,28 @@ function renderAchievementBall(cx, cy, radius = 12) {
 }
 
 function renderAchievementIcon(type) {
+  const assetIcons = {
+    mvp: '/assets/achievements/mvp.svg',
+    debutant: '/assets/achievements/debutant.svg',
+    support: '/assets/achievements/support.svg',
+    last_line: '/assets/achievements/last-line.svg',
+    dark_horse: '/assets/achievements/dark-horse.svg',
+    yard_elite: '/assets/achievements/yard-elite.svg'
+  };
+  const assetSrc = assetIcons[type];
+
+  if (assetSrc) {
+    return `
+      <img
+        class="achievement-icon achievement-icon--asset achievement-icon--${escapeHtml(type)}"
+        src="${escapeHtml(assetSrc)}"
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+      >
+    `;
+  }
+
   const shapes = {
     crown: `<path class="achievement-icon-shape" d="M45 79 57 49l23 22 25-30 12 38H45Z"></path>`,
     goal: `<path class="achievement-icon-shape achievement-icon-stroke" d="M41 96V53h78v43M49 61h62M63 61v35M80 61v35M97 61v35"></path>`,
