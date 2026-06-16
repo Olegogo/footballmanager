@@ -55,7 +55,7 @@ const QUICK_ACHIEVEMENTS = [
   { key: 'organizer', title: 'Организатор', category: 'Автоматические', description: 'Создал первый матч.', automatic: true },
   { key: 'form_up', title: 'Апнул форму', category: 'Автоматические', description: 'Поднял среднюю оценку за последние 5 игр.', automatic: true },
   { key: 'dark_horse', title: 'Темная лошадка', category: 'Автоматические', description: 'Пришёл с низким рейтингом и получил MVP.', automatic: true },
-  { key: 'yard_elite', title: 'Элита двора', category: 'Автоматические', description: 'Достиг топ-10 рейтинга.', automatic: true },
+  { key: 'yard_elite', title: 'Элита двора', category: 'Автоматические', description: 'Достиг топ-3 рейтинга.', automatic: true },
   { key: 'underrated', title: 'Недооценённый', category: 'Автоматические', description: 'Высокая статистика, но мало голосов за MVP.', automatic: true }
 ];
 const QUICK_ACHIEVEMENT_BY_KEY = Object.fromEntries(QUICK_ACHIEVEMENTS.map((achievement) => [achievement.key, achievement]));
@@ -153,6 +153,7 @@ const state = {
   selectedGameId: launchContext.gameId,
   selfProfileDraft: null,
   selfProfileEditing: false,
+  selfProfilePromptDismissedFor: '',
   gameActionsOpen: false,
   achievementDetailKey: '',
   ratingDrafts: {},
@@ -704,20 +705,50 @@ function renderRatingCountBadge(count, className = 'rating-count-badge') {
   `;
 }
 
+function getRatingTrend(delta) {
+  const number = Number(delta);
+
+  if (!Number.isFinite(number) || Math.abs(number) < 0.5) {
+    return null;
+  }
+
+  return number > 0 ? 'up' : 'down';
+}
+
+function renderRatingValue(value, delta, className = 'rating-value') {
+  const trend = getRatingTrend(delta);
+
+  if (!value && value !== 0) {
+    return '';
+  }
+
+  return `
+    <span class="${escapeHtml(className)} ${trend ? `rating-value--${trend}` : ''}">
+      ${trend ? `<i aria-hidden="true">${trend === 'up' ? '↑' : '↓'}</i>` : ''}
+      <strong>${escapeHtml(value)}</strong>
+    </span>
+  `;
+}
+
 function renderGamePlayerState(player, game) {
   const ratingState = getGamePlayerRatingState(player, game);
+  const ratingValue = renderRatingValue(
+    ratingState.rating,
+    player.currentGameStats?.ratingDelta,
+    'game-player-rating'
+  );
 
   if (ratingState.phase === 'live-rated') {
     return `
       <div class="game-player-badges">
         ${renderRatingCountBadge(ratingState.ratingsCount, 'game-player-count')}
-        <div class="game-player-rating">${escapeHtml(ratingState.rating)}</div>
+        ${ratingValue}
       </div>
     `;
   }
 
   if (ratingState.phase === 'closed-rated' || ratingState.phase === 'pre-game-rated') {
-    return `<div class="game-player-rating">${escapeHtml(ratingState.rating)}</div>`;
+    return ratingValue;
   }
 
   return '<div class="game-player-unrated">Не оценён</div>';
@@ -734,13 +765,13 @@ function renderEditorStateBadge(player, gamePlayer, game) {
     return `
       <div class="editor-status-group">
         ${renderRatingCountBadge(ratingState.ratingsCount, 'editor-count-badge')}
-        <span class="editor-live-rating">${escapeHtml(ratingState.rating)}</span>
+        ${renderRatingValue(ratingState.rating, gamePlayer.currentGameStats?.ratingDelta, 'editor-live-rating')}
       </div>
     `;
   }
 
   if (ratingState.phase === 'closed-rated') {
-    return `<span class="editor-final-rating">${escapeHtml(ratingState.rating)}</span>`;
+    return renderRatingValue(ratingState.rating, gamePlayer.currentGameStats?.ratingDelta, 'editor-final-rating');
   }
 
   if (ratingState.phase === 'pre-game-rated') {
@@ -963,7 +994,7 @@ function renderFifaCard(player, options = {}) {
             ? `<div class="status-badge">${escapeHtml(statusLabel)}</div>`
             : `
               <div class="hero-score">
-                <strong>${escapeHtml(overall)}</strong>
+                ${renderRatingValue(overall, currentStats?.ratingDelta, 'hero-rating-value')}
                 <span>${escapeHtml(getPositionMeta(position).card)}</span>
               </div>
             `
@@ -1063,6 +1094,30 @@ function renderEditorRange(name, label, value) {
   `;
 }
 
+function renderSelfProfileStatStepper(name, label, value) {
+  const safeValue = Math.max(1, Math.min(99, Math.round(Number(value ?? 50))));
+
+  return `
+    <div class="profile-stat-stepper quick-card-stat" data-stepper-name="${escapeHtml(name)}">
+      <button
+        type="button"
+        data-stepper-action="decrement"
+        data-stepper-name="${escapeHtml(name)}"
+        aria-label="Уменьшить ${escapeHtml(label)}"
+      >−</button>
+      <span>${escapeHtml(label)}</span>
+      <strong data-stepper-value>${escapeHtml(safeValue)}</strong>
+      <input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(safeValue)}" min="1" max="99">
+      <button
+        type="button"
+        data-stepper-action="increment"
+        data-stepper-name="${escapeHtml(name)}"
+        aria-label="Увеличить ${escapeHtml(label)}"
+      >+</button>
+    </div>
+  `;
+}
+
 function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
   const currentStats = gamePlayer?.currentGameStats ?? null;
   const statMeta = getStatMetaForPosition(defaults.position);
@@ -1156,22 +1211,36 @@ function renderGameHeader(game) {
 function renderRatingBanner(game) {
   if (game.ratingWindowOpen) {
     const countdownLabel = getRatingCountdownLabel(game.ratingWindowEndsAt);
+    const draft = getQuickRatingDraft(game);
+    const remainingPoints = Math.max(0, Number(game.quickRatingPoints ?? QUICK_RATING_POINTS) - getQuickRatingPointsUsed(draft));
+    const ratedCount = Math.max(0, Math.round(Number(game.quickRatersCount ?? 0)));
 
     return `
       <section class="notice-banner notice-banner--rating-live">
-        <div>
-          <p>Оценка стартовала</p>
+        <div class="rating-live-main">
+          <div>
+            <p>Оценка стартовала</p>
+            <span>Раздай до ${escapeHtml(game.quickRatingPoints ?? QUICK_RATING_POINTS)} очков и выбери MVP</span>
+          </div>
+          ${
+            countdownLabel
+              ? `<strong data-rating-countdown="${escapeHtml(game.ratingWindowEndsAt)}">${escapeHtml(countdownLabel)}</strong>`
+              : ''
+          }
+        </div>
+        <div class="rating-live-chips">
+          <span>${escapeHtml(remainingPoints)} ${escapeHtml(getPlural(remainingPoints, ['очко', 'очка', 'очков']))} осталось</span>
+          ${
+            ratedCount
+              ? `<span>${escapeHtml(ratedCount)} уже ${escapeHtml(ratedCount === 1 ? 'оценил' : 'оценили')}</span>`
+              : ''
+          }
           ${
             game.viewerIsParticipant
               ? ''
-              : '<span>Оценивать могут только участники текущего матча.</span>'
+              : '<span>Только участники матча</span>'
           }
         </div>
-        ${
-          countdownLabel
-            ? `<strong data-rating-countdown="${escapeHtml(game.ratingWindowEndsAt)}">${escapeHtml(countdownLabel)}</strong>`
-            : ''
-        }
       </section>
     `;
   }
@@ -1335,13 +1404,6 @@ function renderQuickAchievementFields(game, draft) {
 
   return `
     <section class="panel quick-rating-panel quick-rating-panel--simple">
-      <div class="quick-rating-head">
-        <div>
-          <h3>Оценка матча</h3>
-          <p>Выбери заметных игроков, раздай до ${QUICK_RATING_POINTS} очков статов и добавь ачивки.</p>
-        </div>
-        <strong>${escapeHtml(Math.max(0, QUICK_RATING_POINTS - getQuickRatingPointsUsed(draft)))} осталось</strong>
-      </div>
       <div class="quick-rating-fields">
         ${renderQuickSelectField({
           label: 'MVP',
@@ -1359,18 +1421,27 @@ function renderQuickAchievementFields(game, draft) {
               ${extraAchievementKeys.map((key) => renderQuickAchievementField(game, draft, key)).join('')}
               <div class="quick-add-achievement-wrap">
                 <button type="button" class="quick-add-achievement" data-toggle-quick-achievements="${escapeHtml(game.id)}">
-                  + Добавить ачивку
+                  Добавить
                 </button>
                 ${renderQuickAchievementPicker(game, draft)}
               </div>
             `
-            : ''
+          : ''
         }
       </div>
-      <button type="button" class="primary-button quick-rating-submit" data-submit-quick-rating="${escapeHtml(game.id)}">
-        Добавить оценку
-      </button>
     </section>
+  `;
+}
+
+function renderQuickFloatingSave(game) {
+  if (!game?.canViewerRate) {
+    return '';
+  }
+
+  return `
+    <div class="quick-floating-save">
+      <button type="button" class="primary-button" data-submit-quick-rating="${escapeHtml(game.id)}">Сохранить</button>
+    </div>
   `;
 }
 
@@ -1531,7 +1602,13 @@ function renderQuickPlayerStatControl(player, game, draft, key, label) {
 function renderQuickGamePlayerCard(player, game, draft) {
   const ratingState = getGamePlayerRatingState(player, game);
   const currentStats = player.currentGameStats ?? null;
-  const ratingLabel = ratingState.rating || (player.ratedGames > 0 ? Math.round(Number(player.overall)) : '');
+  const ratingLabel = ratingState.hasMatchRating
+    ? ratingState.rating
+    : game?.ratingWindowOpen
+      ? ''
+      : player.ratedGames > 0
+        ? Math.round(Number(player.overall))
+        : '';
   const positionLabel = getGamePlayerPositionLabel(player);
   const statMeta = getStatMetaForPosition(currentStats?.position || player.position || 'N/A');
   const achievements = getPlayerDraftAchievements(player, game, draft);
@@ -1546,7 +1623,7 @@ function renderQuickGamePlayerCard(player, game, draft) {
         </div>
         ${
           ratingLabel
-            ? `<div class="quick-game-card-rating">${escapeHtml(ratingLabel)}</div>`
+            ? renderRatingValue(ratingLabel, currentStats?.ratingDelta, 'quick-game-card-rating')
             : '<div class="game-player-unrated">Не оценён</div>'
         }
       </div>
@@ -1787,6 +1864,7 @@ function renderGameTab() {
     ${renderGamePlayersList(game)}
     ${isRatingMode ? '' : renderWaitingPlayersSection(game)}
     ${isRatingMode ? '' : renderQuickRatingPanel(game)}
+    ${isRatingMode ? renderQuickFloatingSave(game) : ''}
   `;
 }
 
@@ -2207,6 +2285,38 @@ function renderAchievementDetailModal() {
   `;
 }
 
+function shouldShowSelfProfilePrompt() {
+  const player = getViewerPlayer();
+
+  return Boolean(
+    player &&
+    state.selfProfilePromptDismissedFor !== player.id &&
+    !player.ratedGames &&
+    !player.hasSelfProfile &&
+    !state.selfProfileEditing &&
+    !state.manualGameOpen &&
+    !state.selectedPlayerId &&
+    !state.achievementDetailKey
+  );
+}
+
+function renderSelfProfilePromptModal() {
+  if (!shouldShowSelfProfilePrompt()) {
+    return '';
+  }
+
+  return `
+    <div class="modal-backdrop" data-self-profile-prompt-backdrop="true">
+      <section class="modal-card self-profile-prompt" role="dialog" aria-modal="true" aria-label="Заполни карточку игрока">
+        <button class="modal-close" type="button" data-dismiss-self-profile-prompt="true">×</button>
+        <h2>Твоя карточка игрока не заполнена</h2>
+        <p>Пройди самооценку, чтобы лучше подобрать игру и помочь командам распределяться честнее.</p>
+        <button type="button" class="primary-button" data-start-self-profile="true">Пройти</button>
+      </section>
+    </div>
+  `;
+}
+
 function renderGamesTab() {
   const games = getFilteredGames();
 
@@ -2450,7 +2560,11 @@ function renderSelfProfileForm(player, defaults) {
           <path d="M6.7 8.8a1 1 0 0 1 1.4 0L12 12.7l3.9-3.9a1 1 0 1 1 1.4 1.4l-4.6 4.6a1 1 0 0 1-1.4 0L6.7 10.2a1 1 0 0 1 0-1.4z"></path>
         </svg>
       </label>
-      ${getStatMetaForPosition(effectivePosition).map(([key, label]) => renderEditorRange(key, label.toLowerCase(), defaults[key] ?? 50)).join('')}
+      <div class="profile-stat-grid">
+        ${getStatMetaForPosition(effectivePosition)
+          .map(([key, label]) => renderSelfProfileStatStepper(key, label.toLowerCase(), defaults[key] ?? 50))
+          .join('')}
+      </div>
       <button type="submit" class="primary-button card-action profile-submit">Сохранить</button>
     </form>
   `;
@@ -2669,9 +2783,10 @@ function renderModal() {
   const createGameModal = renderCreateGameModal();
   const gameActionsModal = renderGameActionsModal();
   const achievementDetailModal = renderAchievementDetailModal();
+  const selfProfilePromptModal = renderSelfProfilePromptModal();
 
   if (!player) {
-    modalRoot.innerHTML = [createGameModal, gameActionsModal, achievementDetailModal].join('');
+    modalRoot.innerHTML = [createGameModal, gameActionsModal, achievementDetailModal, selfProfilePromptModal].join('');
     return;
   }
 
@@ -2697,7 +2812,8 @@ function renderModal() {
     renderEditorScreen(player, gamePlayer, editable, defaults, game),
     createGameModal,
     gameActionsModal,
-    achievementDetailModal
+    achievementDetailModal,
+    selfProfilePromptModal
   ].join('');
 }
 
@@ -3087,7 +3203,11 @@ function updateStepper(form, name, delta) {
     valueNode.textContent = String(nextValue);
   }
 
-  saveRatingFormDraft(form);
+  if (form.id === 'selfProfileForm') {
+    saveSelfProfileDraft(form);
+  } else {
+    saveRatingFormDraft(form);
+  }
 }
 
 document.getElementById('refreshButton')?.addEventListener('click', async () => {
@@ -3197,6 +3317,26 @@ document.addEventListener('click', async (event) => {
   if (event.target.matches('[data-achievement-detail-backdrop]') || event.target.closest('[data-close-achievement-detail]')) {
     state.achievementDetailKey = '';
     renderModal();
+    return;
+  }
+
+  if (event.target.matches('[data-self-profile-prompt-backdrop]') || event.target.closest('[data-dismiss-self-profile-prompt]')) {
+    const player = getViewerPlayer();
+    state.selfProfilePromptDismissedFor = player?.id || 'dismissed';
+    renderModal();
+    return;
+  }
+
+  const startSelfProfileButton = event.target.closest('[data-start-self-profile]');
+
+  if (startSelfProfileButton) {
+    const player = getViewerPlayer();
+    state.selfProfilePromptDismissedFor = player?.id || 'started';
+    state.activeTab = 'profile';
+    state.selfProfileEditing = true;
+    state.selectedPlayerId = null;
+    state.manualGameOpen = false;
+    render();
     return;
   }
 

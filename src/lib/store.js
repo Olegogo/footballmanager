@@ -207,6 +207,10 @@ function isSameAnnouncementSchedule(game, announcement) {
   return game.date === announcement.date && game.time === announcement.time;
 }
 
+function isSameAnnouncementDate(game, announcement) {
+  return game.date === announcement.date;
+}
+
 function createDateWithOffset(year, monthIndex, day, hours, minutes, offset) {
   const match = String(offset).trim().match(/^([+-])(\d{2}):(\d{2})$/);
 
@@ -1211,7 +1215,30 @@ export class AppStore {
         return { created: false, updated: false, game: existingBySchedule };
       }
 
-      if (currentGame && isGameEditableBeforeStart(currentGame, effectiveNow)) {
+      const existingByDate = Object.values(state.games)
+        .filter((game) => game.chatId === String(chatId) && isSameAnnouncementDate(game, announcement))
+        .sort((left, right) => new Date(right.updatedAt || right.createdAt || right.scheduledAt) - new Date(left.updatedAt || left.createdAt || left.scheduledAt))[0];
+
+      if (existingByDate) {
+        if (isGameEditableBeforeStart(existingByDate, effectiveNow)) {
+          const game = applyAnnouncementToGame(state, existingByDate, {
+            chatId,
+            messageId,
+            rawText,
+            announcement,
+            organizerPlayerId,
+            source,
+            sourceDate,
+            nowIso: now
+          });
+          setCurrentGame(chat, game, now, currentGame);
+          return { created: false, updated: true, game };
+        }
+
+        return { created: false, updated: false, game: existingByDate };
+      }
+
+      if (currentGame && isSameAnnouncementDate(currentGame, announcement) && isGameEditableBeforeStart(currentGame, effectiveNow)) {
         const game = applyAnnouncementToGame(state, currentGame, {
           chatId,
           messageId,

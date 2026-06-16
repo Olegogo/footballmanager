@@ -538,11 +538,27 @@ export class TelegramBot {
     return `${label} (${Math.round(rating)})`;
   }
 
+  formatMvpSummaryLabel(mvp) {
+    if (!mvp) {
+      return '';
+    }
+
+    const achievementTitles = Array.isArray(mvp.achievements)
+      ? mvp.achievements
+          .map((achievement) => achievement?.title)
+          .filter(Boolean)
+      : [];
+    const suffix = [
+      mvp.ratingIncrease ? `+${mvp.ratingIncrease}` : '',
+      achievementTitles.length ? achievementTitles.join(', ') : ''
+    ].filter(Boolean).join(' · ');
+
+    return `${mvp.displayName}${suffix ? ` (${suffix})` : ''}`;
+  }
+
   formatGameSummary(game) {
     const summary = this.getGameSummaryView(game.id);
-    const mvpLabel = summary?.mvp
-      ? `${summary.mvp.displayName}${summary.mvp.ratingIncrease ? ` +${summary.mvp.ratingIncrease}` : ''}`
-      : '';
+    const mvpLabel = this.formatMvpSummaryLabel(summary?.mvp);
     const levelLabel = this.formatGameLevel(summary?.averageOverall);
     const cardsText = this.formatCardsText(summary?.cards);
 
@@ -554,7 +570,6 @@ export class TelegramBot {
       '',
       levelLabel ? `Уровень игры: ${escapeTelegramHtml(levelLabel)}` : '',
       mvpLabel ? `MVP: ${escapeTelegramHtml(mvpLabel)}` : '',
-      `Голов всего: ${escapeTelegramHtml(summary?.totalGoals ?? 0)}`,
       cardsText ? `Карточки: ${escapeTelegramHtml(cardsText)}` : ''
     ].filter(Boolean).join('\n');
   }
@@ -870,12 +885,14 @@ export class TelegramBot {
     }
 
     const sourceDate = new Date((source.sourceMessage?.date ?? message.date ?? Math.floor(Date.now() / 1000)) * 1000);
-    const announcement = parseAnnouncementText(source.rawText, sourceDate);
+    const announcement = parseAnnouncementText(source.rawText, sourceDate, {
+      requirePaymentBlock: false
+    });
 
     if (!announcement) {
       await this.sendText(
         message.chat.id,
-        'Не смог распознать игру. Проверь, что в анонсе есть дата, время, игроки и блок оплаты с 89295991499 / Альфа, Тинь, Сбер.'
+        'Не смог распознать игру. Проверь, что в анонсе есть дата, время, место и список игроков.'
       );
       return;
     }
@@ -924,7 +941,7 @@ export class TelegramBot {
       ? this.store.findGameByMessage?.(message.chat.id, message.message_id)
       : null;
     const announcement = parseAnnouncementText(rawText, sourceDate, {
-      requirePaymentBlock: !existingEditedGame
+      requirePaymentBlock: false
     });
 
     if (!announcement) {

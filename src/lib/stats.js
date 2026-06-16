@@ -1013,10 +1013,10 @@ function buildPlayerAchievementIndex(state, games, career, now = new Date()) {
     }
   }
 
-  const topTenPlayerIds = [...career.entries()]
+  const topThreePlayerIds = [...career.entries()]
     .filter(([, entry]) => entry.ratedGames > 0)
     .sort((left, right) => Number(right[1].overall ?? 0) - Number(left[1].overall ?? 0))
-    .slice(0, 10)
+    .slice(0, 3)
     .map(([playerId]) => playerId);
 
   for (const [playerId, entry] of career.entries()) {
@@ -1036,7 +1036,7 @@ function buildPlayerAchievementIndex(state, games, career, now = new Date()) {
       incrementAchievement(achievementIndex, playerId, 'local_guy');
     }
 
-    if (topTenPlayerIds.includes(playerId)) {
+    if (topThreePlayerIds.includes(playerId)) {
       incrementAchievement(achievementIndex, playerId, 'yard_elite');
     }
   }
@@ -1182,6 +1182,16 @@ function buildGamesView(state, games, playerCards, now) {
       const boostAggregation = buildGameBoostAggregation(state, game.id);
       const mvp = mvpIndex.get(game.id);
       const mvpPlayer = mvp ? playersById.get(mvp.playerId) : null;
+      const mvpAchievementCounts = mvp
+        ? boostAggregation?.players?.[mvp.playerId]?.achievementCounts ?? {}
+        : {};
+      const mvpAchievements = Object.entries(mvpAchievementCounts)
+        .filter(([, count]) => Number(count) > 0)
+        .map(([key, count]) => ({
+          key,
+          title: QUICK_ACHIEVEMENT_META[key]?.title || key,
+          count: Math.max(1, Math.round(Number(count)))
+        }));
       const importedMvp = game.importedSummary?.mvp ?? null;
       const importedTopScorer = game.importedSummary?.topScorer ?? null;
       const cards = buildGameCardsSummary(game, aggregation);
@@ -1241,7 +1251,8 @@ function buildGamesView(state, games, playerCards, now) {
               username: mvpPlayer?.username || '',
               ratingIncrease: mvp.ratingIncrease,
               overall: mvp.overall,
-              votes: mvp.votes ?? 0
+              votes: mvp.votes ?? 0,
+              achievements: mvpAchievements
             }
           : importedMvp,
         topScorer: topScorer
@@ -1417,6 +1428,15 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     const boostAggregation = buildGameBoostAggregation(state, game.id);
     const status = getGameStatus(game, now);
     const hasStarted = now >= new Date(game.scheduledAt);
+    const priorCareer = buildCareerIndexForPlayersAndGames(
+      state,
+      players,
+      allGames.filter((candidate) =>
+        candidate.id !== game.id &&
+        new Date(candidate.scheduledAt) < new Date(game.scheduledAt)
+      ),
+      now
+    );
     const viewerIsParticipant = viewerPlayerId ? game.playerIds.includes(viewerPlayerId) : false;
     const ratingWindowOpen = isRatingWindowOpen(game, now);
     const invitedPlayerIds = (game.invitedPlayerIds ?? []).filter(
@@ -1490,6 +1510,8 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
         !ratingWindowOpen
       ),
       ratingsPromptSent: Boolean(game.ratingsOpenedAt),
+      quickRatersCount: boostAggregation?.raterCount ?? 0,
+      quickRatingPoints: QUICK_RATING_POINTS,
       viewerQuickRating: {
         mvpPlayerId: viewerMvpVote?.targetPlayerId ?? '',
         boosts: viewerBoosts,
@@ -1540,11 +1562,22 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
             aggregation,
             boostAggregation
           );
+          const previousCareer = priorCareer.get(playerId);
+          const previousOverall = previousCareer?.ratedGames > 0 ? Number(previousCareer.overall) : null;
+          const ratingDelta = gameStats?.hasRatings && previousOverall !== null
+            ? round(Number(gameStats.overall) - previousOverall, 2)
+            : null;
           const viewerRating = viewerRatings.get(playerId);
 
           return {
             ...profile,
-            currentGameStats: gameStats ?? null,
+            currentGameStats: gameStats
+              ? {
+                  ...gameStats,
+                  previousOverall,
+                  ratingDelta
+                }
+              : null,
             viewerHasRatedTarget: Boolean(viewerRating || boostedTargetIdsByViewer.has(playerId)),
             viewerRating: viewerRating
               ? {

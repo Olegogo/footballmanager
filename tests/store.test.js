@@ -252,7 +252,7 @@ test('recordGameFromAnnouncement does not overwrite game after kickoff', async (
   }
 });
 
-test('recordGameFromAnnouncement switches current game to the latest announcement message', async () => {
+test('recordGameFromAnnouncement creates a separate game for a different announcement date', async () => {
   const { directory, store } = await createStore();
 
   try {
@@ -305,10 +305,11 @@ test('recordGameFromAnnouncement switches current game to the latest announcemen
     });
 
     assert.equal(firstResult.created, true);
-    assert.equal(secondResult.created, false);
-    assert.equal(secondResult.updated, true);
-    assert.equal(store.state.chats['-1001'].currentGameId, firstResult.game.id);
-    assert.equal(Object.keys(store.state.games).length, 1);
+    assert.equal(secondResult.created, true);
+    assert.equal(secondResult.updated, undefined);
+    assert.equal(store.state.chats['-1001'].currentGameId, secondResult.game.id);
+    assert.equal(Object.keys(store.state.games).length, 2);
+    assert.equal(store.state.games[firstResult.game.id].closedAt, secondResult.game.sourceDate);
 
     const game = store.state.games[store.state.chats['-1001'].currentGameId];
     assert.equal(game.location, 'Сокол');

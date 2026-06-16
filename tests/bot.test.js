@@ -368,6 +368,58 @@ test('handleAnnouncement sends details button only for fresh messages', async ()
   assert.equal(sent.length, 0);
 });
 
+test('handleAnnouncement creates game from announcement without payment block', async () => {
+  const calls = [];
+  const store = {
+    state: {
+      chats: {},
+      games: {}
+    },
+    async recordGameFromAnnouncement(payload) {
+      calls.push(payload);
+      return {
+        created: true,
+        updated: false,
+        game: {
+          id: 'game_no_payment',
+          chatId: String(payload.chatId),
+          scheduledAt: payload.announcement.scheduledAt
+        }
+      };
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+
+  bot.botUsername = 'football_test_bot';
+  bot.sendText = async () => ({ message_id: 104 });
+
+  await bot.handleAnnouncement({
+    text: `30 мая
+Сокольники, поле 10
+16:00
+
+1. @teterko
+2. @dbabanin
+3. @satwerz
+4. @olegogo
+5. @birarov`,
+    chat: {
+      id: -1008,
+      type: 'supergroup',
+      title: 'Football'
+    },
+    date: Math.floor(new Date('2099-05-28T12:00:00+03:00').getTime() / 1000),
+    message_id: 88
+  }, { isEdited: false });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].announcement.location, 'Сокольники, поле 10');
+  assert.equal(calls[0].announcement.time, '16:00');
+});
+
 test('handleAnnouncement updates known edited message without payment block', async () => {
   const calls = [];
   const store = {
