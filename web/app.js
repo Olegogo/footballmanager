@@ -2499,46 +2499,40 @@ function renderAchievementIcon(type) {
     hidden: `<path class="achievement-icon-shape achievement-icon-stroke" d="M39 80c19-26 63-26 82 0-19 26-63 26-82 0Z"></path><circle class="achievement-icon-shape" cx="80" cy="80" r="14"></circle>`
   };
   const glyphs = {
-    mvp: { shape: shapes.crown, mark: '★', label: 'MVP' },
-    goleador: { shape: shapes.goal, mark: 'ГОЛ', label: 'снайпер' },
-    hat_trick: { shape: shapes.balls, mark: '3', label: 'гола' },
-    pokerface: { shape: shapes.cards, mark: '4', label: 'гола' },
-    comeback_maker: { shape: shapes.arrow, mark: '↺', label: 'камбэк' },
-    long_shot: { shape: shapes.target, mark: '◎', label: 'дальний' },
-    assistant: { shape: shapes.pass, mark: '→', label: 'ассист' },
-    playmaker: { shape: shapes.network, mark: '✦', label: 'плей' },
-    unselfish: { shape: shapes.heart, mark: '♡', label: 'пас' },
-    conductor: { shape: shapes.baton, mark: '∿', label: 'дирижёр' },
-    wall: { shape: shapes.shield, mark: 'ЩИТ', label: 'стена' },
-    pickpocket: { shape: shapes.boot, mark: '!', label: 'отбор' },
-    cat: { shape: shapes.gloves, mark: 'SAVE', label: 'сейв' },
-    no_toxic: { shape: shapes.peace, mark: 'OK', label: 'fair' },
-    maguire_day: { shape: shapes.alert, mark: '!', label: 'ошибка' },
-    planned_it: { shape: shapes.spark, mark: '*', label: 'случай' },
-    woodworker: { shape: shapes.post, mark: 'ШТ', label: 'каркас' },
-    debutant: { shape: shapes.shirt, mark: '1', label: 'дебют' },
-    stable_guy: { shape: shapes.calendar, mark: '5', label: 'серия' },
-    local_guy: { shape: shapes.pin, mark: '10', label: 'район' },
-    yard_veteran: { shape: shapes.medal, mark: '50', label: 'ветеран' },
-    last_line: { shape: shapes.keeper, mark: 'ВР', label: 'рубеж' },
-    support: { shape: shapes.support, mark: '✓', label: 'оценил' },
-    organizer: { shape: shapes.clipboard, mark: '+', label: 'организ.' },
-    form_up: { shape: shapes.chart, mark: '↑', label: 'форма' },
-    dark_horse: { shape: shapes.horse, mark: '★', label: 'лошадка' },
-    yard_elite: { shape: shapes.top, mark: 'TOP', label: '3' },
-    underrated: { shape: shapes.hidden, mark: '?', label: 'скрытый' }
+    mvp: shapes.crown,
+    goleador: shapes.goal,
+    hat_trick: shapes.balls,
+    pokerface: shapes.cards,
+    comeback_maker: shapes.arrow,
+    long_shot: shapes.target,
+    assistant: shapes.pass,
+    playmaker: shapes.network,
+    unselfish: shapes.heart,
+    conductor: shapes.baton,
+    wall: shapes.shield,
+    pickpocket: shapes.boot,
+    cat: shapes.gloves,
+    no_toxic: shapes.peace,
+    maguire_day: shapes.alert,
+    planned_it: shapes.spark,
+    woodworker: shapes.post,
+    debutant: shapes.shirt,
+    stable_guy: shapes.calendar,
+    local_guy: shapes.pin,
+    yard_veteran: shapes.medal,
+    last_line: shapes.keeper,
+    support: shapes.support,
+    organizer: shapes.clipboard,
+    form_up: shapes.chart,
+    dark_horse: shapes.horse,
+    yard_elite: shapes.top,
+    underrated: shapes.hidden
   };
   const icon = glyphs[type] || glyphs.mvp;
 
   return `
     <svg class="achievement-icon achievement-icon--${escapeHtml(type)}" viewBox="0 0 160 160" aria-hidden="true">
-      <rect class="achievement-icon-bg" x="10" y="10" width="140" height="140" rx="28"></rect>
-      <rect class="achievement-icon-frame" x="10" y="10" width="140" height="140" rx="28"></rect>
-      <g class="achievement-icon-glyph">
-        ${icon.shape}
-        <text class="achievement-icon-mark" x="80" y="84">${escapeHtml(icon.mark)}</text>
-        <text class="achievement-icon-label" x="80" y="125">${escapeHtml(icon.label)}</text>
-      </g>
+      <g class="achievement-icon-glyph">${icon}</g>
     </svg>
   `;
 }

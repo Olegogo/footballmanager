@@ -1273,9 +1273,10 @@ p {
   flex: 0 0 calc((100% - 30px) / 4);
   min-width: 62px;
   aspect-ratio: 1;
+  padding: 0;
   border: 0;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: #f2cf72;
 }
 
 .quick-achievement-pill .achievement-icon {
@@ -1289,7 +1290,6 @@ p {
 
 .fifa-card .quick-achievement-pill {
   min-width: 58px;
-  border-radius: 16px;
 }
 
 .quick-achievement-pill span {
@@ -3112,17 +3112,6 @@ input[type="range"] {
   filter: drop-shadow(0 18px 22px rgba(0, 0, 0, 0.34));
 }
 
-.achievement-icon-bg {
-  fill: rgba(8, 36, 23, 0.94);
-}
-
-.achievement-icon-frame {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 4;
-  opacity: 0.88;
-}
-
 .achievement-icon-glyph {
   color: #f7d879;
   filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.32));
@@ -3130,16 +3119,16 @@ input[type="range"] {
 
 .achievement-icon-shape {
   fill: currentColor;
-  opacity: 0.22;
+  opacity: 0.96;
 }
 
 .achievement-icon-stroke {
   fill: none;
   stroke: currentColor;
-  stroke-width: 6;
+  stroke-width: 8;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.34;
+  opacity: 0.96;
 }
 
 .achievement-icon-cut {
@@ -3151,30 +3140,6 @@ input[type="range"] {
 
 .achievement-icon-cut-fill {
   fill: #102418;
-}
-
-.achievement-icon-mark,
-.achievement-icon-label {
-  fill: currentColor;
-  text-anchor: middle;
-  dominant-baseline: middle;
-  paint-order: stroke;
-  stroke: rgba(8, 25, 16, 0.64);
-  stroke-linejoin: round;
-}
-
-.achievement-icon-mark {
-  font-size: 40px;
-  font-weight: 950;
-  stroke-width: 4px;
-}
-
-.achievement-icon-label {
-  font-size: 17px;
-  font-weight: 900;
-  letter-spacing: 0;
-  stroke-width: 2.5px;
-  text-transform: uppercase;
 }
 
 .achievement-icon-glyph [stroke] {
