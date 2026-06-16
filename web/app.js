@@ -741,15 +741,34 @@ function getRatingTrend(delta) {
 
 function renderRatingValue(value, delta, className = 'rating-value') {
   const trend = getRatingTrend(delta);
+  const classes = ['rating-value'];
+
+  if (className && className !== 'rating-value') {
+    classes.push(className);
+  }
+
+  if (trend) {
+    classes.push(`rating-value--${trend}`);
+  }
 
   if (!value && value !== 0) {
     return '';
   }
 
   return `
-    <span class="${escapeHtml(className)} ${trend ? `rating-value--${trend}` : ''}">
-      ${trend ? `<i aria-hidden="true">${trend === 'up' ? '↑' : '↓'}</i>` : ''}
+    <span class="${classes.map(escapeHtml).join(' ')}">
       <strong>${escapeHtml(value)}</strong>
+      ${
+        trend
+          ? `
+            <i class="rating-trend-arrow rating-trend-arrow--${trend}" aria-hidden="true">
+              <svg viewBox="0 0 64 64" focusable="false">
+                <path d="${trend === 'up' ? 'M32 54V10M14 28 32 10l18 18' : 'M32 10v44M14 36l18 18 18-18'}"></path>
+              </svg>
+            </i>
+          `
+          : ''
+      }
     </span>
   `;
 }

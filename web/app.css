@@ -722,17 +722,41 @@ p {
   line-height: 1;
 }
 
-.rating-value i {
-  font-style: normal;
-  line-height: 1;
+.rating-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.rating-value--down i {
-  color: #ff5949;
+.rating-trend-arrow {
+  width: 0.78em;
+  height: 0.78em;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: #fffaf0;
 }
 
-.rating-value--up i {
-  color: #ffe28b;
+.rating-trend-arrow svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.rating-trend-arrow path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rating-value--down .rating-trend-arrow {
+  color: #ff4738;
+}
+
+.rating-value--up .rating-trend-arrow {
+  color: #fffaf0;
 }
 
 .quick-rating-panel {
@@ -1952,9 +1976,10 @@ p {
 }
 
 .hero-score .hero-rating-value {
-  display: flex;
+  position: relative;
+  display: inline-flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 0;
 }
 
 .hero-score .hero-rating-value,
@@ -1964,8 +1989,12 @@ p {
   font-weight: 900;
 }
 
-.hero-score .hero-rating-value i {
-  font-size: 36px;
+.hero-score .hero-rating-value .rating-trend-arrow {
+  position: absolute;
+  left: calc(100% + 18px);
+  top: 3px;
+  width: 58px;
+  height: 58px;
 }
 
 .hero-score > span {
@@ -3323,8 +3352,11 @@ input[type="range"] {
     font-size: 58px;
   }
 
-  .hero-score .hero-rating-value i {
-    font-size: 32px;
+  .hero-score .hero-rating-value .rating-trend-arrow {
+    left: calc(100% + 14px);
+    top: 2px;
+    width: 50px;
+    height: 50px;
   }
 
   .hero-score > span {
