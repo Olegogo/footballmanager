@@ -834,6 +834,85 @@ test('updateSelfProfile stores unrated player card data without creating rating'
   }
 });
 
+test('updateSelfProfile lets rated player change position without resetting ratings', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    await store.mutate((state) => {
+      state.chats['-1001'] = {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        playerIds: ['player_1', 'player_2']
+      };
+      state.players.player_1 = {
+        id: 'player_1',
+        username: 'rater',
+        displayName: 'Rater',
+        chatIds: ['-1001']
+      };
+      state.players.player_2 = {
+        id: 'player_2',
+        username: 'target',
+        displayName: 'Target',
+        chatIds: ['-1001']
+      };
+      state.games.game_1 = {
+        id: 'game_1',
+        chatId: '-1001',
+        dateLabel: '1 июня',
+        location: 'Поле',
+        time: '19:00',
+        scheduledAt: '2026-06-01T16:00:00.000Z',
+        playerIds: ['player_1', 'player_2'],
+        paymentLines: [],
+        priceLine: ''
+      };
+      state.ratings.rating_1 = {
+        id: 'rating_1',
+        chatId: '-1001',
+        gameId: 'game_1',
+        raterPlayerId: 'player_1',
+        targetPlayerId: 'player_2',
+        position: 'CM',
+        pace: 80,
+        dribbling: 80,
+        shooting: 80,
+        defense: 80,
+        passing: 80,
+        physical: 80,
+        goals: 1,
+        assists: 1
+      };
+    });
+
+    await store.updateSelfProfile({
+      chatId: '-1001',
+      playerId: 'player_2',
+      payload: {
+        position: 'LW',
+        pace: 1,
+        dribbling: 1,
+        shooting: 1,
+        defense: 1,
+        passing: 1,
+        physical: 1
+      }
+    });
+
+    const snapshot = store.getSnapshot('-1001', 'player_2');
+    const card = snapshot.players.find((item) => item.id === 'player_2');
+
+    assert.equal(card.ratedGames, 1);
+    assert.equal(card.position, 'LW');
+    assert.equal(card.stats.pace, 80);
+    assert.equal(card.overall, 80);
+    assert.equal(card.hasSelfProfile, true);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('createManualGame creates current game from selected players', async () => {
   const { directory, store } = await createStore();
 

@@ -2080,8 +2080,16 @@ export class AppStore {
 
       const career = buildGlobalCareerIndex(state, new Date()).get(playerId);
 
+      const updatedAt = new Date().toISOString();
+
       if (career?.ratedGames > 0) {
-        throw new Error('Карточку уже формируют оценки других игроков');
+        player.selfProfile = {
+          ...(player.selfProfile ?? {}),
+          position: sanitizeProfilePosition(payload.position),
+          updatedAt
+        };
+        player.updatedAt = updatedAt;
+        return player.selfProfile;
       }
 
       player.selfProfile = {
@@ -2089,9 +2097,9 @@ export class AppStore {
         stats: Object.fromEntries(
           STAT_KEYS.map((key) => [key, clamp(Number(payload[key] ?? 50), 1, 99)])
         ),
-        updatedAt: new Date().toISOString()
+        updatedAt
       };
-      player.updatedAt = new Date().toISOString();
+      player.updatedAt = updatedAt;
       return player.selfProfile;
     });
   }

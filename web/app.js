@@ -2574,7 +2574,8 @@ function renderAchievementCard(achievement) {
   `;
 }
 
-function renderSelfProfileForm(player, defaults) {
+function renderSelfProfileForm(player, defaults, options = {}) {
+  const includeStats = options.includeStats !== false;
   const effectivePosition = defaults.position || 'N/A';
 
   return `
@@ -2594,11 +2595,17 @@ function renderSelfProfileForm(player, defaults) {
           <path d="M6.7 8.8a1 1 0 0 1 1.4 0L12 12.7l3.9-3.9a1 1 0 1 1 1.4 1.4l-4.6 4.6a1 1 0 0 1-1.4 0L6.7 10.2a1 1 0 0 1 0-1.4z"></path>
         </svg>
       </label>
-      <div class="profile-stat-grid">
-        ${getStatMetaForPosition(effectivePosition)
-          .map(([key, label]) => renderSelfProfileStatStepper(key, label.toLowerCase(), defaults[key] ?? 50))
-          .join('')}
-      </div>
+      ${
+        includeStats
+          ? `
+            <div class="profile-stat-grid">
+              ${getStatMetaForPosition(effectivePosition)
+                .map(([key, label]) => renderSelfProfileStatStepper(key, label.toLowerCase(), defaults[key] ?? 50))
+                .join('')}
+            </div>
+          `
+          : ''
+      }
       <button type="submit" class="primary-button card-action profile-submit">Сохранить</button>
     </form>
   `;
@@ -2617,26 +2624,23 @@ function renderProfileTab() {
   }
 
   const hasCareerRatings = player.ratedGames > 0;
-  const selfProfileDefaults = (!hasCareerRatings && state.selfProfileDraft) || {
+  const baseSelfProfileDefaults = {
     position: player.position || 'N/A',
     ...Object.fromEntries(STAT_META.map(([key]) => [key, player.stats?.[key] ?? 50]))
   };
+  const selfProfileDefaults = state.selfProfileEditing && state.selfProfileDraft
+    ? {
+        ...baseSelfProfileDefaults,
+        ...state.selfProfileDraft
+      }
+    : baseSelfProfileDefaults;
   const effectivePosition = selfProfileDefaults.position || 'N/A';
-  const canEditSelfProfile = Boolean(state.token && state.snapshot?.viewerPlayerId === player.id && !hasCareerRatings);
-  const isEditingSelfProfile = canEditSelfProfile && state.selfProfileEditing;
+  const canEditOwnProfile = Boolean(state.token && state.snapshot?.viewerPlayerId === player.id);
+  const isEditingSelfProfile = canEditOwnProfile && state.selfProfileEditing;
   const showProfileValues = hasCareerRatings || player.hasSelfProfile;
   const statMeta = getStatMetaForPosition(effectivePosition);
-  const isGoalkeeper = isGoalkeeperPosition(effectivePosition);
   const overviewCells = [
-    { label: 'игр', value: player.games, emphasis: true },
-    ...(
-      isGoalkeeper
-        ? []
-        : [
-            { label: 'голов', value: hasCareerRatings ? player.goals : '-' },
-            { label: 'голевых', value: hasCareerRatings ? player.assists : '-' }
-          ]
-    )
+    { label: 'игр', value: player.games, emphasis: true }
   ];
   if (hasDisciplineCards(player)) {
     overviewCells.push({
@@ -2688,7 +2692,7 @@ function renderProfileTab() {
         }
         ${
           isEditingSelfProfile
-            ? renderSelfProfileForm(player, selfProfileDefaults)
+            ? renderSelfProfileForm(player, selfProfileDefaults, { includeStats: !hasCareerRatings })
             : `
               ${renderPositionSelector('Позиция', effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title)}
             `
@@ -2706,7 +2710,7 @@ function renderProfileTab() {
                 </div>
               </div>
               ${
-                canEditSelfProfile
+                canEditOwnProfile
                   ? '<button type="button" class="primary-button profile-edit-button" data-edit-self-profile="true">Редактировать</button>'
                   : ''
               }
@@ -2788,7 +2792,9 @@ function readSelfProfileForm(form) {
   };
 
   for (const [key] of STAT_META) {
-    draft[key] = Number(formData.get(key) || 50);
+    if (formData.has(key)) {
+      draft[key] = Number(formData.get(key) || 50);
+    }
   }
 
   return draft;

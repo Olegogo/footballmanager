@@ -1423,7 +1423,8 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       photoUrl: player.photoUrl,
       overall: careerEntry.overall,
       ratingDelta: ratingDeltaIndex[player.id] ?? null,
-      position: careerEntry.ratedGames ? careerEntry.position : (player.selfProfile?.position || player.defaultPosition || 'N/A'),
+      position: player.selfProfile?.position ||
+        (careerEntry.ratedGames ? careerEntry.position : (player.defaultPosition || 'N/A')),
       stats: careerEntry.ratedGames ? careerEntry.stats : (player.selfProfile?.stats || careerEntry.stats),
       games: careerEntry.games,
       ratedGames: careerEntry.ratedGames,
