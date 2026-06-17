@@ -714,12 +714,14 @@ p {
   align-items: center;
   justify-content: flex-end;
   gap: 4px;
-  min-width: 46px;
+  width: 70px;
+  min-width: 70px;
   text-align: right;
   color: #ffe28b;
   font-size: 28px;
   font-weight: 900;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .rating-value {
@@ -731,6 +733,13 @@ p {
 .game-player-rating.rating-value,
 .quick-game-card-rating.rating-value {
   flex-direction: row-reverse;
+  justify-content: flex-start;
+}
+
+.game-player-rating strong,
+.quick-game-card-rating strong {
+  min-width: 2ch;
+  text-align: right;
 }
 
 .rating-trend-arrow {
@@ -1183,10 +1192,13 @@ p {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  width: 82px;
+  min-width: 82px;
   color: #ffe28b;
   font-size: 34px;
   font-weight: 900;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .quick-game-card-rating strong,
