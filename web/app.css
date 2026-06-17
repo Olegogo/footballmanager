@@ -728,6 +728,11 @@ p {
   gap: 0.1em;
 }
 
+.game-player-rating.rating-value,
+.quick-game-card-rating.rating-value {
+  flex-direction: row-reverse;
+}
+
 .rating-trend-arrow {
   width: 0.62em;
   height: 0.62em;
