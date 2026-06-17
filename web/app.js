@@ -149,7 +149,8 @@ const state = {
   gamesFilter: 'all',
   positionFilter: '',
   playerSearch: '',
-  selectedPlayerId: launchContext.playerId || null,
+  selectedPlayerId: null,
+  playerScrollTargetId: launchContext.playerId || '',
   selectedGameId: launchContext.gameId,
   selfProfileDraft: null,
   selfProfileEditing: false,
@@ -1072,7 +1073,7 @@ function renderFifaCard(player, options = {}) {
   const achievements = getUnlockedPlayerAchievements(player, currentStats);
 
   return `
-    <article class="fifa-card fifa-card--${escapeHtml(variant)} ${player.isMvp ? 'is-mvp' : ''} ${clickable ? 'is-clickable' : ''}"${openAttribute}>
+    <article class="fifa-card fifa-card--${escapeHtml(variant)} ${player.isMvp ? 'is-mvp' : ''} ${clickable ? 'is-clickable' : ''}" data-player-card-id="${escapeHtml(player.id)}"${openAttribute}>
       ${player.isMvp ? '<span class="mvp-badge">MVP</span>' : ''}
       <div class="fifa-card-hero">
         ${renderCardHero(player)}
@@ -2997,6 +2998,35 @@ function renderModal() {
   ].join('');
 }
 
+function scrollToTargetPlayerCard() {
+  if (!state.playerScrollTargetId || state.activeTab !== 'players') {
+    return;
+  }
+
+  const targetPlayerId = state.playerScrollTargetId;
+
+  requestAnimationFrame(() => {
+    if (state.playerScrollTargetId !== targetPlayerId || state.activeTab !== 'players') {
+      return;
+    }
+
+    const card = [...document.querySelectorAll('[data-player-card-id]')]
+      .find((node) => node.dataset.playerCardId === targetPlayerId);
+
+    if (!card) {
+      return;
+    }
+
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('is-share-target');
+    state.playerScrollTargetId = '';
+
+    window.setTimeout(() => {
+      card.classList.remove('is-share-target');
+    }, 2600);
+  });
+}
+
 function syncTabbar() {
   document.querySelectorAll('.tab-button').forEach((button) => {
     const activeTab = state.manualGameOpen || state.activeTab === 'game' ? '' : state.activeTab;
@@ -3043,6 +3073,7 @@ function render() {
   `;
 
   renderModal();
+  scrollToTargetPlayerCard();
 }
 
 async function submitRating(form) {

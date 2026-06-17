@@ -1953,6 +1953,13 @@ p {
   border-color: rgba(255, 230, 154, 0.7);
 }
 
+.fifa-card.is-share-target {
+  border-color: rgba(255, 231, 133, 0.9);
+  box-shadow:
+    0 0 0 3px rgba(255, 231, 133, 0.28),
+    0 28px 78px rgba(0, 0, 0, 0.46);
+}
+
 .mvp-badge {
   position: absolute;
   right: 16px;
