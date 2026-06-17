@@ -3139,6 +3139,13 @@ input[type="range"] {
   min-height: 56px;
 }
 
+.profile-stat-stepper button {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
 .profile-stat-stepper input[type="hidden"] {
   display: none;
 }

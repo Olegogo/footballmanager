@@ -172,6 +172,8 @@ const state = {
     playerIds: []
   }
 };
+const PROFILE_STEPPER_LONG_TAP_MS = 450;
+const profileStepperPressStartedAt = new WeakMap();
 
 const tg = window.Telegram?.WebApp;
 const apiBaseUrl = String(window.APP_CONFIG?.API_BASE_URL || '').replace(/\/+$/, '');
@@ -3395,6 +3397,27 @@ function updateStepper(form, name, delta) {
   }
 }
 
+function isProfileStatStepperButton(button) {
+  return Boolean(button?.closest('#selfProfileForm .profile-stat-stepper'));
+}
+
+function getStepperDelta(button) {
+  const direction = button.dataset.stepperAction === 'increment' ? 1 : -1;
+
+  if (!isProfileStatStepperButton(button)) {
+    return direction;
+  }
+
+  const startedAt = profileStepperPressStartedAt.get(button);
+  profileStepperPressStartedAt.delete(button);
+
+  if (!Number.isFinite(startedAt)) {
+    return direction;
+  }
+
+  return direction * (performance.now() - startedAt >= PROFILE_STEPPER_LONG_TAP_MS ? 10 : 1);
+}
+
 document.getElementById('refreshButton')?.addEventListener('click', async () => {
   await refreshSnapshot();
 });
@@ -3410,6 +3433,32 @@ gameShareButtonNode?.addEventListener('click', () => {
 gameMenuButtonNode?.addEventListener('click', () => {
   state.gameActionsOpen = true;
   renderModal();
+});
+
+document.addEventListener('pointerdown', (event) => {
+  const stepperButton = event.target.closest('[data-stepper-action]');
+
+  if (!isProfileStatStepperButton(stepperButton)) {
+    return;
+  }
+
+  profileStepperPressStartedAt.set(stepperButton, performance.now());
+});
+
+document.addEventListener('pointercancel', (event) => {
+  const stepperButton = event.target.closest('[data-stepper-action]');
+
+  if (stepperButton) {
+    profileStepperPressStartedAt.delete(stepperButton);
+  }
+});
+
+document.addEventListener('contextmenu', (event) => {
+  if (!isProfileStatStepperButton(event.target.closest('[data-stepper-action]'))) {
+    return;
+  }
+
+  event.preventDefault();
 });
 
 document.querySelector('.tabbar').addEventListener('click', (event) => {
@@ -3640,7 +3689,7 @@ document.addEventListener('click', async (event) => {
     updateStepper(
       form,
       stepperButton.dataset.stepperName,
-      stepperButton.dataset.stepperAction === 'increment' ? 1 : -1
+      getStepperDelta(stepperButton)
     );
     return;
   }
