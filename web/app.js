@@ -974,6 +974,33 @@ function renderPositionSelector(label, value) {
   `;
 }
 
+function renderEditablePositionSelector(label, value, selectedPosition, canEdit) {
+  const selectedValue = selectedPosition || 'N/A';
+
+  if (!canEdit) {
+    return renderPositionSelector(label, value);
+  }
+
+  return `
+    <label class="position-selector position-selector--editable">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+      <select data-profile-position-select aria-label="${escapeHtml(label)}">
+        ${POSITION_CHOICES
+          .map((position) => `
+            <option value="${position}" ${selectedValue === position ? 'selected' : ''}>
+              ${escapeHtml(getPositionMeta(position).title)}
+            </option>
+          `)
+          .join('')}
+      </select>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6.7 8.8a1 1 0 0 1 1.4 0L12 12.7l3.9-3.9a1 1 0 1 1 1.4 1.4l-4.6 4.6a1 1 0 0 1-1.4 0L6.7 10.2a1 1 0 0 1 0-1.4z"></path>
+      </svg>
+    </label>
+  `;
+}
+
 function renderMetricCell(label, value, options = {}) {
   const classes = ['metric-cell'];
 
@@ -1060,7 +1087,7 @@ function renderFifaCard(player, options = {}) {
         <div class="metric-grid metric-grid--stats">
           ${statCells.map(([label, value]) => renderMetricCell(label, value, { outlined: isRatingCard })).join('')}
         </div>
-        ${renderAchievementPills(achievements)}
+        ${renderAchievementPills(achievements, { title: true })}
         ${
           actionLabel
             ? `
@@ -1577,29 +1604,49 @@ function getUnlockedPlayerAchievements(player, currentStats = null) {
     });
 }
 
-function renderAchievementPills(achievements) {
+function getAchievementsTotalCount(achievements) {
+  return achievements.reduce((total, achievement) => (
+    total + Math.max(0, Math.round(Number(achievement.count ?? 0)))
+  ), 0);
+}
+
+function renderAchievementTitle(achievements) {
+  const total = getAchievementsTotalCount(achievements);
+
+  return `
+    <div class="achievement-section-title">
+      <span>Достижения</span>
+      ${total > 0 ? `<strong>${escapeHtml(total)}</strong>` : ''}
+    </div>
+  `;
+}
+
+function renderAchievementPills(achievements, options = {}) {
   if (!achievements.length) {
     return '';
   }
 
   return `
-    <div class="quick-achievement-pills">
-      ${achievements
-        .map((achievement) => {
-          const meta = QUICK_ACHIEVEMENT_BY_KEY[achievement.key];
+    <div class="quick-achievements">
+      ${options.title ? renderAchievementTitle(achievements) : ''}
+      <div class="quick-achievement-pills">
+        ${achievements
+          .map((achievement) => {
+            const meta = QUICK_ACHIEVEMENT_BY_KEY[achievement.key];
 
-          if (!meta) {
-            return '';
-          }
+            if (!meta) {
+              return '';
+            }
 
-          return `
-            <button type="button" class="quick-achievement-pill" data-achievement-detail="${escapeHtml(meta.key)}">
-              ${renderAchievementIcon(meta.key)}
-              ${achievement.count > 1 ? `<span>${escapeHtml(achievement.count)}</span>` : ''}
-            </button>
-          `;
-        })
-        .join('')}
+            return `
+              <button type="button" class="quick-achievement-pill" data-achievement-detail="${escapeHtml(meta.key)}">
+                ${renderAchievementIcon(meta.key)}
+                ${achievement.count > 1 ? `<span>${escapeHtml(achievement.count)}</span>` : ''}
+              </button>
+            `;
+          })
+          .join('')}
+      </div>
     </div>
   `;
 }
@@ -2312,7 +2359,7 @@ function renderAchievementDetailModal() {
   }
 
   return `
-    <div class="modal-backdrop" data-achievement-detail-backdrop="true">
+    <div class="modal-backdrop modal-backdrop--center" data-achievement-detail-backdrop="true">
       <section class="modal-card achievement-detail-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(achievement.title)}">
         <button type="button" class="editor-close achievement-detail-close" data-close-achievement-detail="true">×</button>
         <div class="achievement-detail-icon">${renderAchievementIcon(achievement.key)}</div>
@@ -2697,6 +2744,7 @@ function renderProfileTab() {
   const achievements = getPlayerAchievements(player);
   const unlockedAchievements = achievements.filter((achievement) => achievement.count > 0);
   const profileStatusLabel = getCardStatusLabel(player);
+  const showSelfProfileEditButton = canEditOwnProfile && !player.hasSelfProfile && !hasCareerRatings;
 
   return `
     <section class="editor-screen profile-screen" aria-label="Профиль игрока">
@@ -2735,7 +2783,12 @@ function renderProfileTab() {
           isEditingSelfProfile
             ? renderSelfProfileForm(player, selfProfileDefaults, { includeStats: !hasCareerRatings })
             : `
-              ${renderPositionSelector('Позиция', effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title)}
+              ${renderEditablePositionSelector(
+                'Позиция',
+                effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title,
+                effectivePosition,
+                canEditOwnProfile
+              )}
             `
         }
         ${
@@ -2751,14 +2804,14 @@ function renderProfileTab() {
                 </div>
               </div>
               ${
-                canEditOwnProfile
+                showSelfProfileEditButton
                   ? '<button type="button" class="primary-button profile-edit-button" data-edit-self-profile="true">Редактировать</button>'
                   : ''
               }
             `
         }
         <section class="profile-achievements" aria-label="Достижения">
-          <h2>Достижения</h2>
+          ${renderAchievementTitle(unlockedAchievements)}
           ${
             unlockedAchievements.length
               ? `
@@ -3018,6 +3071,19 @@ async function submitSelfProfile(form) {
   state.selfProfileEditing = false;
   render();
   showToast('Карточка сохранена');
+}
+
+async function updateProfilePosition(position) {
+  const data = await api('/api/profile', {
+    method: 'POST',
+    body: { position: position || 'N/A' }
+  });
+
+  state.snapshot = data.snapshot;
+  state.selfProfileDraft = null;
+  state.selfProfileEditing = false;
+  render();
+  showToast('Сохранено');
 }
 
 async function submitManualGame(notifyPlayers) {
@@ -3787,6 +3853,13 @@ document.addEventListener('change', (event) => {
     const form = event.target.closest('form');
     saveSelfProfileDraft(form);
     render();
+    return;
+  }
+
+  if (event.target.matches('[data-profile-position-select]')) {
+    updateProfilePosition(event.target.value).catch((error) => {
+      showToast(error.message);
+    });
     return;
   }
 
