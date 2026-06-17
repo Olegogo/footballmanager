@@ -153,7 +153,7 @@ const state = {
   selectedGameId: launchContext.gameId,
   selfProfileDraft: null,
   selfProfileEditing: false,
-  selfProfilePromptDismissedFor: '',
+  profileActionsOpen: false,
   gameActionsOpen: false,
   achievementDetailKey: '',
   ratingDrafts: {},
@@ -920,6 +920,16 @@ function renderShareIcon() {
   return `
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M3.9 19.4c2.2-6.7 6.9-10.5 13.1-11.1V4.7c0-.9 1.1-1.4 1.8-.8l4.6 4.6c.5.5.5 1.2 0 1.7l-4.6 4.6c-.7.7-1.8.2-1.8-.8v-3.1c-4.8.2-8.6 2.5-12 8-.4.6-1.3.3-1.1-.5Z"></path>
+    </svg>
+  `;
+}
+
+function renderDotsIcon() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="5" cy="12" r="2.2"></circle>
+      <circle cx="12" cy="12" r="2.2"></circle>
+      <circle cx="19" cy="12" r="2.2"></circle>
     </svg>
   `;
 }
@@ -2351,6 +2361,21 @@ function renderGameActionsModal() {
   `;
 }
 
+function renderProfileActionsModal() {
+  if (!state.profileActionsOpen) {
+    return '';
+  }
+
+  return `
+    <div class="modal-backdrop modal-backdrop--compact" data-profile-actions-backdrop="true">
+      <section class="modal-card profile-actions-card" role="dialog" aria-modal="true" aria-label="Настройки профиля">
+        <h2>Настройки</h2>
+        <button type="button" class="game-action-button" data-edit-self-profile="true">Редактировать</button>
+      </section>
+    </div>
+  `;
+}
+
 function renderAchievementDetailModal() {
   const achievement = QUICK_ACHIEVEMENT_BY_KEY[state.achievementDetailKey];
 
@@ -2365,38 +2390,6 @@ function renderAchievementDetailModal() {
         <div class="achievement-detail-icon">${renderAchievementIcon(achievement.key)}</div>
         <h2>${escapeHtml(achievement.title)}</h2>
         <p>${escapeHtml(achievement.description)}</p>
-      </section>
-    </div>
-  `;
-}
-
-function shouldShowSelfProfilePrompt() {
-  const player = getViewerPlayer();
-
-  return Boolean(
-    player &&
-    state.selfProfilePromptDismissedFor !== player.id &&
-    !player.ratedGames &&
-    !player.hasSelfProfile &&
-    !state.selfProfileEditing &&
-    !state.manualGameOpen &&
-    !state.selectedPlayerId &&
-    !state.achievementDetailKey
-  );
-}
-
-function renderSelfProfilePromptModal() {
-  if (!shouldShowSelfProfilePrompt()) {
-    return '';
-  }
-
-  return `
-    <div class="modal-backdrop" data-self-profile-prompt-backdrop="true">
-      <section class="modal-card self-profile-prompt" role="dialog" aria-modal="true" aria-label="Заполни карточку игрока">
-        <button class="modal-close" type="button" data-dismiss-self-profile-prompt="true">×</button>
-        <h2>Твоя карточка игрока не заполнена</h2>
-        <p>Пройди самооценку, чтобы лучше подобрать игру и помочь командам распределяться честнее.</p>
-        <button type="button" class="primary-button" data-start-self-profile="true">Пройти</button>
       </section>
     </div>
   `;
@@ -2744,12 +2737,20 @@ function renderProfileTab() {
   const achievements = getPlayerAchievements(player);
   const unlockedAchievements = achievements.filter((achievement) => achievement.count > 0);
   const profileStatusLabel = getCardStatusLabel(player);
-  const showSelfProfileEditButton = canEditOwnProfile && !player.hasSelfProfile && !hasCareerRatings;
 
   return `
     <section class="editor-screen profile-screen" aria-label="Профиль игрока">
       <div class="editor-hero profile-hero">
         ${renderCardHero(player)}
+        ${
+          canEditOwnProfile
+            ? `
+              <button type="button" class="profile-menu-button" data-open-profile-actions aria-label="Настройки профиля">
+                ${renderDotsIcon()}
+              </button>
+            `
+            : ''
+        }
         <button type="button" class="profile-share-button" data-share-profile aria-label="Поделиться профилем">
           ${renderShareIcon()}
         </button>
@@ -2803,11 +2804,6 @@ function renderProfileTab() {
                   ${statCells.map(([label, value]) => renderMetricCell(label, value)).join('')}
                 </div>
               </div>
-              ${
-                showSelfProfileEditButton
-                  ? '<button type="button" class="primary-button profile-edit-button" data-edit-self-profile="true">Редактировать</button>'
-                  : ''
-              }
             `
         }
         <section class="profile-achievements" aria-label="Достижения">
@@ -2918,11 +2914,11 @@ function renderModal() {
   const gamePlayer = game?.participants?.find((item) => item.id === state.selectedPlayerId) ?? null;
   const createGameModal = renderCreateGameModal();
   const gameActionsModal = renderGameActionsModal();
+  const profileActionsModal = renderProfileActionsModal();
   const achievementDetailModal = renderAchievementDetailModal();
-  const selfProfilePromptModal = renderSelfProfilePromptModal();
 
   if (!player) {
-    modalRoot.innerHTML = [createGameModal, gameActionsModal, achievementDetailModal, selfProfilePromptModal].join('');
+    modalRoot.innerHTML = [createGameModal, gameActionsModal, profileActionsModal, achievementDetailModal].join('');
     return;
   }
 
@@ -2948,8 +2944,8 @@ function renderModal() {
     renderEditorScreen(player, gamePlayer, editable, defaults, game),
     createGameModal,
     gameActionsModal,
+    profileActionsModal,
     achievementDetailModal,
-    selfProfilePromptModal
   ].join('');
 }
 
@@ -3394,6 +3390,7 @@ document.querySelector('.tabbar').addEventListener('click', (event) => {
   if (state.activeTab !== 'profile') {
     state.selfProfileEditing = false;
     state.selfProfileDraft = null;
+    state.profileActionsOpen = false;
   }
   render();
 });
@@ -3402,8 +3399,17 @@ document.addEventListener('click', async (event) => {
   const editSelfProfileButton = event.target.closest('[data-edit-self-profile]');
 
   if (editSelfProfileButton) {
+    state.profileActionsOpen = false;
     state.selfProfileEditing = true;
     render();
+    return;
+  }
+
+  const profileActionsButton = event.target.closest('[data-open-profile-actions]');
+
+  if (profileActionsButton) {
+    state.profileActionsOpen = true;
+    renderModal();
     return;
   }
 
@@ -3463,29 +3469,15 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
+  if (event.target.matches('[data-profile-actions-backdrop]')) {
+    state.profileActionsOpen = false;
+    renderModal();
+    return;
+  }
+
   if (event.target.matches('[data-achievement-detail-backdrop]') || event.target.closest('[data-close-achievement-detail]')) {
     state.achievementDetailKey = '';
     renderModal();
-    return;
-  }
-
-  if (event.target.matches('[data-self-profile-prompt-backdrop]') || event.target.closest('[data-dismiss-self-profile-prompt]')) {
-    const player = getViewerPlayer();
-    state.selfProfilePromptDismissedFor = player?.id || 'dismissed';
-    renderModal();
-    return;
-  }
-
-  const startSelfProfileButton = event.target.closest('[data-start-self-profile]');
-
-  if (startSelfProfileButton) {
-    const player = getViewerPlayer();
-    state.selfProfilePromptDismissedFor = player?.id || 'started';
-    state.activeTab = 'profile';
-    state.selfProfileEditing = true;
-    state.selectedPlayerId = null;
-    state.manualGameOpen = false;
-    render();
     return;
   }
 

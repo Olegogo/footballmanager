@@ -3064,9 +3064,9 @@ input[type="range"] {
   min-height: clamp(330px, 42dvh, 450px);
 }
 
-.profile-share-button {
+.profile-share-button,
+.profile-menu-button {
   position: absolute;
-  right: 18px;
   top: 18px;
   z-index: 2;
   width: 46px;
@@ -3081,7 +3081,16 @@ input[type="range"] {
   cursor: pointer;
 }
 
-.profile-share-button svg {
+.profile-share-button {
+  right: 18px;
+}
+
+.profile-menu-button {
+  right: 74px;
+}
+
+.profile-share-button svg,
+.profile-menu-button svg {
   width: 22px;
   height: 22px;
   fill: currentColor;
@@ -3126,6 +3135,20 @@ input[type="range"] {
   border-radius: 22px;
 }
 
+.profile-actions-card {
+  width: min(320px, calc(100vw - 28px));
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.profile-actions-card h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1;
+}
+
 .profile-rating-note {
   padding: 14px 16px;
   border-radius: 20px;
@@ -3135,29 +3158,6 @@ input[type="range"] {
   font-size: 15px;
   font-weight: 800;
   line-height: 1.35;
-}
-
-.self-profile-prompt {
-  display: grid;
-  gap: 16px;
-  padding: 26px;
-}
-
-.self-profile-prompt h2 {
-  margin-right: 42px;
-  font-size: 28px;
-  line-height: 1.05;
-}
-
-.self-profile-prompt p {
-  color: rgba(255, 240, 209, 0.72);
-  font-weight: 800;
-  line-height: 1.4;
-}
-
-.self-profile-prompt .primary-button {
-  min-height: 54px;
-  border-radius: 20px;
 }
 
 .profile-achievements {
