@@ -3359,8 +3359,26 @@ async function shareCurrentGame() {
   await sharePreparedOrFallback(data);
 }
 
+function shouldSkipSilentRefresh() {
+  const game = getCurrentGame();
+
+  return Boolean(
+    state.manualGameOpen ||
+    state.selfProfileEditing ||
+    state.selectedPlayerId ||
+    document.getElementById('ratingForm') ||
+    document.getElementById('selfProfileForm') ||
+    document.getElementById('manualGameForm') ||
+    (state.activeTab === 'game' && game?.canViewerRate)
+  );
+}
+
 async function refreshSnapshot({ silent = false } = {}) {
   try {
+    if (silent && shouldSkipSilentRefresh()) {
+      return;
+    }
+
     const activeRatingForm = document.getElementById('ratingForm');
     if (activeRatingForm) {
       saveRatingFormDraft(activeRatingForm);
