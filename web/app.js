@@ -106,17 +106,19 @@ function readLaunchContext() {
     '';
 
   const gameMatch = String(startParam).match(/^gameid_([a-zA-Z0-9_-]+)$/);
+  const playerMatch = String(startParam).match(/^playerid_([a-zA-Z0-9_-]+)$/);
   const chatMatch =
     String(startParam).match(/^game_chat_(-?\d+)$/) ||
     String(startParam).match(/^chat_(-?\d+)$/);
   const selectedGameId = urlGameId || gameMatch?.[1] || '';
   const shouldOpenGame = Boolean(selectedGameId) || view === 'game' || /^game($|_)/.test(String(startParam));
-  const shouldOpenPlayer = Boolean(urlPlayerId) || view === 'players';
+  const selectedPlayerId = urlPlayerId || playerMatch?.[1] || '';
+  const shouldOpenPlayer = Boolean(selectedPlayerId) || view === 'players';
 
   return {
     chatId: urlChatId || chatMatch?.[1] || '',
     gameId: selectedGameId,
-    playerId: urlPlayerId,
+    playerId: selectedPlayerId,
     initialTab: shouldOpenGame ? 'game' : shouldOpenPlayer ? 'players' : 'games'
   };
 }
@@ -1634,7 +1636,7 @@ function renderAchievementTitle(achievements) {
   return `
     <div class="achievement-section-title">
       <span>Достижения</span>
-      ${total > 0 ? `<strong>${escapeHtml(total)}</strong>` : ''}
+      ${total > 1 ? `<strong>${escapeHtml(total)}</strong>` : ''}
     </div>
   `;
 }
@@ -1729,7 +1731,6 @@ function renderQuickGamePlayerCard(player, game, draft) {
         <div class="quick-game-card-title">
           <strong>${escapeHtml(player.displayName)}</strong>
           <span>${escapeHtml(positionLabel)}</span>
-          ${isPlayerCardUnfilled(player) ? '<em class="player-fill-status">Не заполнен</em>' : ''}
         </div>
         ${
           ratingLabel
@@ -1831,7 +1832,6 @@ function renderGamePlayerRow(player) {
       <div class="game-player-main">
         <strong>${escapeHtml(player.displayName)}</strong>
         <span>${escapeHtml(positionLabel)}</span>
-        ${isPlayerCardUnfilled(player) ? '<em class="player-fill-status">Не заполнен</em>' : ''}
         ${renderDisciplineCards(player.currentGameStats, 'game-player-cards')}
       </div>
       ${renderGamePlayerState(player, game)}
@@ -2362,8 +2362,16 @@ function renderGameActionsModal() {
   return `
     <div class="modal-backdrop modal-backdrop--compact" data-game-actions-backdrop="true">
       <section class="modal-card game-actions-card" role="dialog" aria-modal="true" aria-label="Действия с игрой">
-        <button type="button" class="game-action-button" data-edit-game="true">Редактировать</button>
-        <button type="button" class="game-action-button game-action-button--danger" data-delete-game="true">Удалить игру</button>
+        <h2>Действия</h2>
+        <button type="button" class="game-action-button game-action-button--primary" data-share-game="true">Пошерить игру</button>
+        ${
+          game.canViewerManage
+            ? `
+              <button type="button" class="game-action-button" data-edit-game="true">Редактировать</button>
+              <button type="button" class="game-action-button game-action-button--danger" data-delete-game="true">Удалить игру</button>
+            `
+            : ''
+        }
       </section>
     </div>
   `;
@@ -2378,6 +2386,7 @@ function renderProfileActionsModal() {
     <div class="modal-backdrop modal-backdrop--compact" data-profile-actions-backdrop="true">
       <section class="modal-card profile-actions-card" role="dialog" aria-modal="true" aria-label="Настройки профиля">
         <h2>Настройки</h2>
+        <button type="button" class="game-action-button game-action-button--primary" data-share-profile="true">Пошерить карточку</button>
         <button type="button" class="game-action-button" data-edit-self-profile="true">Редактировать</button>
       </section>
     </div>
@@ -2409,8 +2418,7 @@ function shouldShowSelfProfilePrompt() {
   return Boolean(
     player &&
     state.selfProfilePromptDismissedFor !== player.id &&
-    !player.ratedGames &&
-    !player.hasSelfProfile &&
+    isPlayerCardUnfilled(player) &&
     !state.selfProfileEditing &&
     !state.manualGameOpen &&
     !state.selectedPlayerId &&
@@ -2813,15 +2821,6 @@ function renderProfileTab() {
           <div class="editor-nick">@${escapeHtml(player.username || 'unknown')}</div>
         </div>
         ${
-          hasCareerRatings
-            ? ''
-            : `
-              <section class="profile-rating-note">
-                У тебя пока нет рейтинга. Он формируется на основе оценок тиммейтов после игр с твоим участием
-              </section>
-            `
-        }
-        ${
           isEditingSelfProfile
             ? renderSelfProfileForm(player, selfProfileDefaults, { includeStats: !hasCareerRatings })
             : `
@@ -3044,11 +3043,10 @@ function render() {
   }
   if (gameMenuButtonNode) {
     const game = getCurrentGame();
-    gameMenuButtonNode.hidden = state.manualGameOpen || !(state.activeTab === 'game' && game?.canViewerManage);
+    gameMenuButtonNode.hidden = state.manualGameOpen || !(state.activeTab === 'game' && game);
   }
   if (gameShareButtonNode) {
-    const game = getCurrentGame();
-    gameShareButtonNode.hidden = state.manualGameOpen || !(state.activeTab === 'game' && game);
+    gameShareButtonNode.hidden = true;
   }
   appShellNode?.classList.toggle('app-shell--profile', state.activeTab === 'profile');
   appShellNode?.classList.toggle('app-shell--manual', state.manualGameOpen);
@@ -3542,7 +3540,20 @@ document.addEventListener('click', async (event) => {
   const shareProfileButton = event.target.closest('[data-share-profile]');
 
   if (shareProfileButton) {
+    state.profileActionsOpen = false;
+    renderModal();
     shareProfile().catch((error) => {
+      showToast(error.message);
+    });
+    return;
+  }
+
+  const shareGameButton = event.target.closest('[data-share-game]');
+
+  if (shareGameButton) {
+    state.gameActionsOpen = false;
+    renderModal();
+    shareCurrentGame().catch((error) => {
       showToast(error.message);
     });
     return;

@@ -2071,10 +2071,9 @@ export class AppStore {
 
   async updateSelfProfile({ chatId, playerId, payload }) {
     return this.mutate((state) => {
-      const chat = state.chats[String(chatId)];
       const player = state.players[playerId];
 
-      if (!player || (chat && !chat.playerIds.includes(playerId) && !(player.chatIds ?? []).includes(String(chatId)))) {
+      if (!player) {
         throw new Error('Игрок не найден');
       }
 

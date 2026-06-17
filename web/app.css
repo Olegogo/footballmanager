@@ -2627,11 +2627,19 @@ input[type="range"] {
 }
 
 .game-actions-card {
-  width: min(260px, calc(100vw - 28px));
+  width: min(320px, calc(100vw - 28px));
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  gap: 12px;
+  padding: 18px;
   border-radius: 22px;
+}
+
+.game-actions-card h2,
+.profile-actions-card h2 {
+  margin: 0 0 2px;
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1;
 }
 
 .game-action-button {
@@ -2642,8 +2650,13 @@ input[type="range"] {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
   font-weight: 900;
-  text-align: left;
+  text-align: center;
   cursor: pointer;
+}
+
+.game-action-button--primary {
+  background: linear-gradient(135deg, #ffe495, #d89d18);
+  color: #251700;
 }
 
 .game-action-button--danger {
@@ -3105,12 +3118,17 @@ input[type="range"] {
   cursor: pointer;
 }
 
+.game-share-button {
+  display: none;
+}
+
 .profile-share-button {
   right: 18px;
+  display: none;
 }
 
 .profile-menu-button {
-  right: 74px;
+  right: 18px;
 }
 
 .profile-share-button svg,
@@ -3143,14 +3161,52 @@ input[type="range"] {
 }
 
 .profile-stat-stepper {
-  min-height: 56px;
+  min-height: 100px;
+  grid-template-columns: 64px minmax(0, 1fr) 64px;
+  grid-template-areas:
+    "minus label plus"
+    "minus value plus";
+  gap: 0 10px;
+  padding: 12px;
+  border-radius: 24px;
+}
+
+.profile-stat-stepper > span {
+  grid-area: label;
+  justify-self: center;
+  align-self: end;
+  text-align: center;
+  font-size: clamp(18px, 4.2vw, 24px);
+  line-height: 1.1;
+}
+
+.profile-stat-stepper strong {
+  grid-area: value;
+  justify-self: center;
+  align-self: start;
+  color: var(--text);
+  font-size: clamp(28px, 7vw, 38px);
+  line-height: 0.95;
 }
 
 .profile-stat-stepper button {
+  width: 56px;
+  height: 56px;
+  align-self: center;
+  border-radius: 15px;
+  font-size: 38px;
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+}
+
+.profile-stat-stepper button[data-stepper-action="decrement"] {
+  grid-area: minus;
+}
+
+.profile-stat-stepper button[data-stepper-action="increment"] {
+  grid-area: plus;
 }
 
 .profile-stat-stepper input[type="hidden"] {
@@ -3169,15 +3225,9 @@ input[type="range"] {
 .profile-actions-card {
   width: min(320px, calc(100vw - 28px));
   display: grid;
-  gap: 14px;
+  gap: 12px;
   padding: 18px;
-}
-
-.profile-actions-card h2 {
-  margin: 0;
-  color: var(--text);
-  font-size: 24px;
-  line-height: 1;
+  border-radius: 22px;
 }
 
 .profile-rating-note {

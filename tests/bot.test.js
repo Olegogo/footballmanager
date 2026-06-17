@@ -262,6 +262,21 @@ test('buildManualInviteKeyboard uses the same main miniapp entry when possible',
   assert.equal(keyboard.inline_keyboard[1][0].callback_data, 'decline_game:game_9');
 });
 
+test('buildMainMiniAppLink can deep link to a shared player card', () => {
+  const { store } = createBotStore([]);
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+
+  bot.botUsername = 'football_test_bot';
+
+  assert.equal(
+    bot.buildMainMiniAppLink('', { initialView: 'players', playerId: 'player_42' }),
+    'https://t.me/football_test_bot?startapp=playerid_player_42'
+  );
+});
+
 test('/open uses Telegram miniapp deep link in group chats', async () => {
   const { store } = createBotStore([]);
   const bot = new TelegramBot({

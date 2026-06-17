@@ -379,6 +379,10 @@ const server = http.createServer(async (req, res) => {
         view: 'players',
         playerId: player.id
       });
+      const miniAppUrl = bot.buildMainMiniAppLink('', {
+        initialView: 'players',
+        playerId: player.id
+      }) || appUrl;
       const imageUrl = buildAbsoluteUrl(req, `/api/share-images/players/${encodeURIComponent(player.id)}.png`);
       const shareText = `${playerCard.displayName} в игре`;
       let preparedMessageId = '';
@@ -393,7 +397,7 @@ const server = http.createServer(async (req, res) => {
             thumbnail_url: imageUrl,
             caption: shareText,
             reply_markup: {
-              inline_keyboard: [[{ text: 'Посмотреть', url: appUrl }]]
+              inline_keyboard: [[{ text: 'Посмотреть', url: miniAppUrl }]]
             }
           });
           preparedMessageId = prepared?.id || '';
@@ -435,6 +439,10 @@ const server = http.createServer(async (req, res) => {
         view: 'game',
         gameId: game.id
       });
+      const miniAppUrl = bot.buildMainMiniAppLink('', {
+        initialView: 'game',
+        gameId: game.id
+      }) || appUrl;
       const imageUrl = buildAbsoluteUrl(req, `/api/share-images/games/${encodeURIComponent(game.id)}.png`);
       const shareText = `Игра ${game.dateLabel} в ${game.time}${game.location ? `, ${game.location}` : ''}`;
       let preparedMessageId = '';
@@ -449,7 +457,7 @@ const server = http.createServer(async (req, res) => {
             thumbnail_url: imageUrl,
             caption: shareText,
             reply_markup: {
-              inline_keyboard: [[{ text: 'Посмотреть', url: appUrl }]]
+              inline_keyboard: [[{ text: 'Посмотреть', url: miniAppUrl }]]
             }
           });
           preparedMessageId = prepared?.id || '';

@@ -105,6 +105,11 @@ export class TelegramBot {
       return url.toString();
     }
 
+    if (options.playerId) {
+      url.searchParams.set('startapp', `playerid_${options.playerId}`);
+      return url.toString();
+    }
+
     if (chatId) {
       url.searchParams.set('startapp', view === 'game' ? `game_chat_${chatId}` : `chat_${chatId}`);
       return url.toString();

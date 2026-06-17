@@ -834,6 +834,50 @@ test('updateSelfProfile stores unrated player card data without creating rating'
   }
 });
 
+test('updateSelfProfile lets a session player save profile outside the current chat roster', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    await store.mutate((state) => {
+      state.chats['-1001'] = {
+        id: '-1001',
+        title: 'Other Chat',
+        type: 'supergroup',
+        playerIds: []
+      };
+      state.players.player_1 = {
+        id: 'player_1',
+        username: 'newbie',
+        displayName: 'Newbie',
+        chatIds: []
+      };
+    });
+
+    await store.updateSelfProfile({
+      chatId: '-1001',
+      playerId: 'player_1',
+      payload: {
+        position: 'LB',
+        pace: 58,
+        dribbling: 57,
+        shooting: 56,
+        defense: 61,
+        passing: 55,
+        physical: 60
+      }
+    });
+
+    const snapshot = store.getSnapshot('-1001', 'player_1');
+    const card = snapshot.players.find((item) => item.id === 'player_1');
+
+    assert.equal(card.hasSelfProfile, true);
+    assert.equal(card.position, 'LB');
+    assert.equal(card.stats.defense, 61);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('updateSelfProfile lets rated player change position without resetting ratings', async () => {
   const { directory, store } = await createStore();
 
