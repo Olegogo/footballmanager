@@ -209,12 +209,11 @@ test('/start sends onboarding copy with app button', async () => {
     }
   });
 
-  assert.equal(sent.length, 4);
+  assert.equal(sent.length, 3);
   assert.equal(sent[0].text, '⚽ Создавай игры, собирай команды и находи новых игроков рядом с собой.');
   assert.equal(sent[1].text, '🎯 Мы уже создали тебе карточку игрока. Заполни её и получай оценки после матчей.');
   assert.equal(sent[2].text, '🤖 Добавь бота в чат с игроками. Он поможет собирать составы, балансировать команды и вести статистику.');
-  assert.equal(sent[3].text, '\u2060');
-  assert.equal(sent[3].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть приложение');
+  assert.equal(sent[2].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть приложение');
 });
 
 test('/start uses direct web_app url in private chats', async () => {
@@ -240,10 +239,10 @@ test('/start uses direct web_app url in private chats', async () => {
     }
   });
 
-  assert.equal(sent.length, 4);
-  assert.equal(sent[3].options.replyMarkup.inline_keyboard[0][0].url, undefined);
+  assert.equal(sent.length, 3);
+  assert.equal(sent[2].options.replyMarkup.inline_keyboard[0][0].url, undefined);
   assert.equal(
-    sent[3].options.replyMarkup.inline_keyboard[0][0].web_app.url,
+    sent[2].options.replyMarkup.inline_keyboard[0][0].web_app.url,
     'https://app.example/'
   );
 });

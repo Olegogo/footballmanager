@@ -818,14 +818,13 @@ export class TelegramBot {
         '🤖 Добавь бота в чат с игроками. Он поможет собирать составы, балансировать команды и вести статистику.'
       ];
 
-      for (const line of lines) {
+      for (const line of lines.slice(0, -1)) {
         await this.sendText(chatId, line);
       }
 
       await this.sendMiniAppEntry(chatId, message.chat.type, '', {
-        primaryText: BUTTON_ONLY_TEXT,
-        buttonText: 'Открыть приложение',
-        buttonOnly: true
+        primaryText: lines.at(-1),
+        buttonText: 'Открыть приложение'
       });
       return;
     }
