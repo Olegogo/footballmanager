@@ -153,6 +153,7 @@ const state = {
   selectedGameId: launchContext.gameId,
   selfProfileDraft: null,
   selfProfileEditing: false,
+  selfProfilePromptDismissedFor: '',
   profileActionsOpen: false,
   gameActionsOpen: false,
   achievementDetailKey: '',
@@ -2395,6 +2396,39 @@ function renderAchievementDetailModal() {
   `;
 }
 
+function shouldShowSelfProfilePrompt() {
+  const player = getViewerPlayer();
+
+  return Boolean(
+    player &&
+    state.selfProfilePromptDismissedFor !== player.id &&
+    !player.ratedGames &&
+    !player.hasSelfProfile &&
+    !state.selfProfileEditing &&
+    !state.manualGameOpen &&
+    !state.selectedPlayerId &&
+    !state.achievementDetailKey &&
+    !state.profileActionsOpen
+  );
+}
+
+function renderSelfProfilePromptModal() {
+  if (!shouldShowSelfProfilePrompt()) {
+    return '';
+  }
+
+  return `
+    <div class="modal-backdrop" data-self-profile-prompt-backdrop="true">
+      <section class="modal-card self-profile-prompt" role="dialog" aria-modal="true" aria-label="Заполни карточку игрока">
+        <button class="modal-close" type="button" data-dismiss-self-profile-prompt="true">×</button>
+        <h2>Твоя карточка игрока не заполнена</h2>
+        <p>Пройди самооценку, чтобы лучше подобрать игру и помочь командам распределяться честнее.</p>
+        <button type="button" class="primary-button" data-start-self-profile="true">Пройти</button>
+      </section>
+    </div>
+  `;
+}
+
 function renderGamesTab() {
   const games = getFilteredGames();
 
@@ -2916,9 +2950,10 @@ function renderModal() {
   const gameActionsModal = renderGameActionsModal();
   const profileActionsModal = renderProfileActionsModal();
   const achievementDetailModal = renderAchievementDetailModal();
+  const selfProfilePromptModal = renderSelfProfilePromptModal();
 
   if (!player) {
-    modalRoot.innerHTML = [createGameModal, gameActionsModal, profileActionsModal, achievementDetailModal].join('');
+    modalRoot.innerHTML = [createGameModal, gameActionsModal, profileActionsModal, achievementDetailModal, selfProfilePromptModal].join('');
     return;
   }
 
@@ -2946,6 +2981,7 @@ function renderModal() {
     gameActionsModal,
     profileActionsModal,
     achievementDetailModal,
+    selfProfilePromptModal
   ].join('');
 }
 
@@ -3472,6 +3508,27 @@ document.addEventListener('click', async (event) => {
   if (event.target.matches('[data-profile-actions-backdrop]')) {
     state.profileActionsOpen = false;
     renderModal();
+    return;
+  }
+
+  if (event.target.matches('[data-self-profile-prompt-backdrop]') || event.target.closest('[data-dismiss-self-profile-prompt]')) {
+    const player = getViewerPlayer();
+    state.selfProfilePromptDismissedFor = player?.id || 'dismissed';
+    renderModal();
+    return;
+  }
+
+  const startSelfProfileButton = event.target.closest('[data-start-self-profile]');
+
+  if (startSelfProfileButton) {
+    const player = getViewerPlayer();
+    state.selfProfilePromptDismissedFor = player?.id || 'started';
+    state.profileActionsOpen = false;
+    state.activeTab = 'profile';
+    state.selfProfileEditing = true;
+    state.selectedPlayerId = null;
+    state.manualGameOpen = false;
+    render();
     return;
   }
 
