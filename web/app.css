@@ -2027,6 +2027,8 @@ p {
   left: 20px;
   top: 16px;
   z-index: 1;
+  display: inline-grid;
+  justify-items: center;
   color: #fff;
 }
 
@@ -2043,6 +2045,7 @@ p {
   position: relative;
   display: inline-flex;
   align-items: flex-start;
+  justify-self: center;
   gap: 0;
 }
 
