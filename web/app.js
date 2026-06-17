@@ -627,11 +627,15 @@ function hasVisibleRating(player, currentStats = null) {
 }
 
 function hasVisibleStats(player, currentStats = null) {
-  return Boolean(currentStats?.hasRatings || player.ratedGames > 0 || player.hasSelfProfile);
+  return Boolean(currentStats?.hasRatings || player?.ratedGames > 0 || player?.hasSelfProfile);
+}
+
+function isPlayerCardUnfilled(player, currentStats = null) {
+  return !hasVisibleStats(player, currentStats ?? player?.currentGameStats ?? null);
 }
 
 function getEmptyPlayerStatusLabel(player, game = null) {
-  if (!player?.hasSelfProfile) {
+  if (isPlayerCardUnfilled(player)) {
     return 'Не заполнен';
   }
 
@@ -643,7 +647,7 @@ function getEmptyPlayerStatusLabel(player, game = null) {
 }
 
 function getCardStatusLabel(player, currentStats = null) {
-  if (!player?.hasSelfProfile) {
+  if (isPlayerCardUnfilled(player, currentStats)) {
     return 'Не заполнен';
   }
 
@@ -1188,7 +1192,7 @@ function renderSelfProfileStatStepper(name, label, value) {
         aria-label="Уменьшить ${escapeHtml(label)}"
       >−</button>
       <span>${escapeHtml(label)}</span>
-      <strong data-stepper-value>${escapeHtml(safeValue)}</strong>
+      <strong><span data-stepper-value>${escapeHtml(safeValue)}</span></strong>
       <input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(safeValue)}" min="1" max="99">
       <button
         type="button"
@@ -1722,7 +1726,7 @@ function renderQuickGamePlayerCard(player, game, draft) {
         <div class="quick-game-card-title">
           <strong>${escapeHtml(player.displayName)}</strong>
           <span>${escapeHtml(positionLabel)}</span>
-          ${!player.hasSelfProfile ? '<em class="player-fill-status">Не заполнен</em>' : ''}
+          ${isPlayerCardUnfilled(player) ? '<em class="player-fill-status">Не заполнен</em>' : ''}
         </div>
         ${
           ratingLabel
@@ -1781,7 +1785,7 @@ function renderField(game, options = {}) {
                     const isInteractive = Boolean(player.canRateTarget);
                     const openAttribute = isInteractive ? `data-open-player="${escapeHtml(player.id)}"` : '';
                     const ratingLabel = getGameMiniCardRatingLabel(player, game);
-                    const fieldStatusLabel = !player.hasSelfProfile
+                    const fieldStatusLabel = isPlayerCardUnfilled(player)
                       ? 'Не заполнен'
                       : game.hasStarted && !ratingLabel
                         ? 'Не оценён'
@@ -1824,7 +1828,7 @@ function renderGamePlayerRow(player) {
       <div class="game-player-main">
         <strong>${escapeHtml(player.displayName)}</strong>
         <span>${escapeHtml(positionLabel)}</span>
-        ${!player.hasSelfProfile ? '<em class="player-fill-status">Не заполнен</em>' : ''}
+        ${isPlayerCardUnfilled(player) ? '<em class="player-fill-status">Не заполнен</em>' : ''}
         ${renderDisciplineCards(player.currentGameStats, 'game-player-cards')}
       </div>
       ${renderGamePlayerState(player, game)}
@@ -1846,7 +1850,7 @@ function renderJoinRequestCard(player, game) {
       <div class="join-request-main">
         <strong>${escapeHtml(player.displayName)}</strong>
         <span>@${escapeHtml(player.username || 'unknown')}${statusLabel ? ` · ${escapeHtml(statusLabel)}` : ''}</span>
-        ${!player.hasSelfProfile ? '<em class="player-fill-status">Не заполнен</em>' : ''}
+        ${isPlayerCardUnfilled(player) ? '<em class="player-fill-status">Не заполнен</em>' : ''}
       </div>
       <div class="join-request-meta">
         ${rating ? `<strong>${escapeHtml(rating)}</strong>` : `<span class="game-player-unrated">${escapeHtml(getEmptyPlayerStatusLabel(player, game))}</span>`}

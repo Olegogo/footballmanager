@@ -3132,11 +3132,11 @@ input[type="range"] {
 .profile-stat-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .profile-stat-stepper {
-  min-height: 64px;
+  min-height: 56px;
 }
 
 .profile-stat-stepper input[type="hidden"] {
