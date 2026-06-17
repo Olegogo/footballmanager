@@ -2424,7 +2424,7 @@ function renderSelfProfilePromptModal() {
   }
 
   return `
-    <div class="modal-backdrop" data-self-profile-prompt-backdrop="true">
+    <div class="modal-backdrop modal-backdrop--center" data-self-profile-prompt-backdrop="true">
       <section class="modal-card self-profile-prompt" role="dialog" aria-modal="true" aria-label="Заполни карточку игрока">
         <button class="modal-close" type="button" data-dismiss-self-profile-prompt="true">×</button>
         <h2>Твоя карточка игрока не заполнена</h2>
@@ -2846,18 +2846,24 @@ function renderProfileTab() {
               </div>
             `
         }
-        <section class="profile-achievements" aria-label="Достижения">
-          ${renderAchievementTitle(unlockedAchievements)}
-          ${
-            unlockedAchievements.length
-              ? `
-                <div class="achievement-grid">
-                  ${unlockedAchievements.map((achievement) => renderAchievementCard(achievement)).join('')}
-                </div>
-              `
-              : '<p class="achievement-empty">Тут будут твои достижения</p>'
-          }
-        </section>
+        ${
+          isEditingSelfProfile
+            ? ''
+            : `
+              <section class="profile-achievements" aria-label="Достижения">
+                ${renderAchievementTitle(unlockedAchievements)}
+                ${
+                  unlockedAchievements.length
+                    ? `
+                      <div class="achievement-grid">
+                        ${unlockedAchievements.map((achievement) => renderAchievementCard(achievement)).join('')}
+                      </div>
+                    `
+                    : '<p class="achievement-empty">Тут будут твои достижения</p>'
+                }
+              </section>
+            `
+        }
       </div>
     </section>
   `;
