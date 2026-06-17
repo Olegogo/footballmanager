@@ -2582,7 +2582,8 @@ function renderAchievementIcon(type) {
     support: '/assets/achievements/support.svg',
     last_line: '/assets/achievements/last-line.svg',
     dark_horse: '/assets/achievements/dark-horse.svg',
-    yard_elite: '/assets/achievements/yard-elite.svg'
+    yard_elite: '/assets/achievements/yard-elite.svg',
+    organizer: '/assets/achievements/organizer.svg'
   };
   const assetSrc = assetIcons[type];
 
