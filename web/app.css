@@ -2200,9 +2200,13 @@ p {
 
 .metric-cell span {
   display: block;
+  max-width: 100%;
+  overflow: hidden;
   color: rgba(255, 240, 209, 0.68);
   font-size: 12px;
+  text-overflow: ellipsis;
   text-transform: lowercase;
+  white-space: nowrap;
 }
 
 .metric-cell strong {
@@ -2853,9 +2857,13 @@ input[type="range"] {
 .editor-stat-block span,
 .editor-stepper span,
 .editor-range-box span {
+  max-width: 100%;
+  overflow: hidden;
   color: rgba(255, 240, 209, 0.68);
   font-size: 14px;
   font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .editor-select strong,
@@ -3198,7 +3206,11 @@ input[type="range"] {
   grid-area: label;
   justify-self: center;
   align-self: end;
+  max-width: 100%;
+  overflow: hidden;
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: clamp(18px, 4.2vw, 24px);
   line-height: 1.1;
 }
