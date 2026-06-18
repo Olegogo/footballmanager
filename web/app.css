@@ -3172,7 +3172,7 @@ input[type="range"] {
 .profile-body {
   gap: 20px;
   min-height: calc(100dvh - clamp(330px, 42dvh, 450px));
-  padding: 26px 20px calc(190px + env(safe-area-inset-bottom));
+  padding: 26px 20px calc(112px + env(safe-area-inset-bottom));
 }
 
 .profile-card-metrics {
