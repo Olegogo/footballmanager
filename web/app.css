@@ -1595,12 +1595,15 @@ p {
 }
 
 .field-panel {
-  padding: 14px;
+  overflow: hidden;
+  padding: 0;
 }
 
 .field {
   position: relative;
-  min-height: 504px;
+  width: 100%;
+  height: clamp(420px, 122vw, 520px);
+  min-height: 0;
   overflow: hidden;
   border-radius: 0;
   background:
@@ -1726,10 +1729,10 @@ p {
 }
 
 .field-player-card {
-  width: min(18vw, 86px);
-  min-width: 58px;
+  width: min(14vw, 60px);
+  min-width: 40px;
   display: grid;
-  gap: 5px;
+  gap: 3px;
   justify-items: center;
   padding: 0;
   border: 0;
@@ -1746,8 +1749,8 @@ p {
 .field-player-photo {
   position: relative;
   z-index: 1;
-  width: 48px;
-  height: 48px;
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
   overflow: hidden;
   display: grid;
@@ -1764,7 +1767,7 @@ p {
 }
 
 .field-player-photo span {
-  font-size: 15px;
+  font-size: 11px;
   font-weight: 900;
   color: #ffe7af;
 }
@@ -1780,13 +1783,13 @@ p {
 }
 
 .field-player-info strong {
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1;
   color: #fffaf0;
 }
 
 .field-player-info span {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 900;
   white-space: nowrap;
   overflow: hidden;
@@ -3548,17 +3551,13 @@ input[type="range"] {
     font-size: 26px;
   }
 
-  .field {
-    min-height: 432px;
-  }
-
   .field-player-card {
-    width: min(18vw, 76px);
-    min-width: 54px;
+    width: min(14vw, 58px);
+    min-width: 40px;
   }
 
   .field-player-info strong {
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .editor-body {

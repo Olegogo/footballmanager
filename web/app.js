@@ -1789,11 +1789,6 @@ function renderField(game, options = {}) {
                     const isInteractive = Boolean(player.canRateTarget);
                     const openAttribute = isInteractive ? `data-open-player="${escapeHtml(player.id)}"` : '';
                     const ratingLabel = getGameMiniCardRatingLabel(player, game);
-                    const fieldStatusLabel = isPlayerCardUnfilled(player)
-                      ? 'Не заполнен'
-                      : game.hasStarted && !ratingLabel
-                        ? 'Не оценён'
-                        : '';
                     return `
                       <button
                         type="button"
@@ -1804,9 +1799,7 @@ function renderField(game, options = {}) {
                         <div class="field-player-photo">${renderMiniAvatar(player)}</div>
                         <div class="field-player-info">
                           ${ratingLabel ? `<strong>${escapeHtml(ratingLabel)}</strong>` : ''}
-                          ${fieldStatusLabel ? `<span class="field-player-unrated">${escapeHtml(fieldStatusLabel)}</span>` : ''}
                           <span>${escapeHtml(player.displayName.split(' ')[0])}</span>
-                          ${renderDisciplineCards(player.currentGameStats, 'field-player-cards')}
                         </div>
                       </button>
                     `;
