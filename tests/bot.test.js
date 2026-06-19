@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { TelegramBot } from '../src/bot/telegram.js';
 
-const RATING_PROMPT_TEXT = '⚽️\nОценка стартовала!\nРаздайте баллы самым заметным игрокам матча и выберите MVP...';
+const RATING_PROMPT_TEXT = 'Оценка стартовала!\nНе забудьте раздать баллы самым заметным игрокам и выбрать MVP...';
 
 function createBotStore(games) {
   const marked = [];

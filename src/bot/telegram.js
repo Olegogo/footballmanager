@@ -1145,7 +1145,7 @@ export class TelegramBot {
     }
 
     const games = this.store.listGamesRequiringPrompt(new Date());
-    const promptText = '⚽️\nОценка стартовала!\nРаздайте баллы самым заметным игрокам матча и выберите MVP...';
+    const promptText = 'Оценка стартовала!\nНе забудьте раздать баллы самым заметным игрокам и выбрать MVP...';
     const privatePromptText = 'Оценка стартовала. Ты участвуешь в этой игре — не забудь оценить тиммейтов.';
 
     for (const game of games) {
