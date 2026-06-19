@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 
 import { TelegramBot } from '../src/bot/telegram.js';
 
+const RATING_PROMPT_TEXT = '⚽️\nОценка стартовала!\nРаздайте баллы самым заметным игрокам матча и выберите MVP...';
+
 function createBotStore(games) {
   const marked = [];
   const store = {
@@ -46,7 +48,7 @@ test('processPendingRatingPrompts sends a rating prompt with miniapp link', asyn
 
   assert.equal(sent.length, 1);
   assert.equal(sent[0].chatId, '-1001');
-  assert.equal(sent[0].text, 'Не забудьте оценить игру тиммейтов');
+  assert.equal(sent[0].text, RATING_PROMPT_TEXT);
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Оценить');
   assert.equal(
     sent[0].options.replyMarkup.inline_keyboard[0][0].url,
@@ -86,7 +88,7 @@ test('processPendingRatingPrompts falls back to plain link when keyboard send fa
   assert.equal(sent.length, 3);
   assert.equal(
     sent[2].text,
-    'Не забудьте оценить игру тиммейтов\n\nhttps://t.me/football_test_bot?startapp=gameid_game_2'
+    `${RATING_PROMPT_TEXT}\n\nhttps://t.me/football_test_bot?startapp=gameid_game_2`
   );
   assert.deepEqual(marked, [{ gameId: 'game_2', messageId: 88 }]);
 });

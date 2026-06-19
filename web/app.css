@@ -748,7 +748,7 @@ p {
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  color: #fffaf0;
+  color: inherit;
 }
 
 .rating-trend-arrow svg {
@@ -766,11 +766,11 @@ p {
 }
 
 .rating-value--down .rating-trend-arrow {
-  color: #FFD264;
+  color: inherit;
 }
 
 .rating-value--up .rating-trend-arrow {
-  color: #fffaf0;
+  color: inherit;
 }
 
 .quick-rating-panel {
@@ -2615,11 +2615,11 @@ input[type="range"] {
 }
 
 .manual-field-panel {
-  padding: 14px;
+  padding: 0;
 }
 
 .manual-field-panel .field {
-  min-height: 560px;
+  min-height: 0;
 }
 
 .manual-submit {
