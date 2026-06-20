@@ -1450,33 +1450,21 @@ function renderQuickAchievementPicker(game, draft) {
   }
 
   const usedKeys = new Set(normalizeQuickAchievements(draft.achievements).map((achievement) => achievement.achievementKey));
-  const grouped = QUICK_SELECTABLE_ACHIEVEMENTS
-    .filter((achievement) => !usedKeys.has(achievement.key))
-    .reduce((acc, achievement) => {
-      acc[achievement.category] = [...(acc[achievement.category] ?? []), achievement];
-      return acc;
-    }, {});
+  const achievements = QUICK_SELECTABLE_ACHIEVEMENTS.filter((achievement) => !usedKeys.has(achievement.key));
 
   return `
     <div class="quick-achievement-picker">
-      ${Object.entries(grouped)
-        .map(([category, achievements]) => `
-          <div class="quick-achievement-group">
-            <span>${escapeHtml(category)}</span>
-            ${achievements
-              .map((achievement) => `
-                <div class="quick-achievement-option">
-                  <button
-                    type="button"
-                    data-add-quick-achievement="${escapeHtml(achievement.key)}"
-                    data-game-id="${escapeHtml(game.id)}"
-                  >
-                    ${escapeHtml(achievement.title)}
-                  </button>
-                  ${renderQuickAchievementInfoButton(achievement.key)}
-                </div>
-              `)
-              .join('')}
+      ${achievements
+        .map((achievement) => `
+          <div class="quick-achievement-option">
+            <button
+              type="button"
+              data-add-quick-achievement="${escapeHtml(achievement.key)}"
+              data-game-id="${escapeHtml(game.id)}"
+            >
+              ${escapeHtml(achievement.title)}
+            </button>
+            ${renderQuickAchievementInfoButton(achievement.key)}
           </div>
         `)
         .join('')}
@@ -1722,7 +1710,6 @@ function renderQuickGamePlayerCard(player, game, draft) {
         : '';
   const positionLabel = getGamePlayerPositionLabel(player);
   const statMeta = getStatMetaForPosition(currentStats?.position || player.position || 'N/A');
-  const achievements = getPlayerDraftAchievements(player, game, draft);
 
   return `
     <article class="quick-game-card ${ratingState.phase === 'live-empty' ? 'is-unrated' : ''}">
@@ -1739,13 +1726,8 @@ function renderQuickGamePlayerCard(player, game, draft) {
         }
       </div>
       <div class="quick-card-grid">
-        <div class="quick-card-games">
-          <span>игр</span>
-          <strong>${escapeHtml(player.games)}</strong>
-        </div>
         ${statMeta.map(([key, label]) => renderQuickPlayerStatControl(player, game, draft, key, label)).join('')}
       </div>
-      ${renderAchievementPills(achievements)}
     </article>
   `;
 }
@@ -1840,9 +1822,24 @@ function renderJoinRequestCard(player, game) {
     : rating
       ? ''
       : getEmptyPlayerStatusLabel(player, game);
+  const actions = [
+    player.canViewerAcceptInvite
+      ? `<button type="button" class="primary-button join-request-action" data-accept-game-invite="${escapeHtml(game.id)}">Принять</button>`
+      : '',
+    player.canViewerDeclineInvite
+      ? `<button type="button" class="ghost-action join-request-action" data-decline-game-invite="${escapeHtml(game.id)}">Отклонить</button>`
+      : '',
+    player.canViewerApproveJoin
+      ? `<button type="button" class="primary-button join-request-action" data-approve-join-player="${escapeHtml(player.id)}" data-game-id="${escapeHtml(game.id)}">Добавить</button>`
+      : '',
+    player.canViewerCancelJoin
+      ? `<button type="button" class="ghost-action join-request-action" data-cancel-join-request="${escapeHtml(game.id)}">Отменить</button>`
+      : ''
+  ].filter(Boolean);
+  const actionClass = actions.length === 1 ? 'join-request-actions join-request-actions--single' : 'join-request-actions';
 
   return `
-    <article class="game-player-row join-request-card is-clickable" data-scroll-player="${escapeHtml(player.id)}">
+    <article class="game-player-row join-request-card ${actions.length ? 'join-request-card--with-actions' : ''} is-clickable" data-scroll-player="${escapeHtml(player.id)}">
       <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
       <div class="game-player-main">
         <strong>${escapeHtml(player.displayName)}</strong>
@@ -1851,27 +1848,8 @@ function renderJoinRequestCard(player, game) {
       <div class="join-request-meta">
         ${rating ? renderRatingValue(rating, player.ratingDelta, 'game-player-rating') : ''}
         ${statusBadge ? `<span class="game-player-unrated">${escapeHtml(statusBadge)}</span>` : ''}
-        ${
-          player.canViewerAcceptInvite
-            ? `<button type="button" class="primary-button join-request-action" data-accept-game-invite="${escapeHtml(game.id)}">Принять</button>`
-            : ''
-        }
-        ${
-          player.canViewerDeclineInvite
-            ? `<button type="button" class="ghost-action join-request-action" data-decline-game-invite="${escapeHtml(game.id)}">Отклонить</button>`
-            : ''
-        }
-        ${
-          player.canViewerApproveJoin
-            ? `<button type="button" class="primary-button join-request-action" data-approve-join-player="${escapeHtml(player.id)}" data-game-id="${escapeHtml(game.id)}">Добавить</button>`
-            : ''
-        }
-        ${
-          player.canViewerCancelJoin
-            ? `<button type="button" class="ghost-action join-request-action" data-cancel-join-request="${escapeHtml(game.id)}">Отменить</button>`
-            : ''
-        }
       </div>
+      ${actions.length ? `<div class="${actionClass}">${actions.join('')}</div>` : ''}
     </article>
   `;
 }
@@ -1940,7 +1918,7 @@ function renderWaitingPlayersSection(game) {
   }
 
   return `
-    <section class="panel join-requests-panel">
+    <section class="join-requests-panel">
       <div class="join-requests-head">
         <h3>Ожидают</h3>
       </div>
@@ -2267,11 +2245,11 @@ function saveManualGameDraft(form) {
 function renderCreateGameModal() {
   if (state.manualGameConfirm) {
     return `
-      <div class="modal-backdrop" data-create-backdrop="true">
+      <div class="modal-backdrop modal-backdrop--center" data-create-backdrop="true">
         <section class="modal-card confirm-card" role="dialog" aria-modal="true" aria-label="Сообщить игрокам">
           <button class="modal-close" type="button" data-close-create-game="true">×</button>
           <h2>Сообщить игрокам об игре?</h2>
-          <p>Игроки, которые запускали бота в личке, получат приглашение и смогут отказаться кнопкой “Не смогу”.</p>
+          <p>Игроки, которые запускали бота, смогут подтвердить участие.</p>
           <div class="confirm-actions">
             <button type="button" class="primary-button" data-create-game-confirm="yes">Да</button>
             <button type="button" class="ghost-action" data-create-game-confirm="skip">Пропустить</button>
