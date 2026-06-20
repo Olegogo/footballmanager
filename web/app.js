@@ -2335,7 +2335,7 @@ function renderGameActionsModal() {
     <div class="modal-backdrop modal-backdrop--compact" data-game-actions-backdrop="true">
       <section class="modal-card game-actions-card" role="dialog" aria-modal="true" aria-label="Действия с игрой">
         <h2>Действия</h2>
-        <button type="button" class="game-action-button game-action-button--primary" data-share-game="true">Пошерить игру</button>
+        <button type="button" class="game-action-button" data-share-game="true">Пошерить игру</button>
         ${
           game.canViewerManage
             ? `
@@ -2358,7 +2358,7 @@ function renderProfileActionsModal() {
     <div class="modal-backdrop modal-backdrop--compact" data-profile-actions-backdrop="true">
       <section class="modal-card profile-actions-card" role="dialog" aria-modal="true" aria-label="Настройки профиля">
         <h2>Настройки</h2>
-        <button type="button" class="game-action-button game-action-button--primary" data-share-profile="true">Пошерить карточку</button>
+        <button type="button" class="game-action-button" data-share-profile="true">Пошерить карточку</button>
         <button type="button" class="game-action-button" data-edit-self-profile="true">Редактировать</button>
       </section>
     </div>
