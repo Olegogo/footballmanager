@@ -1265,7 +1265,7 @@ function renderGameHeader(game) {
   const venue = getVenueInfo(game.location);
 
   return `
-    <section class="panel">
+    <section class="panel game-info-panel ${game.ratingWindowOpen ? 'game-info-panel--rating' : ''}">
       <div class="game-summary">
         <div>
           <h2>${escapeHtml(getGameDateShort(game.dateLabel))}</h2>
@@ -1302,6 +1302,21 @@ function renderGameHeader(game) {
 function renderRatingBanner(game) {
   if (game.ratingWindowOpen) {
     const countdownLabel = getRatingCountdownLabel(game.ratingWindowEndsAt);
+    const timer = countdownLabel
+      ? `<strong data-rating-countdown="${escapeHtml(game.ratingWindowEndsAt)}">${escapeHtml(countdownLabel)}</strong>`
+      : '';
+
+    if (!game.viewerIsParticipant) {
+      return `
+        <section class="notice-banner notice-banner--rating-live notice-banner--rating-viewer">
+          <div class="rating-live-main">
+            <p>Оценка для участников стартовала</p>
+            ${timer}
+          </div>
+        </section>
+      `;
+    }
+
     const draft = getQuickRatingDraft(game);
     const remainingPoints = Math.max(0, Number(game.quickRatingPoints ?? QUICK_RATING_POINTS) - getQuickRatingPointsUsed(draft));
     const ratedCount = Math.max(0, Math.round(Number(game.quickRatersCount ?? 0)));
@@ -1309,14 +1324,8 @@ function renderRatingBanner(game) {
     return `
       <section class="notice-banner notice-banner--rating-live">
         <div class="rating-live-main">
-          <div>
-            <p>Раздай до ${escapeHtml(game.quickRatingPoints ?? QUICK_RATING_POINTS)} очков и выбери MVP</p>
-          </div>
-          ${
-            countdownLabel
-              ? `<strong data-rating-countdown="${escapeHtml(game.ratingWindowEndsAt)}">${escapeHtml(countdownLabel)}</strong>`
-              : ''
-          }
+          <p>Раздай до ${escapeHtml(game.quickRatingPoints ?? QUICK_RATING_POINTS)} очков и выбери MVP</p>
+          ${timer}
         </div>
         <div class="rating-live-chips">
           <span>${escapeHtml(remainingPoints)} ${escapeHtml(getPlural(remainingPoints, ['очко', 'очка', 'очков']))} осталось</span>
@@ -1324,11 +1333,6 @@ function renderRatingBanner(game) {
             ratedCount
               ? `<span>${escapeHtml(ratedCount)} уже ${escapeHtml(ratedCount === 1 ? 'оценил' : 'оценили')}</span>`
               : ''
-          }
-          ${
-            game.viewerIsParticipant
-              ? ''
-              : '<span>Только участники матча</span>'
           }
         </div>
       </section>

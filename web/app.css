@@ -232,6 +232,20 @@ p {
   font-size: 25px;
 }
 
+.game-info-panel--rating {
+  padding: 18px 16px;
+  border-radius: 16px;
+}
+
+.game-info-panel--rating .game-summary {
+  margin-bottom: 0;
+}
+
+.game-info-panel--rating .game-facts,
+.game-info-panel--rating .game-venue {
+  display: none;
+}
+
 .game-location {
   margin-top: 6px;
   color: var(--muted);
@@ -339,9 +353,9 @@ p {
 
 .notice-banner--rating-live {
   display: grid;
-  gap: 28px;
-  padding: 28px 32px;
-  border-radius: 38px;
+  gap: 22px;
+  padding: 20px;
+  border-radius: 28px;
 }
 
 .rating-live-main {
@@ -352,7 +366,7 @@ p {
 }
 
 .rating-live-main p {
-  max-width: 640px;
+  max-width: 190px;
   font-size: 18px;
   line-height: 1.12;
   letter-spacing: -0.02em;
@@ -370,7 +384,7 @@ p {
 .notice-banner--rating-live strong {
   flex: 0 0 auto;
   border-radius: 999px;
-  padding: 10px 14px;
+  padding: 9px 13px;
   background: rgba(20, 13, 2, 0.15);
   color: #140d02;
   font-size: 16px;
@@ -381,7 +395,7 @@ p {
 .rating-live-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 8px;
 }
 
 .rating-live-chips span {
@@ -392,6 +406,18 @@ p {
   color: #140d02;
   font-size: 14px;
   line-height: 1;
+}
+
+.notice-banner--rating-viewer {
+  min-height: 92px;
+}
+
+.notice-banner--rating-viewer .rating-live-main {
+  align-items: center;
+}
+
+.notice-banner--rating-viewer .rating-live-main p {
+  max-width: 210px;
 }
 
 .games-filter-row {
@@ -993,7 +1019,7 @@ p {
 
 .quick-rating-panel--simple h2 {
   margin: 0 0 14px;
-  font-size: clamp(38px, 8.5vw, 54px);
+  font-size: 26px;
   line-height: 0.98;
   letter-spacing: -0.04em;
 }
@@ -1007,9 +1033,9 @@ p {
 .quick-select-field {
   display: grid;
   gap: 4px;
-  min-height: 70px;
-  padding: 14px 18px;
-  border-radius: 20px;
+  min-height: 56px;
+  padding: 10px 14px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.045);
 }
 
@@ -1018,7 +1044,7 @@ p {
   align-items: center;
   gap: 8px;
   color: rgba(255, 240, 209, 0.62);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 900;
   letter-spacing: -0.02em;
   text-transform: none;
@@ -1030,7 +1056,7 @@ p {
 
 .quick-select-control select {
   width: 100%;
-  min-height: 34px;
+  min-height: 24px;
   padding: 0 34px 0 0;
   border: 0;
   outline: 0;
@@ -1038,7 +1064,7 @@ p {
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 900;
 }
 
@@ -1052,8 +1078,8 @@ p {
 
 .quick-floating-save .primary-button {
   width: 100%;
-  min-height: 64px;
-  border-radius: 20px;
+  min-height: 60px;
+  border-radius: 18px;
   font-size: 20px;
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
 }
@@ -1090,12 +1116,12 @@ p {
 
 .quick-add-achievement {
   width: 100%;
-  min-height: 64px;
+  min-height: 56px;
   border: 0;
-  border-radius: 22px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 900;
 }
 
@@ -1162,13 +1188,13 @@ p {
 
 .quick-game-cards {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .quick-game-card {
   display: grid;
-  gap: 14px;
-  padding: 14px;
+  gap: 12px;
+  padding: 16px;
   border: 1px solid rgba(255, 204, 82, 0.36);
   border-radius: 26px;
   background:
@@ -1226,26 +1252,26 @@ p {
 .quick-card-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .quick-card-stat {
-  min-height: 96px;
+  min-height: 54px;
   display: grid;
   align-items: center;
-  border: 3px solid rgba(205, 221, 210, 0.26);
-  border-radius: 34px;
+  border: 1.5px solid rgba(205, 221, 210, 0.26);
+  border-radius: 16px;
   background: rgba(4, 17, 10, 0.76);
 }
 
 .quick-card-stat {
-  grid-template-columns: 58px minmax(0, 1fr) 58px;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
   grid-template-areas:
     "minus label plus"
     "minus value plus";
-  column-gap: 12px;
+  column-gap: 6px;
   row-gap: 0;
-  padding: 12px 14px;
+  padding: 6px;
 }
 
 .quick-card-stat.is-active {
@@ -1259,7 +1285,7 @@ p {
   align-self: end;
   overflow: hidden;
   color: rgba(255, 240, 209, 0.58);
-  font-size: clamp(18px, 4.4vw, 27px);
+  font-size: 14px;
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1273,7 +1299,7 @@ p {
   justify-self: center;
   align-self: start;
   color: var(--text);
-  font-size: clamp(34px, 8.5vw, 48px);
+  font-size: 20px;
   font-weight: 900;
   line-height: 1;
   text-align: center;
@@ -1300,15 +1326,15 @@ p {
 }
 
 .quick-card-stat button {
-  width: 58px;
-  height: 72px;
+  width: 34px;
+  height: 42px;
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 22px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.17);
   color: var(--text);
-  font-size: 40px;
+  font-size: 28px;
   font-weight: 800;
   line-height: 1;
   align-self: center;
@@ -3593,8 +3619,8 @@ input[type="range"] {
   }
 
   .notice-banner--rating-live {
-    gap: 26px;
-    padding: 28px 28px;
+    gap: 22px;
+    padding: 20px;
   }
 
   .rating-live-main {
