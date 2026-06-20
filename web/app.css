@@ -335,8 +335,8 @@ p {
 
 .notice-banner--rating-live {
   display: grid;
-  gap: 34px;
-  padding: 34px 36px 34px;
+  gap: 28px;
+  padding: 28px 32px;
   border-radius: 38px;
 }
 
@@ -349,16 +349,16 @@ p {
 
 .rating-live-main p {
   max-width: 640px;
-  font-size: clamp(30px, 7vw, 48px);
-  line-height: 1.08;
-  letter-spacing: -0.04em;
+  font-size: 18px;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
 }
 
 .notice-banner--rating-live span {
   display: block;
   margin-top: 4px;
   color: rgba(20, 13, 2, 0.72);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 800;
   line-height: 1.25;
 }
@@ -366,10 +366,10 @@ p {
 .notice-banner--rating-live strong {
   flex: 0 0 auto;
   border-radius: 999px;
-  padding: 13px 18px;
+  padding: 10px 14px;
   background: rgba(20, 13, 2, 0.15);
   color: #140d02;
-  font-size: clamp(22px, 5.5vw, 36px);
+  font-size: 16px;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -382,11 +382,11 @@ p {
 
 .rating-live-chips span {
   margin: 0;
-  padding: 9px 14px;
+  padding: 8px 12px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.9);
   color: #140d02;
-  font-size: clamp(16px, 4.2vw, 24px);
+  font-size: 14px;
   line-height: 1;
 }
 
@@ -1494,9 +1494,9 @@ p {
 .join-requests-head h3 {
   margin: 0;
   color: var(--text);
-  font-size: clamp(42px, 10vw, 64px);
-  line-height: 0.95;
-  letter-spacing: -0.06em;
+  font-size: 26px;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
 }
 
 .join-panel p {
@@ -1508,7 +1508,7 @@ p {
 
 .join-requests-panel {
   display: grid;
-  gap: 22px;
+  gap: 16px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -1582,18 +1582,18 @@ p {
   grid-template-areas:
     "avatar main meta"
     "actions actions actions";
-  padding: 20px;
-  border-radius: 28px;
+  padding: 18px;
+  border-radius: 24px;
 }
 
 .join-request-card--with-actions .game-player-avatar {
   grid-area: avatar;
-  width: 72px;
-  height: 72px;
+  width: 54px;
+  height: 54px;
 }
 
 .join-request-card--with-actions .game-player-avatar span {
-  font-size: 26px;
+  font-size: 18px;
 }
 
 .join-request-card--with-actions .game-player-main {
@@ -1601,13 +1601,13 @@ p {
 }
 
 .join-request-card--with-actions .game-player-main strong {
-  font-size: 30px;
-  letter-spacing: -0.04em;
+  font-size: 17px;
+  letter-spacing: -0.02em;
 }
 
 .join-request-card--with-actions .game-player-main span {
   margin-top: 2px;
-  font-size: 22px;
+  font-size: 13px;
   font-weight: 900;
 }
 
@@ -1626,10 +1626,10 @@ p {
 }
 
 .join-request-action {
-  min-height: 64px;
-  padding: 14px 16px;
-  border-radius: 28px;
-  font-size: 28px;
+  min-height: 52px;
+  padding: 12px 14px;
+  border-radius: 22px;
+  font-size: 16px;
   white-space: nowrap;
 }
 
@@ -1637,12 +1637,14 @@ p {
   grid-area: actions;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 12px;
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .join-request-actions--single {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
+  width: min(260px, 100%);
+  justify-self: center;
 }
 
 .join-request-actions .ghost-action {
@@ -3574,8 +3576,8 @@ input[type="range"] {
   }
 
   .notice-banner--rating-live {
-    gap: 30px;
-    padding: 28px 28px 30px;
+    gap: 26px;
+    padding: 28px 28px;
   }
 
   .rating-live-main {

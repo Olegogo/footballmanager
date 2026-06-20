@@ -753,9 +753,12 @@ const server = http.createServer(async (req, res) => {
       }
 
       const gameId = decodeURIComponent(url.pathname.split('/')[3]);
+      const body = await readJsonBody(req).catch(() => ({}));
+      const targetPlayerId = String(body?.playerId || session.playerId);
       await store.cancelJoinRequest({
         gameId,
-        playerId: session.playerId
+        playerId: targetPlayerId,
+        requesterPlayerId: session.playerId
       });
 
       const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });

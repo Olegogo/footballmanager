@@ -1142,6 +1142,7 @@ test('join requests can be requested, shown and approved before kickoff', async 
 
     const organizerSnapshot = store.getSnapshot('global', organizer.id, { selectedGameId: result.game.id });
     assert.equal(organizerSnapshot.currentGame.pendingJoinPlayers[0].canViewerApproveJoin, true);
+    assert.equal(organizerSnapshot.currentGame.pendingJoinPlayers[0].canViewerCancelJoin, true);
 
     const approved = await store.approveJoinRequest({
       gameId: result.game.id,

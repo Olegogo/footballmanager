@@ -1833,7 +1833,7 @@ function renderJoinRequestCard(player, game) {
       ? `<button type="button" class="primary-button join-request-action" data-approve-join-player="${escapeHtml(player.id)}" data-game-id="${escapeHtml(game.id)}">Добавить</button>`
       : '',
     player.canViewerCancelJoin
-      ? `<button type="button" class="ghost-action join-request-action" data-cancel-join-request="${escapeHtml(game.id)}">Отменить</button>`
+      ? `<button type="button" class="ghost-action join-request-action" data-cancel-join-request="${escapeHtml(game.id)}" data-cancel-join-player="${escapeHtml(player.id)}">Отменить</button>`
       : ''
   ].filter(Boolean);
   const actionClass = actions.length === 1 ? 'join-request-actions join-request-actions--single' : 'join-request-actions';
@@ -3205,13 +3205,14 @@ async function requestJoinGame(gameId) {
   showToast('Заявка отправлена');
 }
 
-async function cancelJoinRequest(gameId) {
+async function cancelJoinRequest(gameId, playerId = '') {
   if (!(await ensureAuthorizedForAction())) {
     return;
   }
 
   const data = await api(`/api/games/${encodeURIComponent(gameId)}/join-request`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    body: playerId ? { playerId } : null
   });
   state.snapshot = data.snapshot;
   render();
@@ -3770,7 +3771,7 @@ document.addEventListener('click', async (event) => {
   const cancelJoinButton = event.target.closest('[data-cancel-join-request]');
 
   if (cancelJoinButton) {
-    cancelJoinRequest(cancelJoinButton.dataset.cancelJoinRequest).catch((error) => {
+    cancelJoinRequest(cancelJoinButton.dataset.cancelJoinRequest, cancelJoinButton.dataset.cancelJoinPlayer).catch((error) => {
       showToast(error.message);
     });
     return;

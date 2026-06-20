@@ -1573,7 +1573,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
             ...profile,
             inviteStatus: 'pending',
             canViewerApproveJoin: canViewerManage,
-            canViewerCancelJoin: viewerPlayerId === playerId
+            canViewerCancelJoin: viewerPlayerId === playerId || canViewerManage
           };
         })
         .filter(Boolean),
@@ -1589,7 +1589,8 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
             ...profile,
             inviteStatus: 'invited',
             canViewerAcceptInvite: viewerPlayerId === playerId,
-            canViewerDeclineInvite: viewerPlayerId === playerId
+            canViewerDeclineInvite: viewerPlayerId === playerId,
+            canViewerCancelJoin: canViewerManage
           };
         })
         .filter(Boolean),

@@ -1577,7 +1577,7 @@ export class AppStore {
     });
   }
 
-  async cancelJoinRequest({ gameId, playerId }) {
+  async cancelJoinRequest({ gameId, playerId, requesterPlayerId = playerId }) {
     return this.mutate((state) => {
       const game = state.games[gameId];
       const player = findPlayerById(state, playerId);
@@ -1586,15 +1586,32 @@ export class AppStore {
         throw new Error('Игра или игрок не найдены');
       }
 
-      const previous = game.pendingJoinPlayerIds ?? [];
-      game.pendingJoinPlayerIds = previous.filter((id) => id !== playerId);
+      const isSelfCancel = requesterPlayerId === playerId;
 
-      if (previous.length !== game.pendingJoinPlayerIds.length) {
+      if (!isSelfCancel) {
+        assertCanManageGame(state, game, requesterPlayerId);
+
+        if (!isGameEditableBeforeStart(game, new Date())) {
+          throw new Error('Игру уже нельзя редактировать');
+        }
+      }
+
+      const previousPending = game.pendingJoinPlayerIds ?? [];
+      const previousInvited = game.invitedPlayerIds ?? [];
+      game.pendingJoinPlayerIds = previousPending.filter((id) => id !== playerId);
+      game.invitedPlayerIds = previousInvited.filter((id) => id !== playerId);
+
+      if (
+        previousPending.length !== game.pendingJoinPlayerIds.length ||
+        previousInvited.length !== game.invitedPlayerIds.length
+      ) {
         game.updatedAt = new Date().toISOString();
       }
 
       return {
-        cancelled: previous.length !== game.pendingJoinPlayerIds.length,
+        cancelled:
+          previousPending.length !== game.pendingJoinPlayerIds.length ||
+          previousInvited.length !== game.invitedPlayerIds.length,
         game,
         player,
         organizer: game.organizerPlayerId ? findPlayerById(state, game.organizerPlayerId) : null
