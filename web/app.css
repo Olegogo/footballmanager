@@ -86,6 +86,10 @@ p {
   padding-bottom: 18px;
 }
 
+.app-shell--game.app-shell--join-floating {
+  padding-bottom: calc(106px + env(safe-area-inset-bottom));
+}
+
 .app-shell--game .tabbar {
   display: none;
 }
@@ -1470,6 +1474,12 @@ p {
 
 .join-cta {
   display: grid;
+  position: fixed;
+  left: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
+  right: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 58;
+  pointer-events: none;
 }
 
 .join-cta-button,
@@ -1477,6 +1487,13 @@ p {
   width: 100%;
   border-radius: 22px;
   min-height: 56px;
+}
+
+.join-cta-button {
+  min-height: 64px;
+  border-radius: 24px;
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.38);
+  pointer-events: auto;
 }
 
 .join-panel {

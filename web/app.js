@@ -3021,9 +3021,17 @@ function render() {
   if (gameShareButtonNode) {
     gameShareButtonNode.hidden = true;
   }
+  const currentGame = getCurrentGame();
+  const canShowFloatingJoin = Boolean(
+    !state.manualGameOpen &&
+    state.activeTab === 'game' &&
+    currentGame?.canViewerRequestJoin &&
+    !['pending', 'invited'].includes(currentGame.viewerJoinStatus)
+  );
   appShellNode?.classList.toggle('app-shell--profile', state.activeTab === 'profile');
   appShellNode?.classList.toggle('app-shell--manual', state.manualGameOpen);
   appShellNode?.classList.toggle('app-shell--game', !state.manualGameOpen && state.activeTab === 'game');
+  appShellNode?.classList.toggle('app-shell--join-floating', canShowFloatingJoin);
   syncTabbar();
 
   if (!state.snapshot?.chat) {
