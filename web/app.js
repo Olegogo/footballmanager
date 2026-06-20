@@ -1834,22 +1834,23 @@ function renderGamePlayerRow(player) {
 
 function renderJoinRequestCard(player, game) {
   const rating = getPlayerOverallLabel(player);
-  const statusLabel = player.inviteStatus === 'invited'
-    ? 'Ожидает ответа'
-    : player.inviteStatus === 'pending'
-      ? 'Заявка'
-      : '';
+  const positionLabel = getPositionMeta(player.position || 'N/A').short;
+  const statusBadge = isPlayerCardUnfilled(player)
+    ? 'Не заполнен'
+    : rating
+      ? ''
+      : getEmptyPlayerStatusLabel(player, game);
 
   return `
-    <article class="join-request-card">
+    <article class="game-player-row join-request-card is-clickable" data-scroll-player="${escapeHtml(player.id)}">
       <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
-      <div class="join-request-main">
+      <div class="game-player-main">
         <strong>${escapeHtml(player.displayName)}</strong>
-        <span>@${escapeHtml(player.username || 'unknown')}${statusLabel ? ` · ${escapeHtml(statusLabel)}` : ''}</span>
-        ${isPlayerCardUnfilled(player) ? '<em class="player-fill-status">Не заполнен</em>' : ''}
+        <span>${escapeHtml(positionLabel === '—' ? 'Нет позиции' : positionLabel)}</span>
       </div>
       <div class="join-request-meta">
-        ${rating ? `<strong>${escapeHtml(rating)}</strong>` : `<span class="game-player-unrated">${escapeHtml(getEmptyPlayerStatusLabel(player, game))}</span>`}
+        ${rating ? renderRatingValue(rating, player.ratingDelta, 'game-player-rating') : ''}
+        ${statusBadge ? `<span class="game-player-unrated">${escapeHtml(statusBadge)}</span>` : ''}
         ${
           player.canViewerAcceptInvite
             ? `<button type="button" class="primary-button join-request-action" data-accept-game-invite="${escapeHtml(game.id)}">Принять</button>`
@@ -3900,6 +3901,19 @@ document.addEventListener('click', async (event) => {
     submitQuickRating(quickSubmitButton.dataset.submitQuickRating).catch((error) => {
       showToast(error.message);
     });
+    return;
+  }
+
+  const scrollPlayerButton = event.target.closest('[data-scroll-player]');
+
+  if (scrollPlayerButton) {
+    state.activeTab = 'players';
+    state.selectedGameId = '';
+    state.manualGameOpen = false;
+    state.playerSearch = '';
+    state.positionFilter = '';
+    state.playerScrollTargetId = scrollPlayerButton.dataset.scrollPlayer || '';
+    render();
     return;
   }
 

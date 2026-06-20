@@ -1539,33 +1539,7 @@ p {
 }
 
 .join-request-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 235, 170, 0.12);
-}
-
-.join-request-main {
-  min-width: 0;
-  display: grid;
-  gap: 4px;
-}
-
-.join-request-main strong,
-.join-request-main span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.join-request-main span {
-  color: rgba(255, 240, 209, 0.64);
-  font-size: 13px;
-  font-weight: 800;
+  cursor: pointer;
 }
 
 .join-request-meta {
