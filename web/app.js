@@ -1410,13 +1410,10 @@ function renderQuickAchievementInfoButton(achievementKey) {
   `;
 }
 
-function renderQuickSelectField({ label, valueLabel, selectHtml, achievementKey = '' }) {
+function renderQuickSelectField({ label, valueLabel, selectHtml }) {
   return `
     <label class="quick-select-field">
-      <span>
-        ${escapeHtml(label)}
-        ${achievementKey ? renderQuickAchievementInfoButton(achievementKey) : ''}
-      </span>
+      <span>${escapeHtml(label)}</span>
       <div class="quick-select-control">
         ${selectHtml}
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1455,20 +1452,32 @@ function renderQuickAchievementPicker(game, draft) {
 
   const usedKeys = new Set(normalizeQuickAchievements(draft.achievements).map((achievement) => achievement.achievementKey));
   const achievements = QUICK_SELECTABLE_ACHIEVEMENTS.filter((achievement) => !usedKeys.has(achievement.key));
+  const groupedAchievements = achievements.reduce((groups, achievement) => {
+    const category = achievement.category || 'другое';
+    groups.set(category, [...(groups.get(category) || []), achievement]);
+    return groups;
+  }, new Map());
 
   return `
     <div class="quick-achievement-picker">
-      ${achievements
-        .map((achievement) => `
-          <div class="quick-achievement-option">
-            <button
-              type="button"
-              data-add-quick-achievement="${escapeHtml(achievement.key)}"
-              data-game-id="${escapeHtml(game.id)}"
-            >
-              ${escapeHtml(achievement.title)}
-            </button>
-            ${renderQuickAchievementInfoButton(achievement.key)}
+      ${Array.from(groupedAchievements.entries())
+        .map(([category, items]) => `
+          <div class="quick-achievement-group">
+            <span>${escapeHtml(category)}</span>
+            ${items
+              .map((achievement) => `
+                <div class="quick-achievement-option">
+                  <button
+                    type="button"
+                    data-add-quick-achievement="${escapeHtml(achievement.key)}"
+                    data-game-id="${escapeHtml(game.id)}"
+                  >
+                    ${escapeHtml(achievement.title)}
+                  </button>
+                  ${renderQuickAchievementInfoButton(achievement.key)}
+                </div>
+              `)
+              .join('')}
           </div>
         `)
         .join('')}
