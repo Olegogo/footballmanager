@@ -1302,7 +1302,7 @@ function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
 function renderGameHeader(game) {
   const statusText = game.status === 'upcoming' ? 'Игра впереди' : game.status === 'live' ? 'Идет игра' : 'Игра закончена';
   const venue = getVenueInfo(game.location);
-  const playerCountBadges = renderPlayerCountBadges(game.participants.length, game);
+  const playerCountBadges = renderPlayerCountBadges(game.playersCount ?? game.participants.length, game);
 
   return `
     <section class="panel game-info-panel ${game.ratingWindowOpen ? 'game-info-panel--rating' : ''}">

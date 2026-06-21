@@ -304,7 +304,29 @@ p {
 }
 
 .game-facts .game-level-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   margin-top: 2px;
+}
+
+.game-facts .game-level-badge {
+  display: inline-flex;
+  margin-bottom: 0;
+  color: #fff3c2;
+}
+
+.game-facts .game-level-badge--low {
+  color: #ffc8b5;
+}
+
+.game-facts .game-level-badge--mid {
+  color: #ffe28b;
+}
+
+.game-facts .game-level-badge--high {
+  color: #bff3ce;
 }
 
 .game-venue {
@@ -2677,8 +2699,9 @@ input[type="range"] {
 
 .manual-fields textarea {
   width: 100%;
-  min-height: 84px;
-  resize: vertical;
+  height: 32px;
+  min-height: 0;
+  resize: none;
   border: 0;
   border-radius: 12px;
   padding: 10px 0 0;
@@ -2687,8 +2710,9 @@ input[type="range"] {
   font: inherit;
   font-size: 18px;
   font-weight: 900;
-  line-height: 1.25;
+  line-height: 1.2;
   outline: none;
+  overflow: hidden;
 }
 
 .manual-fields textarea::placeholder {
