@@ -163,6 +163,7 @@ const state = {
   achievementDetailKey: '',
   achievementAwardQueue: [],
   achievementAwardIndex: 0,
+  achievementAwardsChecked: false,
   quickAchievementInfoPointerAt: 0,
   ratingDrafts: {},
   quickRatingDrafts: {},
@@ -1695,12 +1696,18 @@ function getNewAchievementAwards(player) {
 }
 
 function syncAchievementAwards() {
-  if (state.achievementAwardQueue.length || state.achievementDetailKey) {
+  if (state.achievementAwardsChecked || state.achievementAwardQueue.length || state.achievementDetailKey) {
     return;
   }
 
   const player = getViewerPlayer();
+
+  if (!player?.id) {
+    return;
+  }
+
   const newAwards = getNewAchievementAwards(player);
+  state.achievementAwardsChecked = true;
 
   if (!newAwards.length) {
     return;
@@ -1708,6 +1715,7 @@ function syncAchievementAwards() {
 
   state.achievementAwardQueue = newAwards;
   state.achievementAwardIndex = 0;
+  writeSeenAchievementCounts(player.id, getPlayerAchievementCounts(player));
 }
 
 function dismissAchievementAwards() {
