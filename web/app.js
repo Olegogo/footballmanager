@@ -161,6 +161,8 @@ const state = {
   profileActionsOpen: false,
   gameActionsOpen: false,
   achievementDetailKey: '',
+  achievementAwardQueue: [],
+  achievementAwardIndex: 0,
   quickAchievementInfoPointerAt: 0,
   ratingDrafts: {},
   quickRatingDrafts: {},
@@ -199,6 +201,37 @@ let lastAuthError = '';
 
 function storageKey() {
   return 'fifa-miniapp-token:global';
+}
+
+function achievementSeenStorageKey(playerId) {
+  return `fifa-achievements-seen:${playerId}`;
+}
+
+function readSeenAchievementCounts(playerId) {
+  if (!playerId) {
+    return {};
+  }
+
+  try {
+    const rawValue = localStorage.getItem(achievementSeenStorageKey(playerId));
+    const parsedValue = rawValue ? JSON.parse(rawValue) : {};
+
+    return parsedValue && typeof parsedValue === 'object' ? parsedValue : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSeenAchievementCounts(playerId, counts) {
+  if (!playerId) {
+    return;
+  }
+
+  try {
+    localStorage.setItem(achievementSeenStorageKey(playerId), JSON.stringify(counts ?? {}));
+  } catch {
+    // Ignore storage failures: awards can still be shown during the current session.
+  }
 }
 
 function consumeSessionTokenFromUrl() {
@@ -1631,6 +1664,63 @@ function getUnlockedPlayerAchievements(player, currentStats = null) {
     });
 }
 
+function getPlayerAchievementCounts(player) {
+  return Object.fromEntries(
+    Object.entries(player?.achievementCounts ?? {})
+      .map(([key, count]) => [key, Math.max(0, Math.round(Number(count ?? 0)))])
+      .filter(([key, count]) => count > 0 && QUICK_ACHIEVEMENT_BY_KEY[key])
+  );
+}
+
+function getNewAchievementAwards(player) {
+  if (!player?.id) {
+    return [];
+  }
+
+  const currentCounts = getPlayerAchievementCounts(player);
+  const seenCounts = readSeenAchievementCounts(player.id);
+
+  return Object.entries(currentCounts)
+    .filter(([key, count]) => count > Math.max(0, Math.round(Number(seenCounts[key] ?? 0))))
+    .map(([key, count]) => ({
+      key,
+      count,
+      delta: count - Math.max(0, Math.round(Number(seenCounts[key] ?? 0)))
+    }))
+    .sort((left, right) => {
+      const leftIndex = QUICK_ACHIEVEMENTS.findIndex((achievement) => achievement.key === left.key);
+      const rightIndex = QUICK_ACHIEVEMENTS.findIndex((achievement) => achievement.key === right.key);
+      return leftIndex - rightIndex;
+    });
+}
+
+function syncAchievementAwards() {
+  if (state.achievementAwardQueue.length || state.achievementDetailKey) {
+    return;
+  }
+
+  const player = getViewerPlayer();
+  const newAwards = getNewAchievementAwards(player);
+
+  if (!newAwards.length) {
+    return;
+  }
+
+  state.achievementAwardQueue = newAwards;
+  state.achievementAwardIndex = 0;
+}
+
+function dismissAchievementAwards() {
+  const player = getViewerPlayer();
+
+  if (player?.id) {
+    writeSeenAchievementCounts(player.id, getPlayerAchievementCounts(player));
+  }
+
+  state.achievementAwardQueue = [];
+  state.achievementAwardIndex = 0;
+}
+
 function getAchievementsTotalCount(achievements) {
   return achievements.reduce((total, achievement) => (
     total + Math.max(0, Math.round(Number(achievement.count ?? 0)))
@@ -2446,6 +2536,39 @@ function renderAchievementDetailModal() {
   `;
 }
 
+function renderAchievementAwardModal() {
+  const awards = state.achievementAwardQueue;
+  const awardIndex = Math.min(Math.max(0, state.achievementAwardIndex), Math.max(0, awards.length - 1));
+  const award = awards[awardIndex];
+  const achievement = QUICK_ACHIEVEMENT_BY_KEY[award?.key];
+
+  if (!achievement) {
+    return '';
+  }
+
+  const remainingCount = Math.max(0, awards.length - awardIndex - 1);
+
+  return `
+    <div class="modal-backdrop modal-backdrop--center" data-achievement-award-backdrop="true">
+      <section class="modal-card achievement-detail-card achievement-award-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(achievement.title)}">
+        <button type="button" class="editor-close achievement-detail-close" data-close-achievement-award="true">×</button>
+        <div class="achievement-detail-icon">${renderAchievementIcon(achievement.key)}</div>
+        <span class="achievement-award-badge">Получена награда</span>
+        <h2>${escapeHtml(achievement.title)}</h2>
+        <p>${escapeHtml(achievement.description)}</p>
+        <div class="achievement-award-actions ${remainingCount > 0 ? 'achievement-award-actions--split' : ''}">
+          <button type="button" class="primary-button" data-close-achievement-award="true">Кайф</button>
+          ${
+            remainingCount > 0
+              ? `<button type="button" class="ghost-action" data-next-achievement-award="true">Ещё ${escapeHtml(remainingCount)}</button>`
+              : ''
+          }
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function shouldShowSelfProfilePrompt() {
   const player = getViewerPlayer();
 
@@ -2457,6 +2580,7 @@ function shouldShowSelfProfilePrompt() {
     !state.manualGameOpen &&
     !state.selectedPlayerId &&
     !state.achievementDetailKey &&
+    !state.achievementAwardQueue.length &&
     !state.profileActionsOpen
   );
 }
@@ -2999,11 +3123,19 @@ function renderModal() {
   const createGameModal = renderCreateGameModal();
   const gameActionsModal = renderGameActionsModal();
   const profileActionsModal = renderProfileActionsModal();
-  const achievementDetailModal = renderAchievementDetailModal();
+  const achievementAwardModal = renderAchievementAwardModal();
+  const achievementDetailModal = achievementAwardModal ? '' : renderAchievementDetailModal();
   const selfProfilePromptModal = renderSelfProfilePromptModal();
 
   if (!player) {
-    modalRoot.innerHTML = [createGameModal, gameActionsModal, profileActionsModal, achievementDetailModal, selfProfilePromptModal].join('');
+    modalRoot.innerHTML = [
+      createGameModal,
+      gameActionsModal,
+      profileActionsModal,
+      achievementDetailModal,
+      achievementAwardModal,
+      selfProfilePromptModal
+    ].join('');
     return;
   }
 
@@ -3031,6 +3163,7 @@ function renderModal() {
     gameActionsModal,
     profileActionsModal,
     achievementDetailModal,
+    achievementAwardModal,
     selfProfilePromptModal
   ].join('');
 }
@@ -3072,6 +3205,8 @@ function syncTabbar() {
 }
 
 function render() {
+  syncAchievementAwards();
+
   const screenTitle = getScreenTitle();
   chatTitleNode.textContent = screenTitle;
   topbarNode?.classList.toggle('topbar--titleless', !screenTitle);
@@ -3656,6 +3791,24 @@ document.addEventListener('click', async (event) => {
     shareCurrentGame().catch((error) => {
       showToast(error.message);
     });
+    return;
+  }
+
+  if (event.target.closest('[data-next-achievement-award]')) {
+    state.achievementAwardIndex = Math.min(
+      state.achievementAwardIndex + 1,
+      Math.max(0, state.achievementAwardQueue.length - 1)
+    );
+    renderModal();
+    return;
+  }
+
+  if (
+    event.target.matches('[data-achievement-award-backdrop]') ||
+    event.target.closest('[data-close-achievement-award]')
+  ) {
+    dismissAchievementAwards();
+    renderModal();
     return;
   }
 

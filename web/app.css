@@ -1540,6 +1540,41 @@ p {
   line-height: 1.35;
 }
 
+.achievement-award-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fff0a4, #c99a2e);
+  color: #241600;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.achievement-award-actions {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.achievement-award-actions--split {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.achievement-award-actions .primary-button,
+.achievement-award-actions .ghost-action {
+  min-height: 64px;
+  display: grid;
+  place-items: center;
+  padding: 0 16px;
+  border-radius: 18px;
+  font-size: 20px;
+  text-align: center;
+}
+
 .join-cta {
   display: grid;
   position: fixed;
