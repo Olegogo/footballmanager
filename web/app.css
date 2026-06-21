@@ -611,7 +611,7 @@ p {
 .floating-create-button {
   position: fixed;
   right: max(var(--page-gutter), env(safe-area-inset-right));
-  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 10px);
+  bottom: max(16px, env(safe-area-inset-bottom));
   z-index: 42;
   width: 68px;
   height: 68px;
@@ -1184,9 +1184,10 @@ p {
   padding: 0 18px;
   border-radius: 0;
   background: transparent;
+  cursor: pointer;
 }
 
-.quick-achievement-option > button:first-child {
+.quick-achievement-option-title {
   position: relative;
   z-index: 1;
   display: flex;
@@ -1194,9 +1195,6 @@ p {
   justify-content: flex-start;
   width: 100%;
   min-height: 44px;
-  padding: 0;
-  border: 0;
-  background: transparent;
   color: var(--text);
   font-size: 18px;
   font-weight: 900;
@@ -1217,6 +1215,10 @@ p {
 .quick-achievement-option:hover,
 .quick-achievement-option:focus-within {
   background: rgba(255, 255, 255, 0.055);
+}
+
+.modal-backdrop[data-achievement-detail-backdrop] {
+  z-index: 320;
 }
 
 .quick-game-cards {
@@ -3349,6 +3351,11 @@ input[type="range"] {
 
 .app-shell--profile-edit .profile-body {
   padding-bottom: calc(132px + env(safe-area-inset-bottom));
+}
+
+.app-shell--profile-edit .profile-form > .editor-select {
+  height: 58px;
+  min-height: 58px;
 }
 
 .profile-card-metrics {

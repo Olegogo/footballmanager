@@ -1326,7 +1326,7 @@ function renderRatingBanner(game) {
     return `
       <section class="notice-banner notice-banner--rating-live">
         <div class="rating-live-main">
-          <p>Раздай до ${escapeHtml(game.quickRatingPoints ?? QUICK_RATING_POINTS)} очков и выбери MVP</p>
+          <p>Раздай до ${escapeHtml(game.quickRatingPoints ?? QUICK_RATING_POINTS)} очков и&nbsp;выбери MVP</p>
           ${timer}
         </div>
         <div class="rating-live-chips">
@@ -1468,14 +1468,14 @@ function renderQuickAchievementPicker(game, draft) {
             <span>${escapeHtml(category)}</span>
             ${items
               .map((achievement) => `
-                <div class="quick-achievement-option">
-                  <button
-                    type="button"
-                    data-add-quick-achievement="${escapeHtml(achievement.key)}"
-                    data-game-id="${escapeHtml(game.id)}"
-                  >
-                    ${escapeHtml(achievement.title)}
-                  </button>
+                <div
+                  class="quick-achievement-option"
+                  role="button"
+                  tabindex="0"
+                  data-add-quick-achievement="${escapeHtml(achievement.key)}"
+                  data-game-id="${escapeHtml(game.id)}"
+                >
+                  <span class="quick-achievement-option-title">${escapeHtml(achievement.title)}</span>
                   ${renderQuickAchievementInfoButton(achievement.key)}
                 </div>
               `)
