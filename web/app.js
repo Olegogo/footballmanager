@@ -89,6 +89,7 @@ const FILTER_CHIPS = [
 ];
 const GAME_FILTERS = [
   { key: 'all', label: 'Все' },
+  { key: 'mine', label: 'Мои' },
   { key: 'current', label: 'Текущие' },
   { key: 'finished', label: 'Завершенные' }
 ];
@@ -160,6 +161,7 @@ const state = {
   profileActionsOpen: false,
   gameActionsOpen: false,
   achievementDetailKey: '',
+  quickAchievementInfoPointerAt: 0,
   ratingDrafts: {},
   quickRatingDrafts: {},
   manualGameOpen: false,
@@ -1726,7 +1728,7 @@ function renderQuickGamePlayerCard(player, game, draft) {
 
   return `
     <article class="quick-game-card ${ratingState.phase === 'live-empty' ? 'is-unrated' : ''}">
-      <div class="quick-game-card-head">
+      <div class="quick-game-card-head is-clickable" data-scroll-player="${escapeHtml(player.id)}">
         <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
         <div class="quick-game-card-title">
           <strong>${escapeHtml(player.displayName)}</strong>
@@ -1812,10 +1814,9 @@ function renderField(game, options = {}) {
 function renderGamePlayerRow(player) {
   const game = getCurrentGame();
   const positionLabel = getGamePlayerPositionLabel(player);
-  const openAttribute = player.canRateTarget ? ` data-open-player="${escapeHtml(player.id)}"` : '';
 
   return `
-    <article class="game-player-row ${player.canRateTarget ? 'is-clickable' : ''}"${openAttribute}>
+    <article class="game-player-row is-clickable" data-scroll-player="${escapeHtml(player.id)}">
       <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
       <div class="game-player-main">
         <strong>${escapeHtml(player.displayName)}</strong>
@@ -2012,6 +2013,10 @@ function renderGameLevelBadges(averageOverall) {
 
 function getFilteredGames() {
   return getGames().filter((game) => {
+    if (state.gamesFilter === 'mine') {
+      return Boolean(game.viewerIsParticipant || game.viewerIsOrganizer);
+    }
+
     if (state.gamesFilter === 'current') {
       return game.status === 'upcoming' || game.status === 'live';
     }
@@ -2692,7 +2697,7 @@ function renderSelfProfileForm(player, defaults, options = {}) {
   return `
     <form id="selfProfileForm" class="profile-form">
       <label class="editor-select">
-        <span>Позиция</span>
+        <span>позиция</span>
         <select name="position">
           ${POSITION_CHOICES
             .map((position) => `
@@ -2809,7 +2814,7 @@ function renderProfileTab() {
             ? renderSelfProfileForm(player, selfProfileDefaults, { includeStats: !hasCareerRatings })
             : `
               ${renderEditablePositionSelector(
-                'Позиция',
+                'позиция',
                 effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title,
                 effectivePosition,
                 canEditOwnProfile
@@ -3483,6 +3488,17 @@ gameMenuButtonNode?.addEventListener('click', () => {
 });
 
 document.addEventListener('pointerdown', (event) => {
+  const quickAchievementDetailButton = event.target.closest('.quick-achievement-picker [data-achievement-detail]');
+
+  if (quickAchievementDetailButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    state.quickAchievementInfoPointerAt = Date.now();
+    state.achievementDetailKey = quickAchievementDetailButton.dataset.achievementDetail || '';
+    renderModal();
+    return;
+  }
+
   const stepperButton = event.target.closest('[data-stepper-action]');
 
   if (!isProfileStatStepperButton(stepperButton)) {
@@ -3857,6 +3873,13 @@ document.addEventListener('click', async (event) => {
   const addQuickAchievementButton = event.target.closest('[data-add-quick-achievement]');
 
   if (addQuickAchievementButton) {
+    if (
+      event.target.closest('[data-achievement-detail]') ||
+      Date.now() - Number(state.quickAchievementInfoPointerAt || 0) < 500
+    ) {
+      return;
+    }
+
     const game = getGameDays().find((item) => item.id === addQuickAchievementButton.dataset.gameId) ?? getCurrentGame();
     const draft = getQuickRatingDraft(game);
     const achievementKey = addQuickAchievementButton.dataset.addQuickAchievement;

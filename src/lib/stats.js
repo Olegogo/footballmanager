@@ -1211,7 +1211,7 @@ function buildGameRosterAverageOverall(game, playersById) {
   );
 }
 
-function buildGamesView(state, games, playerCards, now) {
+function buildGamesView(state, games, playerCards, now, viewerPlayerId = '') {
   const mvpIndex = buildGameMvpIndexForGames(state, games, now);
   const playersById = new Map(playerCards.map((player) => [player.id, player]));
 
@@ -1279,6 +1279,8 @@ function buildGamesView(state, games, playerCards, now) {
         time: game.time,
         scheduledAt: game.scheduledAt,
         status: getGameStatus(game, now),
+        viewerIsParticipant: Boolean(viewerPlayerId && game.playerIds.includes(viewerPlayerId)),
+        viewerIsOrganizer: Boolean(viewerPlayerId && game.organizerPlayerId === viewerPlayerId),
         playersCount: game.playerIds.length,
         totalGoals,
         averageOverall,
@@ -1666,7 +1668,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     viewerCanCreateGames: Boolean(viewerPlayer),
     currentGame: currentGameView,
     gameDays,
-    games: buildGamesView(state, allGames, playerCards, now),
+    games: buildGamesView(state, allGames, playerCards, now, viewerPlayerId),
     players: playerCards,
     availablePlayers
   };

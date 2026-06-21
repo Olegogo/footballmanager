@@ -611,7 +611,7 @@ p {
 .floating-create-button {
   position: fixed;
   right: max(var(--page-gutter), env(safe-area-inset-right));
-  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 6px);
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 10px);
   z-index: 42;
   width: 68px;
   height: 68px;
@@ -1083,7 +1083,7 @@ p {
 
 .quick-floating-save {
   position: sticky;
-  bottom: max(16px, env(safe-area-inset-bottom));
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 4px);
   z-index: 35;
   display: grid;
   margin-top: -4px;
@@ -1174,6 +1174,7 @@ p {
 }
 
 .quick-achievement-option {
+  isolation: isolate;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -1204,9 +1205,10 @@ p {
 
 .quick-achievement-option .achievement-info-button {
   position: relative;
-  z-index: 2;
+  z-index: 5;
   width: 18px;
   height: 18px;
+  pointer-events: auto;
   border-color: rgba(255, 240, 209, 0.58);
   color: rgba(255, 240, 209, 0.72);
   font-size: 11px;
@@ -1225,17 +1227,21 @@ p {
 .quick-game-card {
   display: grid;
   gap: 12px;
-  padding: 16px;
+  padding: 12px;
   border: 1px solid rgba(205, 221, 210, 0.2);
-  border-radius: 26px;
+  border-radius: 22px;
   background: rgba(4, 17, 10, 0.84);
 }
 
 .quick-game-card-head {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) auto;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
+}
+
+.quick-game-card-head.is-clickable {
+  cursor: pointer;
 }
 
 .quick-game-card-title strong {
@@ -1533,7 +1539,7 @@ p {
   position: fixed;
   left: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
   right: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
-  bottom: max(20px, env(safe-area-inset-bottom));
+  bottom: max(24px, env(safe-area-inset-bottom));
   z-index: 58;
   pointer-events: none;
 }
@@ -1655,18 +1661,18 @@ p {
   grid-template-areas:
     "avatar main meta"
     "actions actions actions";
-  padding: 18px 18px 16px;
-  border-radius: 24px;
+  padding: 12px;
+  border-radius: 22px;
 }
 
 .join-request-card--with-actions .game-player-avatar {
   grid-area: avatar;
-  width: 54px;
-  height: 54px;
+  width: 46px;
+  height: 46px;
 }
 
 .join-request-card--with-actions .game-player-avatar span {
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .join-request-card--with-actions .game-player-main {
@@ -1679,7 +1685,7 @@ p {
 }
 
 .join-request-card--with-actions .game-player-main span {
-  margin-top: 2px;
+  margin-top: 0;
   font-size: 13px;
   font-weight: 900;
 }
@@ -1711,7 +1717,7 @@ p {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .join-request-actions--single {
@@ -2951,6 +2957,19 @@ input[type="range"] {
   cursor: pointer;
 }
 
+.modal-close,
+.editor-close {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 240, 209, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 32px;
+  line-height: 1;
+  box-shadow: none;
+  backdrop-filter: blur(12px);
+}
+
 .editor-body {
   display: grid;
   gap: 18px;
@@ -3340,6 +3359,7 @@ input[type="range"] {
 .profile-form {
   display: grid;
   gap: 12px;
+  margin: 0;
 }
 
 .profile-stat-grid {
@@ -3403,7 +3423,7 @@ input[type="range"] {
   position: fixed;
   left: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
   right: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
-  bottom: max(20px, env(safe-area-inset-bottom));
+  bottom: max(24px, env(safe-area-inset-bottom));
   z-index: 82;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
