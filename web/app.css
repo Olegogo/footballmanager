@@ -611,7 +611,7 @@ p {
 .floating-create-button {
   position: fixed;
   right: max(var(--page-gutter), env(safe-area-inset-right));
-  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 2px);
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + 6px);
   z-index: 42;
   width: 68px;
   height: 68px;
@@ -1083,7 +1083,7 @@ p {
 
 .quick-floating-save {
   position: sticky;
-  bottom: max(12px, env(safe-area-inset-bottom));
+  bottom: max(16px, env(safe-area-inset-bottom));
   z-index: 35;
   display: grid;
   margin-top: -4px;
@@ -1186,6 +1186,8 @@ p {
 }
 
 .quick-achievement-option > button:first-child {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -1201,6 +1203,8 @@ p {
 }
 
 .quick-achievement-option .achievement-info-button {
+  position: relative;
+  z-index: 2;
   width: 18px;
   height: 18px;
   border-color: rgba(255, 240, 209, 0.58);
@@ -1295,7 +1299,7 @@ p {
     "minus label plus"
     "minus value plus";
   column-gap: 6px;
-  row-gap: 0;
+  row-gap: 2px;
   padding: 6px;
 }
 
@@ -1529,7 +1533,7 @@ p {
   position: fixed;
   left: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
   right: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
-  bottom: max(16px, env(safe-area-inset-bottom));
+  bottom: max(20px, env(safe-area-inset-bottom));
   z-index: 58;
   pointer-events: none;
 }
@@ -2092,6 +2096,7 @@ p {
 .fifa-card {
   position: relative;
   overflow: hidden;
+  min-width: 0;
   border-radius: 34px;
   border: 1px solid rgba(227, 194, 116, 0.32);
   background: linear-gradient(180deg, rgba(3, 17, 11, 0.98), rgba(3, 17, 11, 0.98));
@@ -2229,6 +2234,7 @@ p {
   z-index: 1;
   display: grid;
   gap: 14px;
+  min-width: 0;
   padding: 18px 18px 20px;
   background:
     linear-gradient(90deg, rgba(154, 118, 44, 0.9), rgba(41, 30, 11, 0.96) 74%),
@@ -2301,11 +2307,12 @@ p {
 .metric-grid {
   display: grid;
   gap: 10px;
+  min-width: 0;
 }
 
 .metric-grid--summary,
 .metric-grid--stats {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .metric-grid--single {
@@ -2317,6 +2324,8 @@ p {
 }
 
 .metric-cell {
+  min-width: 0;
+  overflow: hidden;
   min-height: 56px;
   padding: 8px 12px;
   border-radius: 16px;
@@ -2347,9 +2356,13 @@ p {
 
 .metric-cell strong {
   display: block;
+  max-width: 100%;
+  overflow: hidden;
   margin-top: 4px;
   font-size: 18px;
   line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-action {
@@ -3326,13 +3339,17 @@ input[type="range"] {
 
 .profile-form {
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
 .profile-stat-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 12px;
+}
+
+.position-selector + .profile-card-metrics {
+  margin-top: -8px;
 }
 
 .profile-stat-stepper {
@@ -3386,7 +3403,7 @@ input[type="range"] {
   position: fixed;
   left: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
   right: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
-  bottom: max(16px, env(safe-area-inset-bottom));
+  bottom: max(20px, env(safe-area-inset-bottom));
   z-index: 82;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

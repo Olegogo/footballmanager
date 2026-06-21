@@ -1064,7 +1064,7 @@ function renderFifaCard(player, options = {}) {
   const statPlaceholder = '-';
   const statMeta = getStatMetaForPosition(effectivePosition);
   const overviewCells = [
-    { label: 'игр', value: hideMatchDetailsUntilViewerRates ? statPlaceholder : player.games, emphasis: true }
+    { label: 'игр', value: hideMatchDetailsUntilViewerRates ? statPlaceholder : player.games }
   ];
   const statCells = statMeta.map(([key, label]) => [
     label.toLowerCase(),
@@ -2039,8 +2039,8 @@ function renderGamesFilterBar() {
 }
 
 function renderGameCard(game) {
-  const isOpenable = getGameDays().some((item) => item.id === game.id);
-  const openAttribute = isOpenable ? ` data-open-game="${escapeHtml(game.id)}"` : '';
+  const isOpenable = true;
+  const openAttribute = ` data-open-game="${escapeHtml(game.id)}"`;
   const mvpBadges = game.mvp
     ? `
       <span class="game-level-badges game-mvp-badges">
@@ -2754,7 +2754,7 @@ function renderProfileTab() {
   const showProfileValues = hasCareerRatings || player.hasSelfProfile;
   const statMeta = getStatMetaForPosition(effectivePosition);
   const overviewCells = [
-    { label: 'игр', value: player.games, emphasis: true }
+    { label: 'игр', value: player.games }
   ];
   if (hasDisciplineCards(player)) {
     overviewCells.push({
@@ -3953,6 +3953,11 @@ document.addEventListener('click', async (event) => {
   if (gameCard) {
     state.selectedGameId = gameCard.dataset.openGame;
     state.activeTab = 'game';
+    try {
+      await loadSnapshot();
+    } catch (error) {
+      showToast(error.message);
+    }
     render();
     return;
   }
