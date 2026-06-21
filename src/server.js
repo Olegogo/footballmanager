@@ -650,6 +650,7 @@ const server = http.createServer(async (req, res) => {
         date: body.date,
         time: body.time,
         location: body.location,
+        additionalInfo: body.additionalInfo,
         playerIds: body.playerIds,
         timezoneOffset: config.chatTimezoneOffset
       });
@@ -686,6 +687,7 @@ const server = http.createServer(async (req, res) => {
         date: body.date,
         time: body.time,
         location: body.location,
+        additionalInfo: body.additionalInfo,
         playerIds: body.playerIds,
         timezoneOffset: config.chatTimezoneOffset
       });
@@ -697,6 +699,26 @@ const server = http.createServer(async (req, res) => {
         game: { id: result.game.id },
         snapshot
       });
+      return;
+    }
+
+    if (req.method === 'PATCH' && /^\/api\/games\/[^/]+\/roster-lock$/.test(url.pathname)) {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Unauthorized' });
+        return;
+      }
+
+      const gameId = decodeURIComponent(url.pathname.split('/')[3]);
+      const body = await readJsonBody(req).catch(() => ({}));
+      await store.setGameRosterLocked({
+        gameId,
+        requesterPlayerId: session.playerId,
+        rosterLocked: Boolean(body.rosterLocked)
+      });
+      const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
+      sendJson(res, 200, { snapshot });
       return;
     }
 

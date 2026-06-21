@@ -174,6 +174,7 @@ const state = {
     date: '',
     time: '',
     location: '',
+    additionalInfo: '',
     playerIds: []
   }
 };
@@ -477,6 +478,7 @@ function resetManualGameState() {
     date: '',
     time: '',
     location: '',
+    additionalInfo: '',
     playerIds: []
   };
 }
@@ -499,6 +501,7 @@ function openManualGameEdit(game) {
     date: new Date(game.scheduledAt).toISOString().slice(0, 10),
     time: game.time || '19:30',
     location: game.location || '',
+    additionalInfo: [...(game.priceLine ? [game.priceLine] : []), ...(game.paymentLines ?? [])].join('\n'),
     playerIds: [
       ...game.participants.map((player) => player.id),
       ...(game.invitedPlayers ?? []).map((player) => player.id)
@@ -1265,6 +1268,7 @@ function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
 function renderGameHeader(game) {
   const statusText = game.status === 'upcoming' ? 'Игра впереди' : game.status === 'live' ? 'Идет игра' : 'Игра закончена';
   const venue = getVenueInfo(game.location);
+  const playerCountBadges = renderPlayerCountBadges(game.participants.length, game);
 
   return `
     <section class="panel game-info-panel ${game.ratingWindowOpen ? 'game-info-panel--rating' : ''}">
@@ -1282,7 +1286,7 @@ function renderGameHeader(game) {
         </div>
         <div>
           <span>Игроков</span>
-          <strong>${game.participants.length}</strong>
+          <strong class="game-card-badges-value">${playerCountBadges}</strong>
         </div>
       </div>
       <div class="game-venue">
@@ -1923,6 +1927,28 @@ function renderGamePlayersList(game) {
   `;
 }
 
+function renderRosterLockControls(game) {
+  if (!game.canViewerManage || game.status !== 'upcoming' || game.ratingWindowOpen) {
+    return '';
+  }
+
+  const nextLocked = !game.rosterLocked;
+  const label = game.rosterLocked ? 'Открыть набор' : 'Состав собран';
+
+  return `
+    <section class="roster-lock-actions">
+      <button
+        type="button"
+        class="${game.rosterLocked ? 'ghost-action' : 'primary-button'} roster-lock-button"
+        data-toggle-roster-lock="${escapeHtml(game.id)}"
+        data-roster-locked="${escapeHtml(String(nextLocked))}"
+      >
+        ${escapeHtml(label)}
+      </button>
+    </section>
+  `;
+}
+
 function renderWaitingPlayersSection(game) {
   const waitingPlayers = getWaitingPlayers(game);
   const ratingIsClosed = Boolean(game.hasStarted && !game.ratingWindowOpen);
@@ -1964,6 +1990,7 @@ function renderGameTab() {
     ${isRatingMode ? '' : renderJoinControls(game)}
     ${isRatingMode ? '' : renderField(game)}
     ${renderGamePlayersList(game)}
+    ${isRatingMode ? '' : renderRosterLockControls(game)}
     ${isRatingMode ? '' : renderWaitingPlayersSection(game)}
     ${isRatingMode ? '' : renderQuickRatingPanel(game)}
     ${isRatingMode ? renderQuickFloatingSave(game) : ''}
@@ -2007,6 +2034,23 @@ function renderGameLevelBadges(averageOverall) {
       <span class="game-level-badges">
         <span class="game-level-badge game-level-badge--${escapeHtml(level.tone)}">${escapeHtml(level.label)}</span>
       <span class="game-level-badge game-level-rating">${escapeHtml(level.rating)}</span>
+    </span>
+  `;
+}
+
+function renderPlayerCountBadges(count, game) {
+  const shouldShowRosterStatus = game.status === 'upcoming';
+  const rosterLabel = game.rosterLocked ? 'Состав собран' : 'Набор открыт';
+  const rosterTone = game.rosterLocked ? 'mid' : 'high';
+
+  return `
+    <span class="game-level-badges game-roster-badges">
+      <span class="game-level-badge game-level-rating">${escapeHtml(count)}</span>
+      ${
+        shouldShowRosterStatus
+          ? `<span class="game-level-badge game-level-badge--${escapeHtml(rosterTone)}">${escapeHtml(rosterLabel)}</span>`
+          : ''
+      }
     </span>
   `;
 }
@@ -2098,7 +2142,7 @@ function renderGameCard(game) {
         }
         <div>
           <span>Игроков</span>
-          <strong>${escapeHtml(game.playersCount)}</strong>
+          <strong class="game-card-badges-value">${renderPlayerCountBadges(game.playersCount, game)}</strong>
         </div>
       </div>
     </article>
@@ -2240,6 +2284,7 @@ function readManualGameForm(form) {
     date: String(formData.get('date') || ''),
     time: String(formData.get('time') || ''),
     location: String(formData.get('location') || '').trim(),
+    additionalInfo: String(formData.get('additionalInfo') || '').trim(),
     playerIds: [...state.manualGameDraft.playerIds]
   };
 }
@@ -2308,6 +2353,10 @@ function renderCreateGameScreen() {
             <label class="manual-field-wide">
               <span>Место</span>
               <input type="text" name="location" value="${escapeHtml(state.manualGameDraft.location)}" placeholder="Например: Сокольники, поле 10" required>
+            </label>
+            <label class="manual-field-wide">
+              <span>Дополнительно</span>
+              <textarea name="additionalInfo" rows="3" placeholder="Например: цена, телефон, банк">${escapeHtml(state.manualGameDraft.additionalInfo)}</textarea>
             </label>
           </div>
         </section>
@@ -3257,6 +3306,20 @@ async function approveJoinRequest(gameId, playerId) {
   showToast('Игрок добавлен');
 }
 
+async function toggleRosterLock(gameId, rosterLocked) {
+  if (!(await ensureAuthorizedForAction())) {
+    return;
+  }
+
+  const data = await api(`/api/games/${encodeURIComponent(gameId)}/roster-lock`, {
+    method: 'PATCH',
+    body: { rosterLocked }
+  });
+  state.snapshot = data.snapshot;
+  render();
+  showToast(rosterLocked ? 'Состав собран' : 'Набор открыт');
+}
+
 async function acceptGameInvite(gameId) {
   if (!(await ensureAuthorizedForAction())) {
     return;
@@ -3826,6 +3889,18 @@ document.addEventListener('click', async (event) => {
 
   if (approveJoinButton) {
     approveJoinRequest(approveJoinButton.dataset.gameId, approveJoinButton.dataset.approveJoinPlayer).catch((error) => {
+      showToast(error.message);
+    });
+    return;
+  }
+
+  const rosterLockButton = event.target.closest('[data-toggle-roster-lock]');
+
+  if (rosterLockButton) {
+    toggleRosterLock(
+      rosterLockButton.dataset.toggleRosterLock,
+      rosterLockButton.dataset.rosterLocked === 'true'
+    ).catch((error) => {
       showToast(error.message);
     });
     return;

@@ -1279,6 +1279,7 @@ function buildGamesView(state, games, playerCards, now, viewerPlayerId = '') {
         time: game.time,
         scheduledAt: game.scheduledAt,
         status: getGameStatus(game, now),
+        rosterLocked: Boolean(game.rosterLocked),
         viewerIsParticipant: Boolean(viewerPlayerId && game.playerIds.includes(viewerPlayerId)),
         viewerIsOrganizer: Boolean(viewerPlayerId && game.organizerPlayerId === viewerPlayerId),
         playersCount: game.playerIds.length,
@@ -1541,6 +1542,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       status,
       hasStarted,
       isFinished: status === 'finished',
+      rosterLocked: Boolean(game.rosterLocked),
       ratingWindowOpen,
       ratingWindowEndsAt: getRatingWindowEnd(game).toISOString(),
       viewerIsParticipant,
@@ -1551,6 +1553,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
         viewerJoinStatus === 'none' &&
         game.organizerPlayerId &&
         status === 'upcoming' &&
+        !game.rosterLocked &&
         !ratingWindowOpen
       ),
       ratingsPromptSent: Boolean(game.ratingsOpenedAt),

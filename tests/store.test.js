@@ -1158,6 +1158,63 @@ test('join requests can be requested, shown and approved before kickoff', async 
   }
 });
 
+test('roster lock hides and rejects join requests before kickoff', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const organizer = await store.rememberTelegramUser(777, {
+      id: 777,
+      username: 'organizer',
+      first_name: 'Org'
+    }, {
+      chatType: 'private'
+    });
+    const joiner = await store.rememberTelegramUser(888, {
+      id: 888,
+      username: 'joiner',
+      first_name: 'Joiner'
+    }, {
+      chatType: 'private'
+    });
+    await store.ensureChat({
+      id: '-1001',
+      title: 'Football Chat',
+      type: 'supergroup'
+    });
+    const teammate = await store.upsertPlayerByUsername('-1001', 'teammate');
+
+    const result = await store.createManualGame({
+      chatId: '-1001',
+      organizerPlayerId: organizer.id,
+      date: '2099-05-30',
+      time: '16:00',
+      location: 'Сокольники, поле 10',
+      playerIds: [organizer.id, teammate.id],
+      timezoneOffset: '+03:00'
+    });
+
+    await store.setGameRosterLocked({
+      gameId: result.game.id,
+      requesterPlayerId: organizer.id,
+      rosterLocked: true
+    });
+
+    const snapshot = store.getSnapshot('global', joiner.id, { selectedGameId: result.game.id });
+    assert.equal(snapshot.currentGame.rosterLocked, true);
+    assert.equal(snapshot.currentGame.canViewerRequestJoin, false);
+
+    await assert.rejects(
+      () => store.requestJoinGame({
+        gameId: result.game.id,
+        playerId: joiner.id
+      }),
+      /Набор уже закрыт|Заявки на эту игру уже закрыты/
+    );
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('manual games keep previous ratings on the next game roster', async () => {
   const { directory, store } = await createStore();
 

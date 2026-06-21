@@ -197,6 +197,7 @@ function isSameTelegramMessageId(left, right) {
 function isGameJoinable(game, now = new Date()) {
   return Boolean(
     game?.organizerPlayerId &&
+    !game.rosterLocked &&
     !game.ratingsOpenedAt &&
     !game.closedAt &&
     new Date(game.scheduledAt) > now
@@ -275,6 +276,7 @@ function applyManualFieldsToGame(state, game, {
   date,
   time,
   location,
+  additionalInfo,
   playerIds,
   timezoneOffset,
   nowIso
@@ -298,6 +300,11 @@ function applyManualFieldsToGame(state, game, {
   game.time = schedule.time;
   game.scheduledAt = schedule.scheduledAt;
   game.date = schedule.date;
+  game.priceLine = '';
+  game.paymentLines = String(additionalInfo ?? '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
   game.playerIds = selectedPlayerIds;
   game.playerUsernames = selectedPlayerIds.map((playerId) => state.players[playerId]?.username).filter(Boolean);
   game.pendingJoinPlayerIds = (game.pendingJoinPlayerIds ?? []).filter(
@@ -440,6 +447,7 @@ function copyExternalGameFields(targetGame, externalGame, playerIdMap, nowIso) {
   targetGame.date = externalGame.date || targetGame.date || String(targetGame.scheduledAt || '').slice(0, 10);
   targetGame.priceLine = externalGame.priceLine || targetGame.priceLine || '';
   targetGame.paymentLines = Array.isArray(externalGame.paymentLines) ? externalGame.paymentLines : targetGame.paymentLines || [];
+  targetGame.rosterLocked = Boolean(externalGame.rosterLocked ?? targetGame.rosterLocked ?? false);
   targetGame.playerUsernames = Array.isArray(externalGame.playerUsernames) ? externalGame.playerUsernames : targetGame.playerUsernames || [];
   targetGame.playerRefs = Array.isArray(externalGame.playerRefs) ? externalGame.playerRefs : targetGame.playerRefs || [];
   targetGame.playerIds = playerIds.length ? playerIds : targetGame.playerIds || [];
@@ -1282,6 +1290,7 @@ export class AppStore {
         playerUsernames: announcement.playerUsernames,
         playerRefs: getAnnouncementPlayerRefs(announcement).map((item) => normalizePlayerRef(item)),
         playerIds,
+        rosterLocked: false,
         invitedPlayerIds: [],
         pendingJoinPlayerIds: [],
         declinedPlayerIds: [],
@@ -1309,6 +1318,7 @@ export class AppStore {
     time,
     location,
     playerIds,
+    additionalInfo,
     timezoneOffset
   }) {
     return this.mutate((state) => {
@@ -1341,6 +1351,7 @@ export class AppStore {
         date: '',
         priceLine: '',
         paymentLines: [],
+        rosterLocked: false,
         playerUsernames: [],
         playerIds: [],
         invitedPlayerIds: [],
@@ -1361,6 +1372,7 @@ export class AppStore {
         date,
         time,
         location,
+        additionalInfo,
         playerIds: unique([organizerPlayerId, ...(Array.isArray(playerIds) ? playerIds : [])]),
         timezoneOffset,
         nowIso: now
@@ -1388,6 +1400,7 @@ export class AppStore {
     time,
     location,
     playerIds,
+    additionalInfo,
     timezoneOffset
   }) {
     return this.mutate((state) => {
@@ -1411,6 +1424,7 @@ export class AppStore {
         date,
         time,
         location,
+        additionalInfo,
         playerIds: unique([game.organizerPlayerId || requesterPlayerId, ...(Array.isArray(playerIds) ? playerIds : [])]),
         timezoneOffset,
         nowIso: now
@@ -1423,6 +1437,26 @@ export class AppStore {
         nowIso: now
       });
       setCurrentGame(chat, game, now, chat.currentGameId ? state.games[chat.currentGameId] : null);
+      return { updated: true, game };
+    });
+  }
+
+  async setGameRosterLocked({ gameId, requesterPlayerId, rosterLocked }) {
+    return this.mutate((state) => {
+      const game = state.games[gameId];
+
+      if (!game) {
+        throw new Error('Игра не найдена');
+      }
+
+      assertCanManageGame(state, game, requesterPlayerId);
+
+      if (!isGameEditableBeforeStart(game, new Date())) {
+        throw new Error('Игру уже нельзя редактировать');
+      }
+
+      game.rosterLocked = Boolean(rosterLocked);
+      game.updatedAt = new Date().toISOString();
       return { updated: true, game };
     });
   }
