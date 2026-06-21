@@ -94,6 +94,14 @@ p {
   display: none;
 }
 
+.app-shell--profile-edit {
+  padding-bottom: calc(112px + env(safe-area-inset-bottom));
+}
+
+.app-shell--profile-edit .tabbar {
+  display: none;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -1012,9 +1020,14 @@ p {
 }
 
 .quick-rating-panel--simple {
+  position: relative;
   border-radius: 28px;
   background: rgba(5, 22, 13, 0.88);
   box-shadow: none;
+}
+
+.quick-rating-panel--simple.is-picker-open {
+  z-index: 120;
 }
 
 .quick-rating-panel--simple h2 {
@@ -1114,6 +1127,10 @@ p {
   position: relative;
 }
 
+.quick-add-achievement-wrap.is-open {
+  z-index: 180;
+}
+
 .quick-add-achievement {
   width: 100%;
   min-height: 56px;
@@ -1130,7 +1147,7 @@ p {
   left: 0;
   right: 0;
   top: calc(100% + 10px);
-  z-index: 120;
+  z-index: 220;
   max-height: min(360px, 50dvh);
   overflow-y: auto;
   display: grid;
@@ -1138,7 +1155,7 @@ p {
   padding: 12px 0;
   border: 1px solid rgba(255, 235, 170, 0.14);
   border-radius: 18px;
-  background: rgba(13, 31, 21, 0.98);
+  background: #0d1f15;
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.62);
 }
 
@@ -1284,6 +1301,7 @@ p {
 
 .quick-card-stat.is-active {
   border-color: rgba(255, 226, 139, 0.95);
+  background: rgba(255, 226, 139, 0.16);
   box-shadow: inset 0 0 0 1px rgba(255, 226, 139, 0.16);
 }
 
@@ -1587,7 +1605,7 @@ p {
 
 .join-requests-list {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .roster-status-group {
@@ -1633,7 +1651,7 @@ p {
   grid-template-areas:
     "avatar main meta"
     "actions actions actions";
-  padding: 18px;
+  padding: 18px 18px 16px;
   border-radius: 24px;
 }
 
@@ -1679,7 +1697,7 @@ p {
 .join-request-action {
   min-height: 52px;
   padding: 12px 14px;
-  border-radius: 22px;
+  border-radius: 20px;
   font-size: 16px;
   white-space: nowrap;
 }
@@ -1689,12 +1707,12 @@ p {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 .join-request-actions--single {
   grid-template-columns: minmax(0, 1fr);
-  width: min(260px, 100%);
+  width: min(240px, 100%);
   justify-self: center;
 }
 
@@ -2236,22 +2254,24 @@ p {
 .position-selector {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 6px 12px;
+  gap: 4px 12px;
   align-items: center;
-  padding: 12px 14px;
+  min-height: 56px;
+  padding: 8px 14px;
   border-radius: 18px;
   border: 1px solid rgba(241, 207, 114, 0.62);
 }
 
 .position-selector span {
   color: rgba(255, 240, 209, 0.68);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 700;
   grid-column: 1 / 2;
 }
 
 .position-selector strong {
-  font-size: 17px;
-  line-height: 1.1;
+  font-size: 18px;
+  line-height: 1;
   grid-column: 1 / 2;
 }
 
@@ -2297,8 +2317,8 @@ p {
 }
 
 .metric-cell {
-  min-height: 68px;
-  padding: 10px 10px 12px;
+  min-height: 56px;
+  padding: 8px 12px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid transparent;
@@ -2318,7 +2338,8 @@ p {
   max-width: 100%;
   overflow: hidden;
   color: rgba(255, 240, 209, 0.68);
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 700;
   text-overflow: ellipsis;
   text-transform: lowercase;
   white-space: nowrap;
@@ -2326,7 +2347,7 @@ p {
 
 .metric-cell strong {
   display: block;
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 18px;
   line-height: 1;
 }
@@ -2965,8 +2986,9 @@ input[type="range"] {
 .editor-stepper {
   position: relative;
   display: grid;
-  gap: 8px;
-  padding: 14px 16px;
+  gap: 4px;
+  min-height: 56px;
+  padding: 8px 16px;
   border-radius: 18px;
   border: 1px solid rgba(241, 207, 114, 0.62);
 }
@@ -3014,7 +3036,7 @@ input[type="range"] {
   width: 24px;
   height: 24px;
   fill: rgba(255, 240, 209, 0.92);
-  transform: translateY(-4px);
+  transform: translateY(-50%);
   pointer-events: none;
 }
 
@@ -3293,6 +3315,10 @@ input[type="range"] {
   padding: 26px 20px calc(112px + env(safe-area-inset-bottom));
 }
 
+.app-shell--profile-edit .profile-body {
+  padding-bottom: calc(132px + env(safe-area-inset-bottom));
+}
+
 .profile-card-metrics {
   display: grid;
   gap: 14px;
@@ -3341,7 +3367,35 @@ input[type="range"] {
 }
 
 .profile-submit {
-  margin-top: 6px;
+  width: 100%;
+  min-height: 56px;
+  border-radius: 22px;
+  font-size: 18px;
+}
+
+.profile-cancel {
+  width: 100%;
+  min-height: 56px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #140d02;
+  font-size: 18px;
+}
+
+.profile-floating-actions {
+  position: fixed;
+  left: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
+  right: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 82;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  pointer-events: none;
+}
+
+.profile-floating-actions > button {
+  pointer-events: auto;
 }
 
 .profile-edit-button {

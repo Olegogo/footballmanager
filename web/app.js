@@ -1494,7 +1494,7 @@ function renderQuickAchievementFields(game, draft) {
   const showExtra = Boolean(showGoleador && getQuickAchievementTarget(draft, 'goleador'));
 
   return `
-    <section class="panel quick-rating-panel quick-rating-panel--simple">
+    <section class="panel quick-rating-panel quick-rating-panel--simple ${draft.achievementPickerOpen ? 'is-picker-open' : ''}">
       <h2>Оценка</h2>
       <div class="quick-rating-fields">
         ${renderQuickSelectField({
@@ -1511,7 +1511,7 @@ function renderQuickAchievementFields(game, draft) {
           showExtra
             ? `
               ${extraAchievementKeys.map((key) => renderQuickAchievementField(game, draft, key)).join('')}
-              <div class="quick-add-achievement-wrap">
+              <div class="quick-add-achievement-wrap ${draft.achievementPickerOpen ? 'is-open' : ''}">
                 <button type="button" class="quick-add-achievement" data-toggle-quick-achievements="${escapeHtml(game.id)}">
                   Добавить
                 </button>
@@ -2045,11 +2045,6 @@ function renderGameCard(game) {
     ? `
       <span class="game-level-badges game-mvp-badges">
         <span class="game-level-badge game-level-badge--mid">${escapeHtml(game.mvp.displayName)}</span>
-        ${
-          game.mvp.votes
-            ? `<span class="game-level-badge game-level-rating">${escapeHtml(game.mvp.votes)} ${escapeHtml(getPlural(game.mvp.votes, ['голос', 'голоса', 'голосов']))}</span>`
-            : ''
-        }
       </span>
     `
     : '';
@@ -2722,7 +2717,10 @@ function renderSelfProfileForm(player, defaults, options = {}) {
           `
           : ''
       }
-      <button type="submit" class="primary-button card-action profile-submit">Сохранить</button>
+      <div class="profile-floating-actions">
+        <button type="submit" class="primary-button profile-submit">Сохранить</button>
+        <button type="button" class="ghost-action profile-cancel" data-cancel-self-profile="true">Отменить</button>
+      </div>
     </form>
   `;
 }
@@ -3042,6 +3040,7 @@ function render() {
     !['pending', 'invited'].includes(currentGame.viewerJoinStatus)
   );
   appShellNode?.classList.toggle('app-shell--profile', state.activeTab === 'profile');
+  appShellNode?.classList.toggle('app-shell--profile-edit', state.activeTab === 'profile' && state.selfProfileEditing);
   appShellNode?.classList.toggle('app-shell--manual', state.manualGameOpen);
   appShellNode?.classList.toggle('app-shell--game', !state.manualGameOpen && state.activeTab === 'game');
   appShellNode?.classList.toggle('app-shell--join-floating', canShowFloatingJoin);
@@ -3547,6 +3546,15 @@ document.addEventListener('click', async (event) => {
   if (profileActionsButton) {
     state.profileActionsOpen = true;
     renderModal();
+    return;
+  }
+
+  const cancelSelfProfileButton = event.target.closest('[data-cancel-self-profile]');
+
+  if (cancelSelfProfileButton) {
+    state.selfProfileEditing = false;
+    state.selfProfileDraft = null;
+    render();
     return;
   }
 
