@@ -1766,7 +1766,7 @@ function renderAchievementPills(achievements, options = {}) {
             return `
               <button type="button" class="quick-achievement-pill" data-achievement-detail="${escapeHtml(meta.key)}">
                 ${renderAchievementIcon(meta.key)}
-                ${achievement.count > 1 ? `<span>${escapeHtml(achievement.count)}</span>` : ''}
+                ${achievement.count > 1 ? `<span class="achievement-counter">${escapeHtml(achievement.count)}</span>` : ''}
               </button>
             `;
           })
@@ -2748,7 +2748,16 @@ function renderAchievementBall(cx, cy, radius = 12) {
 function renderAchievementIcon(type) {
   const assetIcons = {
     mvp: '/assets/achievements/mvp.svg',
+    goleador: '/assets/achievements/goleador.svg',
+    hat_trick: '/assets/achievements/hat-trick.svg',
+    pokerface: '/assets/achievements/pokerface.svg',
     long_shot: '/assets/achievements/long-shot.svg',
+    assistant: '/assets/achievements/assistant.svg',
+    playmaker: '/assets/achievements/playmaker.svg',
+    unselfish: '/assets/achievements/unselfish.svg',
+    wall: '/assets/achievements/wall.svg',
+    no_toxic: '/assets/achievements/no-toxic.svg',
+    maguire_day: '/assets/achievements/maguire-day.svg',
     woodworker: '/assets/achievements/woodworker.svg',
     debutant: '/assets/achievements/debutant.svg',
     support: '/assets/achievements/support.svg',

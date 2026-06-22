@@ -1504,10 +1504,10 @@ p {
   font-size: 14px;
 }
 
-.quick-achievement-pill span {
+.quick-achievement-pill .achievement-counter {
   position: absolute;
-  left: 50%;
-  bottom: -8px;
+  top: -6px;
+  right: -8px;
   min-width: 28px;
   height: 28px;
   display: grid;
@@ -1519,7 +1519,6 @@ p {
   color: #261700;
   font-size: 14px;
   font-weight: 900;
-  transform: translateX(-50%);
 }
 
 .achievement-detail-card {
@@ -3665,8 +3664,8 @@ input[type="range"] {
 
 .achievement-counter {
   position: absolute;
-  left: 50%;
-  bottom: -8px;
+  top: -6px;
+  right: -8px;
   min-width: 28px;
   height: 28px;
   display: grid;
@@ -3678,7 +3677,6 @@ input[type="range"] {
   font-size: 14px;
   font-weight: 900;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
-  transform: translateX(-50%);
 }
 
 .achievement-tooltip {
