@@ -2577,6 +2577,10 @@ function renderAchievementAwardModal() {
   `;
 }
 
+function hasAchievementAwardModalOpen() {
+  return state.achievementAwardQueue.length > 0;
+}
+
 function shouldShowSelfProfilePrompt() {
   const player = getViewerPlayer();
 
@@ -2588,7 +2592,7 @@ function shouldShowSelfProfilePrompt() {
     !state.manualGameOpen &&
     !state.selectedPlayerId &&
     !state.achievementDetailKey &&
-    !state.achievementAwardQueue.length &&
+    !hasAchievementAwardModalOpen() &&
     !state.profileActionsOpen
   );
 }
@@ -2744,6 +2748,8 @@ function renderAchievementBall(cx, cy, radius = 12) {
 function renderAchievementIcon(type) {
   const assetIcons = {
     mvp: '/assets/achievements/mvp.svg',
+    long_shot: '/assets/achievements/long-shot.svg',
+    woodworker: '/assets/achievements/woodworker.svg',
     debutant: '/assets/achievements/debutant.svg',
     support: '/assets/achievements/support.svg',
     last_line: '/assets/achievements/last-line.svg',
@@ -3133,7 +3139,7 @@ function renderModal() {
   const profileActionsModal = renderProfileActionsModal();
   const achievementAwardModal = renderAchievementAwardModal();
   const achievementDetailModal = achievementAwardModal ? '' : renderAchievementDetailModal();
-  const selfProfilePromptModal = renderSelfProfilePromptModal();
+  const selfProfilePromptModal = achievementAwardModal ? '' : renderSelfProfilePromptModal();
 
   if (!player) {
     modalRoot.innerHTML = [
