@@ -698,6 +698,66 @@ test('handleCommand creates game from replied announcement with /game fallback',
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Детали игры');
 });
 
+test('handleCommand supports /editgame as phone-friendly announcement update', async () => {
+  const calls = [];
+  const store = {
+    state: {
+      chats: {},
+      games: {}
+    },
+    async recordGameFromAnnouncement(payload) {
+      calls.push(payload);
+      return {
+        created: false,
+        updated: true,
+        game: {
+          id: 'game_updated',
+          chatId: String(payload.chatId),
+          scheduledAt: payload.announcement.scheduledAt
+        }
+      };
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+
+  bot.botUsername = 'football_test_bot';
+  bot.sendText = async () => ({ message_id: 601 });
+
+  await bot.handleCommand({
+    text: `/editgame 30 мая, суббота
+
+16:00. Поле 10
+
+1. @teterko
+2. @Mot0strelok
+3. @AlekseyYaselsky
+4. @O_legacy
+5. @alex_leb999 🤡
+6. Alexandr 🤡
+
+1000р
+89295991499
+Альфа, Тинь, Сбер`,
+    chat: {
+      id: -1010,
+      type: 'supergroup',
+      title: 'Football'
+    },
+    date: Math.floor(new Date('2026-05-28T12:00:00Z').getTime() / 1000),
+    message_id: 103
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].chatId, -1010);
+  assert.equal(calls[0].messageId, 103);
+  assert.equal(calls[0].source, 'telegram-command');
+  assert.equal(calls[0].announcement.location, 'Поле 10');
+  assert.equal(calls[0].announcement.playerUsernames.length, 6);
+});
+
 test('handleCommand ignores bare /game in groups to avoid chat spam', async () => {
   let recordCalled = false;
   const store = {

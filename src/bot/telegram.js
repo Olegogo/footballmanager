@@ -838,7 +838,7 @@ export class TelegramBot {
       return;
     }
 
-    if (['/game', '/addgame', '/parse'].includes(command)) {
+    if (['/game', '/addgame', '/parse', '/editgame', '/updategame'].includes(command)) {
       await this.handleGameParseCommand(message, targetChatId);
       return;
     }

@@ -1453,6 +1453,7 @@ p {
   display: flex;
   gap: 20px;
   overflow-x: auto;
+  padding-top: 8px;
   padding-bottom: 10px;
   scrollbar-width: none;
 }
@@ -1515,7 +1516,6 @@ p {
   padding: 0 8px;
   border-radius: 999px;
   background: linear-gradient(135deg, #fff3b5, #d89d18);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.32);
   color: #261700;
   font-size: 14px;
   font-weight: 900;
@@ -3676,7 +3676,6 @@ input[type="range"] {
   color: #261700;
   font-size: 14px;
   font-weight: 900;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
 }
 
 .achievement-tooltip {
