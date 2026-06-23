@@ -634,11 +634,33 @@ p {
   display: flex;
 }
 
-.floating-create-button {
+.floating-create-action {
   position: fixed;
   right: max(var(--page-gutter), env(safe-area-inset-right));
   bottom: calc(max(16px, env(safe-area-inset-bottom)) + 2px);
   z-index: 42;
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
+.floating-create-tooltip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 226, 139, 0.22);
+  border-radius: 999px;
+  background: rgba(7, 23, 14, 0.94);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.floating-create-button {
   width: 68px;
   height: 68px;
   display: grid;

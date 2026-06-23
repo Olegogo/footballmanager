@@ -152,6 +152,7 @@ const state = {
   gamesFilter: 'all',
   positionFilter: '',
   playerSearch: '',
+  showCreateGameTooltip: false,
   selectedPlayerId: null,
   playerScrollTargetId: launchContext.playerId || '',
   selectedGameId: launchContext.gameId,
@@ -181,6 +182,7 @@ const state = {
     playerIds: []
   }
 };
+let createGameTooltipTimer = null;
 const PROFILE_STEPPER_LONG_TAP_MS = 450;
 const profileStepperPressStartedAt = new WeakMap();
 
@@ -317,6 +319,29 @@ function showToast(message) {
   showToast.timer = setTimeout(() => {
     toastNode.classList.add('hidden');
   }, 2200);
+}
+
+function hideCreateGameTooltip() {
+  state.showCreateGameTooltip = false;
+  clearTimeout(createGameTooltipTimer);
+  createGameTooltipTimer = null;
+}
+
+function showCreateGameTooltip() {
+  if (state.activeTab !== 'games' || state.manualGameOpen) {
+    return;
+  }
+
+  state.showCreateGameTooltip = true;
+  clearTimeout(createGameTooltipTimer);
+  createGameTooltipTimer = setTimeout(() => {
+    state.showCreateGameTooltip = false;
+    createGameTooltipTimer = null;
+
+    if (state.activeTab === 'games' && !state.manualGameOpen) {
+      render();
+    }
+  }, 4000);
 }
 
 async function api(path, options = {}) {
@@ -498,6 +523,7 @@ function closeGameScreen() {
   state.activeTab = 'games';
   state.selectedGameId = '';
   state.gameActionsOpen = false;
+  showCreateGameTooltip();
   render();
 }
 
@@ -520,6 +546,7 @@ function resetManualGameState() {
 function openManualGameCreate() {
   resetManualGameState();
   state.manualGameOpen = true;
+  hideCreateGameTooltip();
   render();
 }
 
@@ -2629,7 +2656,14 @@ function renderGamesTab() {
           </section>
         `
     }
-    <button type="button" class="floating-create-button" data-open-create-game="true" aria-label="Создать игру">+</button>
+    <div class="floating-create-action">
+      ${
+        state.showCreateGameTooltip
+          ? '<div class="floating-create-tooltip" role="status">Создать игру</div>'
+          : ''
+      }
+      <button type="button" class="floating-create-button" data-open-create-game="true" aria-label="Создать игру">+</button>
+    </div>
   `;
 }
 
@@ -3405,6 +3439,7 @@ async function deleteCurrentGame() {
   state.gameActionsOpen = false;
   state.selectedGameId = '';
   state.activeTab = 'games';
+  showCreateGameTooltip();
   render();
   showToast('Игра удалена');
 }
@@ -3757,6 +3792,11 @@ document.querySelector('.tabbar').addEventListener('click', (event) => {
   }
 
   state.activeTab = button.dataset.tab;
+  if (state.activeTab === 'games') {
+    showCreateGameTooltip();
+  } else {
+    hideCreateGameTooltip();
+  }
   if (state.activeTab !== 'game') {
     state.selectedGameId = '';
   }
@@ -4470,6 +4510,9 @@ async function init() {
     return;
   }
 
+  if (state.activeTab === 'games') {
+    showCreateGameTooltip();
+  }
   render();
   if (authError) {
     showToast(`Telegram-авторизация не прошла: ${authError}`);
