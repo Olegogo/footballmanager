@@ -383,6 +383,7 @@ p {
   font-size: 15px;
   font-weight: 800;
   line-height: 1.35;
+  text-align: center;
 }
 
 .notice-banner--rating-live {
@@ -404,6 +405,7 @@ p {
   font-size: 18px;
   line-height: 1.12;
   letter-spacing: -0.02em;
+  text-align: left;
 }
 
 .notice-banner--rating-live span {
@@ -647,17 +649,31 @@ p {
 .floating-create-tooltip {
   position: absolute;
   right: 0;
-  bottom: calc(100% + 10px);
-  padding: 10px 14px;
-  border: 1px solid rgba(255, 226, 139, 0.22);
+  bottom: calc(100% + 16px);
+  padding: 14px 20px;
+  border: 2px solid rgba(255, 226, 139, 0.22);
   border-radius: 999px;
   background: rgba(7, 23, 14, 0.94);
   color: var(--text);
-  font-size: 14px;
-  font-weight: 800;
+  font-size: 18px;
+  font-weight: 900;
   line-height: 1;
   white-space: nowrap;
   pointer-events: none;
+}
+
+.floating-create-tooltip::before {
+  content: '';
+  position: absolute;
+  right: 38px;
+  bottom: -13px;
+  width: 24px;
+  height: 24px;
+  border-right: 2px solid rgba(255, 226, 139, 0.22);
+  border-bottom: 2px solid rgba(255, 226, 139, 0.22);
+  border-bottom-right-radius: 6px;
+  background: rgba(7, 23, 14, 0.94);
+  transform: rotate(45deg);
 }
 
 .floating-create-button {
