@@ -297,6 +297,7 @@ p {
 
 .game-facts div,
 .game-venue {
+  min-height: 64px;
   background: var(--field-surface);
   border: 1px solid transparent;
   border-radius: 16px;
@@ -377,8 +378,17 @@ p {
   line-height: 1.35;
 }
 
-.map-button {
+.game-venue .map-button {
   flex: none;
+  align-self: stretch;
+  min-width: 140px;
+  min-height: 52px;
+  padding: 0 22px;
+  border-radius: 16px;
+  background: var(--field-surface);
+  color: var(--field-value);
+  font-size: 17px;
+  font-weight: 900;
   white-space: nowrap;
 }
 
@@ -536,6 +546,7 @@ p {
 
 .game-card-stats div {
   min-width: 0;
+  min-height: 64px;
   padding: 12px 14px;
   border-radius: 16px;
   background: var(--field-surface);
@@ -584,12 +595,12 @@ p {
 .game-level-badge {
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
-  padding: 6px 9px;
+  min-height: 34px;
+  padding: 8px 11px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   color: #fff3c2;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 900;
   line-height: 1;
   letter-spacing: 0;
@@ -2735,6 +2746,7 @@ input[type="range"] {
   display: grid;
   gap: 7px;
   min-width: 0;
+  min-height: 64px;
   padding: 12px;
   border-radius: 16px;
   background: var(--field-surface);
@@ -2779,7 +2791,11 @@ input[type="range"] {
 }
 
 .manual-fields textarea::placeholder {
-  color: var(--field-label);
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.manual-fields input::placeholder {
+  color: rgba(255, 255, 255, 0.2);
 }
 
 .manual-fields input::-webkit-date-and-time-value {
