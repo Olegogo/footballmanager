@@ -292,21 +292,31 @@ p {
 .game-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .game-facts div,
 .game-venue {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--field-surface);
+  border: 1px solid transparent;
   border-radius: 16px;
-  padding: 12px;
+  padding: 12px 14px;
 }
 
 .game-facts span {
   display: block;
-  color: var(--muted);
-  font-size: 12px;
-  margin-bottom: 4px;
+  color: var(--field-label);
+  font-size: 14px;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.game-facts strong {
+  display: block;
+  color: var(--field-value);
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.05;
 }
 
 .game-facts .game-level-badges {
@@ -349,17 +359,21 @@ p {
 }
 
 .game-venue-copy span {
-  color: var(--muted);
-  font-size: 12px;
+  color: var(--field-label);
+  font-size: 14px;
+  font-weight: 900;
 }
 
 .game-venue-copy strong {
-  font-size: 16px;
+  color: var(--field-value);
+  font-size: 17px;
+  font-weight: 900;
 }
 
 .game-venue-copy p {
-  color: var(--muted);
+  color: var(--field-label);
   font-size: 14px;
+  font-weight: 900;
   line-height: 1.35;
 }
 
@@ -517,32 +531,34 @@ p {
 .game-card-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .game-card-stats div {
   min-width: 0;
-  padding: 12px;
+  padding: 12px 14px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 235, 170, 0.1);
+  background: var(--field-surface);
+  border: 1px solid transparent;
 }
 
 .game-card-stats span {
   display: block;
-  margin-bottom: 5px;
-  color: rgba(255, 240, 209, 0.62);
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+  color: var(--field-label);
+  font-size: 14px;
+  font-weight: 900;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .game-card-stats strong {
   display: block;
   overflow: hidden;
-  font-size: 18px;
-  line-height: 1.1;
+  color: var(--field-value);
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2445,7 +2461,7 @@ p {
 }
 
 .metric-grid--summary + .metric-grid--stats {
-  margin-top: -4px;
+  margin-top: 0;
 }
 
 .metric-cell {
@@ -2475,7 +2491,7 @@ p {
   font-size: 14px;
   font-weight: 900;
   text-overflow: ellipsis;
-  text-transform: lowercase;
+  text-transform: none;
   white-space: nowrap;
 }
 
@@ -2721,14 +2737,14 @@ input[type="range"] {
   min-width: 0;
   padding: 12px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: var(--field-surface);
+  border: 1px solid transparent;
 }
 
 .manual-fields span {
-  color: rgba(255, 240, 209, 0.68);
-  font-size: 13px;
-  font-weight: 800;
+  color: var(--field-label);
+  font-size: 14px;
+  font-weight: 900;
 }
 
 .manual-fields input {
@@ -2737,8 +2753,8 @@ input[type="range"] {
   border-radius: 12px;
   padding: 10px 0 0;
   background: transparent;
-  color: var(--text);
-  font-size: 18px;
+  color: var(--field-value);
+  font-size: 17px;
   font-weight: 900;
   outline: none;
   text-align: left;
@@ -2753,9 +2769,9 @@ input[type="range"] {
   border-radius: 12px;
   padding: 10px 0 0;
   background: transparent;
-  color: var(--text);
+  color: var(--field-value);
   font: inherit;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 900;
   line-height: 1.2;
   outline: none;
@@ -2763,7 +2779,7 @@ input[type="range"] {
 }
 
 .manual-fields textarea::placeholder {
-  color: rgba(255, 240, 209, 0.34);
+  color: var(--field-label);
 }
 
 .manual-fields input::-webkit-date-and-time-value {
@@ -3508,7 +3524,7 @@ input[type="range"] {
 
 .profile-card-metrics {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .profile-form {
@@ -3845,7 +3861,7 @@ input[type="range"] {
   }
 
   .manual-fields {
-    gap: 8px;
+    gap: 12px;
   }
 
   .manual-fields label {

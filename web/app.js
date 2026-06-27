@@ -1087,6 +1087,11 @@ function renderEditablePositionSelector(label, value, selectedPosition, canEdit)
   `;
 }
 
+function formatMetricLabel(label) {
+  const text = String(label || '').trim();
+  return text ? text.charAt(0).toLocaleUpperCase('ru-RU') + text.slice(1) : '';
+}
+
 function renderMetricCell(label, value, options = {}) {
   const classes = ['metric-cell'];
 
@@ -1100,7 +1105,7 @@ function renderMetricCell(label, value, options = {}) {
 
   return `
     <div class="${classes.join(' ')}">
-      <span>${escapeHtml(label)}</span>
+      <span>${escapeHtml(formatMetricLabel(label))}</span>
       <strong>${options.html ? value : escapeHtml(value)}</strong>
     </div>
   `;
@@ -3044,7 +3049,7 @@ function renderProfileTab() {
             ? renderSelfProfileForm(player, selfProfileDefaults, { includeStats: !hasCareerRatings })
             : `
               ${renderEditablePositionSelector(
-                'позиция',
+                'Позиция',
                 effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title,
                 effectivePosition,
                 canEditOwnProfile
