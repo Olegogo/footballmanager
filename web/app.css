@@ -8,6 +8,12 @@
   --gold-1: #f1cf72;
   --gold-2: #a57720;
   --gold-3: #3d2a08;
+  --field-surface: rgba(255, 255, 255, 0.1);
+  --field-label: rgba(255, 255, 255, 0.5);
+  --field-value: #f3eed6;
+  --rating-card-surface: rgba(171, 157, 111, 0.1);
+  --rating-card-border: rgba(171, 157, 111, 0.2);
+  --rating-gold: #e6c36f;
   --shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
   --page-gutter: 14px;
 }
@@ -1113,14 +1119,14 @@ p {
   min-height: 56px;
   padding: 10px 14px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.045);
+  background: var(--field-surface);
 }
 
 .quick-select-field > span {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: rgba(255, 240, 209, 0.62);
+  color: var(--field-label);
   font-size: 14px;
   font-weight: 900;
   letter-spacing: -0.02em;
@@ -1139,9 +1145,9 @@ p {
   outline: 0;
   appearance: none;
   background: transparent;
-  color: var(--text);
+  color: var(--field-value);
   font: inherit;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 900;
 }
 
@@ -1294,9 +1300,9 @@ p {
   display: grid;
   gap: 12px;
   padding: 12px;
-  border: 1px solid rgba(205, 221, 210, 0.2);
+  border: 1px solid var(--rating-card-border);
   border-radius: 22px;
-  background: rgba(4, 17, 10, 0.84);
+  background: var(--rating-card-surface);
 }
 
 .quick-game-card-head {
@@ -1313,7 +1319,7 @@ p {
 .quick-game-card-title strong {
   display: block;
   overflow: hidden;
-  color: var(--text);
+  color: var(--field-value);
   font-size: 18px;
   font-weight: 900;
   line-height: 1.08;
@@ -1324,7 +1330,7 @@ p {
 .quick-game-card-title span {
   display: block;
   margin-top: 3px;
-  color: rgba(255, 240, 209, 0.58);
+  color: var(--field-label);
   font-size: 13px;
   font-weight: 900;
 }
@@ -1335,7 +1341,7 @@ p {
   gap: 4px;
   width: 82px;
   min-width: 82px;
-  color: #ffe28b;
+  color: var(--rating-gold);
   font-size: 34px;
   font-weight: 900;
   line-height: 1;
@@ -1357,10 +1363,10 @@ p {
 }
 
 .quick-card-stat {
-  min-height: 56px;
+  min-height: 52px;
   display: grid;
   align-items: center;
-  border: 1.5px solid rgba(205, 221, 210, 0.26);
+  border: 2px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   background: rgba(4, 17, 10, 0.76);
 }
@@ -1376,9 +1382,9 @@ p {
 }
 
 .quick-card-stat.is-active {
-  border-color: rgba(255, 226, 139, 0.95);
-  background: rgba(255, 226, 139, 0.16);
-  box-shadow: inset 0 0 0 1px rgba(255, 226, 139, 0.16);
+  border-color: var(--rating-gold);
+  background: rgba(230, 195, 111, 0.18);
+  box-shadow: none;
 }
 
 .quick-card-stat span {
@@ -1386,7 +1392,7 @@ p {
   justify-self: center;
   align-self: end;
   overflow: hidden;
-  color: rgba(255, 240, 209, 0.58);
+  color: var(--field-label);
   font-size: 14px;
   font-weight: 900;
   text-overflow: ellipsis;
@@ -1400,7 +1406,7 @@ p {
   grid-area: value;
   justify-self: center;
   align-self: start;
-  color: var(--text);
+  color: var(--field-value);
   font-size: 20px;
   font-weight: 900;
   line-height: 1;
@@ -1422,7 +1428,7 @@ p {
 }
 
 .quick-card-stat em {
-  color: #ffe28b;
+  color: var(--rating-gold);
   font-style: normal;
   margin-left: 4px;
 }
@@ -1434,7 +1440,7 @@ p {
   place-items: center;
   border: 0;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.17);
+  background: var(--field-surface);
   color: var(--text);
   font-size: 28px;
   font-weight: 500;
@@ -2381,18 +2387,21 @@ p {
   min-height: 56px;
   padding: 8px 14px;
   border-radius: 18px;
-  border: 1px solid rgba(241, 207, 114, 0.62);
+  border: 1px solid transparent;
+  background: var(--field-surface);
 }
 
 .position-selector span {
-  color: rgba(255, 240, 209, 0.68);
+  color: var(--field-label);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 900;
   grid-column: 1 / 2;
 }
 
 .position-selector strong {
-  font-size: 18px;
+  color: var(--field-value);
+  font-size: 17px;
+  font-weight: 900;
   line-height: 1;
   grid-column: 1 / 2;
 }
@@ -2422,7 +2431,7 @@ p {
 
 .metric-grid {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 
@@ -2442,29 +2451,29 @@ p {
 .metric-cell {
   min-width: 0;
   overflow: hidden;
-  min-height: 56px;
+  min-height: 52px;
   padding: 8px 12px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--field-surface);
   border: 1px solid transparent;
 }
 
 .metric-cell--outlined {
-  background: transparent;
-  border-color: rgba(241, 207, 114, 0.62);
+  background: var(--field-surface);
+  border-color: transparent;
 }
 
 .metric-cell--emphasis {
-  background: rgba(255, 237, 186, 0.18);
+  background: var(--field-surface);
 }
 
 .metric-cell span {
   display: block;
   max-width: 100%;
   overflow: hidden;
-  color: rgba(255, 240, 209, 0.68);
+  color: var(--field-label);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 900;
   text-overflow: ellipsis;
   text-transform: lowercase;
   white-space: nowrap;
@@ -2475,7 +2484,9 @@ p {
   max-width: 100%;
   overflow: hidden;
   margin-top: 4px;
-  font-size: 18px;
+  color: var(--field-value);
+  font-size: 17px;
+  font-weight: 900;
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3154,7 +3165,8 @@ input[type="range"] {
   min-height: 56px;
   padding: 8px 16px;
   border-radius: 18px;
-  border: 1px solid rgba(241, 207, 114, 0.62);
+  border: 1px solid transparent;
+  background: var(--field-surface);
 }
 
 .editor-select span,
@@ -3163,9 +3175,9 @@ input[type="range"] {
 .editor-range-box span {
   max-width: 100%;
   overflow: hidden;
-  color: rgba(255, 240, 209, 0.68);
+  color: var(--field-label);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3174,7 +3186,8 @@ input[type="range"] {
 .editor-stat-block strong,
 .editor-stepper strong,
 .editor-range-value {
-  font-size: 18px;
+  color: var(--field-value);
+  font-size: 17px;
   line-height: 1;
   font-weight: 900;
 }
@@ -3187,9 +3200,9 @@ input[type="range"] {
   appearance: none;
   border: 0;
   background: transparent;
-  color: var(--text);
+  color: var(--field-value);
   padding: 0;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 900;
 }
 
@@ -3205,7 +3218,7 @@ input[type="range"] {
 }
 
 .editor-stat-block--filled {
-  background: rgba(255, 245, 208, 0.14);
+  background: var(--field-surface);
   border-color: transparent;
 }
 
@@ -3515,7 +3528,7 @@ input[type="range"] {
 }
 
 .profile-stat-stepper {
-  min-height: 56px;
+  min-height: 52px;
 }
 
 .profile-stat-stepper > span {
