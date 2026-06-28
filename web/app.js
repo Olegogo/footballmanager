@@ -364,7 +364,7 @@ function getPluralCategory(count) {
 function getPointWord(count) {
   const forms = getTranslatedObject('rating.point_forms');
   const category = getPluralCategory(count);
-  return forms?.[category] || forms?.other || getPlural(count, ['очко', 'очка', 'очков']);
+  return forms?.[category] || forms?.other || 'points';
 }
 
 function normalizeUsername(value = '') {

@@ -16,7 +16,7 @@ const store = new AppStore(config.dataFile);
 await store.init();
 await store.ensureChat({
   id: GLOBAL_SNAPSHOT_CHAT_ID,
-  title: 'Все игры',
+  title: translate('ru', 'common.misc.all_games'),
   type: 'global'
 });
 
