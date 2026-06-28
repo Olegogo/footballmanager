@@ -1516,7 +1516,7 @@ function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
                     <p class="quick-rating-hint">${escapeHtml(t('rating.stat_points_hint', { count: QUICK_RATING_POINTS }))}</p>
                     ${renderQuickStatControls(player, game, getQuickRatingDraft(game))}
                   </div>
-                  <button type="button" class="primary-button card-action editor-submit" data-submit-quick-rating="${escapeHtml(game.id)}" ${isQuickRatingDraftChanged(game) ? '' : 'disabled'}>${escapeHtml(t('common.buttons.save'))}</button>
+                  ${isQuickRatingDraftChanged(game) ? `<button type="button" class="primary-button card-action editor-submit" data-submit-quick-rating="${escapeHtml(game.id)}">${escapeHtml(t('common.buttons.save'))}</button>` : ''}
                 </div>
               `
               : `
@@ -1812,9 +1812,13 @@ function renderQuickFloatingSave(game) {
 
   const hasChanges = isQuickRatingDraftChanged(game);
 
+  if (!hasChanges) {
+    return '';
+  }
+
   return `
     <div class="quick-floating-save">
-      <button type="button" class="primary-button" data-submit-quick-rating="${escapeHtml(game.id)}" ${hasChanges ? '' : 'disabled'}>${escapeHtml(t('common.buttons.save'))}</button>
+      <button type="button" class="primary-button" data-submit-quick-rating="${escapeHtml(game.id)}">${escapeHtml(t('common.buttons.save'))}</button>
     </div>
   `;
 }
@@ -2761,10 +2765,13 @@ function renderProfileActionsModal() {
       <section class="modal-card profile-actions-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('players.settings'))}">
         <h2>${escapeHtml(t('players.settings'))}</h2>
         <label class="language-select-field">
-          <select data-locale-select aria-label="${escapeHtml(t('settings.language.choose'))}">
-            <option value="ru" ${state.locale === 'ru' ? 'selected' : ''}>${escapeHtml(t('settings.language.label'))}: ${escapeHtml(t('settings.language.ru_short'))}</option>
-            <option value="en" ${state.locale === 'en' ? 'selected' : ''}>${escapeHtml(t('settings.language.label'))}: ${escapeHtml(t('settings.language.en_short'))}</option>
-          </select>
+          <span class="language-select-label">${escapeHtml(t('settings.language.label'))}</span>
+          <span class="language-select-control">
+            <select data-locale-select aria-label="${escapeHtml(t('settings.language.choose'))}">
+              <option value="ru" ${state.locale === 'ru' ? 'selected' : ''}>${escapeHtml(t('settings.language.ru_short'))}</option>
+              <option value="en" ${state.locale === 'en' ? 'selected' : ''}>${escapeHtml(t('settings.language.en_short'))}</option>
+            </select>
+          </span>
         </label>
         <button type="button" class="game-action-button" data-share-profile="true">${escapeHtml(t('common.buttons.share_card'))}</button>
         <button type="button" class="game-action-button" data-edit-self-profile="true">${escapeHtml(t('common.buttons.edit'))}</button>
