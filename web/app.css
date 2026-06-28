@@ -184,6 +184,12 @@ p {
   cursor: pointer;
 }
 
+.primary-button:disabled {
+  cursor: default;
+  opacity: 0.46;
+  filter: saturate(0.55);
+}
+
 .ghost-button {
   width: 46px;
   height: 46px;
@@ -3880,11 +3886,16 @@ input[type="range"] {
   top: 20px;
   transform: translateX(-50%);
   z-index: 80;
+  max-width: calc(100vw - 32px);
   padding: 12px 16px;
   border-radius: 999px;
   background: rgba(12, 26, 18, 0.94);
   border: 1px solid rgba(255, 228, 143, 0.26);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hidden {

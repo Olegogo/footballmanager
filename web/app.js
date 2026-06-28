@@ -780,6 +780,39 @@ function getQuickRatingPointsUsed(draft) {
   return normalizeQuickBoosts(draft?.boosts).reduce((sum, boost) => sum + boost.points, 0);
 }
 
+function sortQuickBoosts(boosts = []) {
+  return normalizeQuickBoosts(boosts).sort((left, right) => {
+    const leftKey = `${left.targetPlayerId}:${left.statKey}`;
+    const rightKey = `${right.targetPlayerId}:${right.statKey}`;
+    return leftKey.localeCompare(rightKey);
+  });
+}
+
+function sortQuickAchievements(achievements = []) {
+  return normalizeQuickAchievements(achievements)
+    .filter((achievement) => achievement.targetPlayerId)
+    .sort((left, right) => left.achievementKey.localeCompare(right.achievementKey));
+}
+
+function getQuickRatingSnapshot(rating = {}) {
+  return {
+    mvpPlayerId: String(rating?.mvpPlayerId || ''),
+    boosts: sortQuickBoosts(rating?.boosts),
+    achievements: sortQuickAchievements(rating?.achievements)
+  };
+}
+
+function isQuickRatingDraftChanged(game, draft = null) {
+  if (!game?.id) {
+    return false;
+  }
+
+  const currentDraft = draft ?? getQuickRatingDraft(game);
+  const baseline = getQuickRatingSnapshot(game.viewerQuickRating || {});
+  const current = getQuickRatingSnapshot(currentDraft);
+  return JSON.stringify(current) !== JSON.stringify(baseline);
+}
+
 function getQuickBoostPoints(draft, targetPlayerId, statKey) {
   return normalizeQuickBoosts(draft?.boosts).find(
     (boost) => boost.targetPlayerId === targetPlayerId && boost.statKey === statKey
@@ -1483,7 +1516,7 @@ function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
                     <p class="quick-rating-hint">${escapeHtml(t('rating.stat_points_hint', { count: QUICK_RATING_POINTS }))}</p>
                     ${renderQuickStatControls(player, game, getQuickRatingDraft(game))}
                   </div>
-                  <button type="button" class="primary-button card-action editor-submit" data-submit-quick-rating="${escapeHtml(game.id)}">${escapeHtml(t('common.buttons.save'))}</button>
+                  <button type="button" class="primary-button card-action editor-submit" data-submit-quick-rating="${escapeHtml(game.id)}" ${isQuickRatingDraftChanged(game) ? '' : 'disabled'}>${escapeHtml(t('common.buttons.save'))}</button>
                 </div>
               `
               : `
@@ -1777,9 +1810,11 @@ function renderQuickFloatingSave(game) {
     return '';
   }
 
+  const hasChanges = isQuickRatingDraftChanged(game);
+
   return `
     <div class="quick-floating-save">
-      <button type="button" class="primary-button" data-submit-quick-rating="${escapeHtml(game.id)}">${escapeHtml(t('common.buttons.save'))}</button>
+      <button type="button" class="primary-button" data-submit-quick-rating="${escapeHtml(game.id)}" ${hasChanges ? '' : 'disabled'}>${escapeHtml(t('common.buttons.save'))}</button>
     </div>
   `;
 }
@@ -3575,6 +3610,11 @@ async function submitQuickRating(gameId) {
   }
 
   const draft = getQuickRatingDraft(game);
+
+  if (!isQuickRatingDraftChanged(game, draft)) {
+    return;
+  }
+
   const payload = {
     mvpPlayerId: draft.mvpPlayerId || '',
     boosts: normalizeQuickBoosts(draft.boosts),
