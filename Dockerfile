@@ -9,6 +9,7 @@ RUN npm ci --omit=dev
 
 COPY src ./src
 COPY web ./web
+COPY packages ./packages
 COPY data ./data
 COPY scripts ./scripts
 
