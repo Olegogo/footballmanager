@@ -343,7 +343,7 @@ p {
 .game-facts .game-stat-field--badges,
 .game-card-stats .game-stat-field--badges {
   min-height: 0;
-  padding-bottom: 8px;
+  padding-bottom: 4px;
 }
 
 .game-facts .game-level-badge {
@@ -2227,23 +2227,37 @@ p {
 
 .chip-select {
   position: relative;
-  padding-right: 12px;
+  display: inline-flex;
+  align-items: center;
+  padding-right: 38px;
+}
+
+.chip-select-display {
+  display: block;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chip-select select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   appearance: none;
   border: 0;
   background: transparent;
   color: inherit;
   font-weight: 700;
-  padding-right: 16px;
+  opacity: 0;
   cursor: pointer;
 }
 
 .chip-select::after {
   content: "";
   position: absolute;
-  right: 12px;
+  right: 16px;
   top: 50%;
   width: 8px;
   height: 8px;
@@ -2763,10 +2777,11 @@ input[type="range"] {
 
 .manual-fields label {
   display: grid;
-  gap: 7px;
+  align-content: center;
+  gap: 4px;
   min-width: 0;
-  min-height: 64px;
-  padding: 12px;
+  min-height: 63px;
+  padding: 10px 14px;
   border-radius: 16px;
   background: var(--field-surface);
   border: 1px solid transparent;
@@ -2782,7 +2797,7 @@ input[type="range"] {
   width: 100%;
   border: 0;
   border-radius: 12px;
-  padding: 10px 0 0;
+  padding: 0;
   background: transparent;
   color: var(--field-value);
   font-size: 17px;
@@ -2793,12 +2808,12 @@ input[type="range"] {
 
 .manual-fields textarea {
   width: 100%;
-  height: 32px;
-  min-height: 0;
+  height: auto;
+  min-height: 21px;
   resize: none;
   border: 0;
   border-radius: 12px;
-  padding: 10px 0 0;
+  padding: 0;
   background: transparent;
   color: var(--field-value);
   font: inherit;
@@ -3040,8 +3055,9 @@ input[type="range"] {
   justify-content: center;
   gap: 8px;
   width: 100%;
+  min-height: 54px;
   border-radius: 16px;
-  padding: 15px 16px;
+  padding: 0 16px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
   font-weight: 900;
@@ -3055,6 +3071,7 @@ input[type="range"] {
   position: relative;
   display: inline-flex;
   align-items: center;
+  min-height: 32px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.1);
 }
@@ -3078,7 +3095,7 @@ input[type="range"] {
   appearance: none;
   border: 0;
   border-radius: 10px;
-  padding: 4px 28px 4px 12px;
+  padding: 0 28px 0 12px;
   background: transparent;
   color: var(--text);
   font-size: inherit;
@@ -3960,26 +3977,18 @@ input[type="range"] {
   }
 
   .manual-fields label {
-    gap: 5px;
     min-width: 0;
-  }
-
-  .manual-fields span {
-    font-size: 12px;
   }
 
   .manual-fields input,
   .manual-fields textarea {
     min-width: 0;
     border-radius: 0;
-    padding: 8px 0 0;
-    font-size: 16px;
   }
 
   .manual-fields input[type="date"],
   .manual-fields input[type="time"] {
     padding-inline: 0;
-    font-size: 15px;
   }
 
   .notice-banner--rating-live {

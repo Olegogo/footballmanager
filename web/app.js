@@ -2606,6 +2606,17 @@ function refreshManualPlayerPicker() {
     : `<p class="achievement-empty">${escapeHtml(t('match.picker_empty'))}</p>`;
 }
 
+function resizeManualTextarea(textarea) {
+  textarea.style.height = 'auto';
+  textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
+function resizeManualTextareas(root = document) {
+  root.querySelectorAll('textarea[data-manual-autosize]').forEach((textarea) => {
+    resizeManualTextarea(textarea);
+  });
+}
+
 function renderManualFieldPreview() {
   const selectedPlayers = getManualSelectedPlayers();
 
@@ -2696,11 +2707,11 @@ function renderCreateGameScreen() {
             </label>
             <label class="manual-field-wide">
               <span>${escapeHtml(t('common.labels.location'))}</span>
-              <input type="text" name="location" value="${escapeHtml(state.manualGameDraft.location)}" placeholder="${escapeHtml(t('match.location_placeholder'))}" required>
+              <textarea name="location" rows="1" data-manual-autosize="true" placeholder="${escapeHtml(t('match.location_placeholder'))}" required>${escapeHtml(state.manualGameDraft.location)}</textarea>
             </label>
             <label class="manual-field-wide">
               <span>${escapeHtml(t('common.labels.additional'))}</span>
-              <textarea name="additionalInfo" rows="3" placeholder="${escapeHtml(t('match.additional_placeholder'))}">${escapeHtml(state.manualGameDraft.additionalInfo)}</textarea>
+              <textarea name="additionalInfo" rows="1" data-manual-autosize="true" placeholder="${escapeHtml(t('match.additional_placeholder'))}">${escapeHtml(state.manualGameDraft.additionalInfo)}</textarea>
             </label>
           </div>
         </section>
@@ -2901,6 +2912,16 @@ function renderGamesTab() {
 
 function renderFilterBar() {
   const achievementOptions = getEarnedAchievementOptions();
+  const notSelectedLabel = t('players.filters.not_selected');
+  const positionDisplay = state.positionFilter
+    ? getPositionLabel(state.positionFilter, 'short')
+    : t('common.labels.position');
+  const achievementDisplay = state.achievementFilter
+    ? getAchievementMeta(state.achievementFilter).title
+    : t('players.filters.achievements');
+  const skillDisplay = state.skillFilter
+    ? t(`players.filters.${state.skillFilter}`)
+    : t('players.filters.skills');
 
   return `
     <div class="filter-row">
@@ -2912,24 +2933,27 @@ function renderFilterBar() {
         `
       ).join('')}
       <label class="chip chip-select ${state.positionFilter ? 'active' : ''}">
+        <span class="chip-select-display">${escapeHtml(positionDisplay)}</span>
         <select id="positionFilter">
-          <option value="">${escapeHtml(t('common.labels.position'))}</option>
+          <option value="">${escapeHtml(notSelectedLabel)}</option>
           ${['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'ST', 'LW', 'RW']
             .map((position) => `<option value="${position}" ${state.positionFilter === position ? 'selected' : ''}>${escapeHtml(getPositionLabel(position, 'short'))}</option>`)
             .join('')}
         </select>
       </label>
       <label class="chip chip-select ${state.achievementFilter ? 'active' : ''}">
+        <span class="chip-select-display">${escapeHtml(achievementDisplay)}</span>
         <select id="achievementFilter">
-          <option value="">${escapeHtml(t('players.filters.achievements'))}</option>
+          <option value="">${escapeHtml(notSelectedLabel)}</option>
           ${achievementOptions
             .map((achievement) => `<option value="${escapeHtml(achievement.key)}" ${state.achievementFilter === achievement.key ? 'selected' : ''}>${escapeHtml(achievement.title)}</option>`)
             .join('')}
         </select>
       </label>
       <label class="chip chip-select ${state.skillFilter ? 'active' : ''}">
+        <span class="chip-select-display">${escapeHtml(skillDisplay)}</span>
         <select id="skillFilter">
-          <option value="">${escapeHtml(t('players.filters.skills'))}</option>
+          <option value="">${escapeHtml(notSelectedLabel)}</option>
           ${STAT_META
             .map(([skillKey]) => `<option value="${escapeHtml(skillKey)}" ${state.skillFilter === skillKey ? 'selected' : ''}>${escapeHtml(t(`players.filters.${skillKey}`))}</option>`)
             .join('')}
@@ -3575,6 +3599,7 @@ function render() {
   `;
 
   renderModal();
+  resizeManualTextareas(contentNode);
   scrollToTargetPlayerCard();
 }
 
@@ -4620,6 +4645,9 @@ document.addEventListener('change', (event) => {
 
   if (event.target.closest('#manualGameForm')) {
     saveManualGameDraft(event.target.closest('#manualGameForm'));
+    if (event.target.matches('textarea[data-manual-autosize]')) {
+      resizeManualTextarea(event.target);
+    }
     return;
   }
 
@@ -4713,6 +4741,9 @@ document.addEventListener('input', (event) => {
 
   if (event.target.closest('#manualGameForm')) {
     saveManualGameDraft(event.target.closest('#manualGameForm'));
+    if (event.target.matches('textarea[data-manual-autosize]')) {
+      resizeManualTextarea(event.target);
+    }
     return;
   }
 
