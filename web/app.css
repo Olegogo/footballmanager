@@ -3044,24 +3044,23 @@ input[type="range"] {
   position: absolute;
   top: 50%;
   right: 24px;
-  width: 18px;
-  height: 18px;
-  border-right: 5px solid var(--text);
-  border-bottom: 5px solid var(--text);
+  width: 12px;
+  height: 12px;
+  border-right: 4px solid var(--text);
+  border-bottom: 4px solid var(--text);
   pointer-events: none;
-  transform: translateY(-65%) rotate(45deg);
+  transform: translateY(-70%) rotate(45deg);
 }
 
 .language-select-field select {
   width: 100%;
-  min-height: 72px;
   appearance: none;
   border: 0;
-  border-radius: 22px;
-  padding: 0 64px 0 24px;
+  border-radius: 16px;
+  padding: 15px 50px 15px 16px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
-  font-size: 30px;
+  font-size: inherit;
   font-weight: 900;
   text-align: center;
   text-align-last: center;
