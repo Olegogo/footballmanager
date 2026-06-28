@@ -12,51 +12,51 @@ import {
 } from '/lib/lineup.js';
 
 const STAT_META = [
-  ['pace', 'Скорость'],
-  ['dribbling', 'Дриблинг'],
-  ['shooting', 'Удар'],
-  ['defense', 'Защита'],
-  ['passing', 'Передачи'],
-  ['physical', 'Физика']
+  ['pace', 'Pace'],
+  ['dribbling', 'Dribbling'],
+  ['shooting', 'Shooting'],
+  ['defense', 'Defense'],
+  ['passing', 'Passing'],
+  ['physical', 'Physical']
 ];
 const QUICK_RATING_POINTS = 3;
 const GOALKEEPER_STAT_META = [
-  ['pace', 'Игра на линии'],
-  ['dribbling', 'Фиксация мяча'],
-  ['shooting', 'Выносы'],
-  ['defense', 'Рефлексы'],
-  ['passing', 'Скорость'],
-  ['physical', 'Выбор позиции']
+  ['pace', 'Line play'],
+  ['dribbling', 'Handling'],
+  ['shooting', 'Clearances'],
+  ['defense', 'Reflexes'],
+  ['passing', 'Speed'],
+  ['physical', 'Positioning']
 ];
 const QUICK_ACHIEVEMENTS = [
-  { key: 'mvp', title: 'MVP', category: 'Базовые', description: 'Игрок матча по голосам участников.', automatic: false, special: true },
-  { key: 'goleador', title: 'Голеадор', category: 'Базовые', description: 'За игрока больше всего проголосовали как за главного голеадора матча.', automatic: false },
-  { key: 'hat_trick', title: 'Хет-трикер', category: 'Голы и атака', description: 'Забил 3 гола за матч.', automatic: false },
-  { key: 'pokerface', title: 'Покерфейс', category: 'Голы и атака', description: 'Забил 4 гола за матч.', automatic: false },
-  { key: 'comeback_maker', title: 'Камбэк-мейкер', category: 'Голы и атака', description: 'Переломил ход игры.', automatic: false },
-  { key: 'long_shot', title: 'Дальний выстрел', category: 'Голы и атака', description: 'Забил гол из-за пределов штрафной.', automatic: false },
-  { key: 'assistant', title: 'Ассистент', category: 'Пасы и командная игра', description: 'Сделал больше всех голевых передач.', automatic: false },
-  { key: 'playmaker', title: 'Плеймейкер', category: 'Пасы и командная игра', description: 'Сделал 3+ голевых передачи за матч.', automatic: false },
-  { key: 'unselfish', title: 'Не жадный', category: 'Пасы и командная игра', description: 'Отдал пас на пустые ворота вместо удара.', automatic: false },
-  { key: 'conductor', title: 'Дирижёр', category: 'Пасы и командная игра', description: 'Больше всех вовлечён в голевые атаки: голы + ассисты.', automatic: false },
-  { key: 'wall', title: 'Стена', category: 'Защита', description: 'Лучший защитник матча.', automatic: false },
-  { key: 'pickpocket', title: 'Карманник', category: 'Защита', description: 'Больше всех отборов.', automatic: false },
-  { key: 'cat', title: 'Кошка', category: 'Вратарь', description: 'Лучший сейв матча.', automatic: false },
-  { key: 'no_toxic', title: 'Без токсика', category: 'Другие', description: '10 матчей без жалоб и конфликтов.', automatic: false },
-  { key: 'maguire_day', title: 'Магуайр дня', category: 'Другие', description: 'Смешная ошибка матча.', automatic: false },
-  { key: 'planned_it', title: 'Я так и задумал', category: 'Другие', description: 'Забил случайный гол.', automatic: false },
-  { key: 'woodworker', title: 'Штангист', category: 'Другие', description: 'Попал в каркас ворот 3 раза.', automatic: false },
-  { key: 'debutant', title: 'Дебютант', category: 'Автоматические', description: 'Сыграл первый матч.', automatic: true },
-  { key: 'stable_guy', title: 'Стабильный тип', category: 'Автоматические', description: 'Сыграл 5 матчей подряд без пропусков.', automatic: true },
-  { key: 'local_guy', title: 'Свой на районе', category: 'Автоматические', description: 'Сыграл 10 матчей на одной площадке.', automatic: true },
-  { key: 'yard_veteran', title: 'Ветеран двора', category: 'Автоматические', description: 'Сыграл 50 матчей.', automatic: true },
-  { key: 'last_line', title: 'Последний рубеж', category: 'Автоматические', description: 'Получил MVP, играя в воротах.', automatic: true },
-  { key: 'support', title: 'Поддержка', category: 'Автоматические', description: 'Поставил оценки всем игрокам после матча.', automatic: true },
-  { key: 'organizer', title: 'Организатор', category: 'Автоматические', description: 'Создал первый матч.', automatic: true },
-  { key: 'form_up', title: 'Апнул форму', category: 'Автоматические', description: 'Поднял среднюю оценку за последние 5 игр.', automatic: true },
-  { key: 'dark_horse', title: 'Темная лошадка', category: 'Автоматические', description: 'Пришёл с низким рейтингом и получил MVP.', automatic: true },
-  { key: 'yard_elite', title: 'Элита двора', category: 'Автоматические', description: 'Достиг топ-3 рейтинга.', automatic: true },
-  { key: 'underrated', title: 'Недооценённый', category: 'Автоматические', description: 'Высокая статистика, но мало голосов за MVP.', automatic: true }
+  { key: 'mvp', title: 'MVP', category: 'Base', categoryKey: 'base', description: 'Player of the match by participant votes.', automatic: false, special: true },
+  { key: 'goleador', title: 'Top scorer', category: 'Base', categoryKey: 'base', description: 'Most voted main scorer of the match.', automatic: false },
+  { key: 'hat_trick', title: 'Hat-tricker', category: 'Goals and attack', categoryKey: 'attack', description: 'Scored 3 goals in a match.', automatic: false },
+  { key: 'pokerface', title: 'Poker face', category: 'Goals and attack', categoryKey: 'attack', description: 'Scored 4 goals in a match.', automatic: false },
+  { key: 'comeback_maker', title: 'Comeback maker', category: 'Goals and attack', categoryKey: 'attack', description: 'Changed the flow of the match.', automatic: false },
+  { key: 'long_shot', title: 'Long shot', category: 'Goals and attack', categoryKey: 'attack', description: 'Scored from outside the box.', automatic: false },
+  { key: 'assistant', title: 'Assistant', category: 'Passing and team play', categoryKey: 'team', description: 'Made the most assists.', automatic: false },
+  { key: 'playmaker', title: 'Playmaker', category: 'Passing and team play', categoryKey: 'team', description: 'Made 3+ assists in a match.', automatic: false },
+  { key: 'unselfish', title: 'Unselfish', category: 'Passing and team play', categoryKey: 'team', description: 'Passed into an empty net instead of shooting.', automatic: false },
+  { key: 'conductor', title: 'Conductor', category: 'Passing and team play', categoryKey: 'team', description: 'Most involved in goal attacks: goals + assists.', automatic: false },
+  { key: 'wall', title: 'Wall', category: 'Defense', categoryKey: 'defense', description: 'Best defender of the match.', automatic: false },
+  { key: 'pickpocket', title: 'Pickpocket', category: 'Defense', categoryKey: 'defense', description: 'Most tackles.', automatic: false },
+  { key: 'cat', title: 'Cat', category: 'Goalkeeper', categoryKey: 'goalkeeper', description: 'Best save of the match.', automatic: false },
+  { key: 'no_toxic', title: 'No toxicity', category: 'Other', categoryKey: 'other', description: '10 matches without complaints or conflicts.', automatic: false },
+  { key: 'maguire_day', title: 'Maguire day', category: 'Other', categoryKey: 'other', description: 'Funny mistake of the match.', automatic: false },
+  { key: 'planned_it', title: 'Planned it', category: 'Other', categoryKey: 'other', description: 'Scored an accidental goal.', automatic: false },
+  { key: 'woodworker', title: 'Woodworker', category: 'Other', categoryKey: 'other', description: 'Hit the frame 3 times.', automatic: false },
+  { key: 'debutant', title: 'Debutant', category: 'Automatic', categoryKey: 'auto', description: 'Played the first match.', automatic: true },
+  { key: 'stable_guy', title: 'Stable guy', category: 'Automatic', categoryKey: 'auto', description: 'Played 5 matches in a row.', automatic: true },
+  { key: 'local_guy', title: 'Local guy', category: 'Automatic', categoryKey: 'auto', description: 'Played 10 matches at one venue.', automatic: true },
+  { key: 'yard_veteran', title: 'Yard veteran', category: 'Automatic', categoryKey: 'auto', description: 'Played 50 matches.', automatic: true },
+  { key: 'last_line', title: 'Last line', category: 'Automatic', categoryKey: 'auto', description: 'Got MVP while playing goalkeeper.', automatic: true },
+  { key: 'support', title: 'Support', category: 'Automatic', categoryKey: 'auto', description: 'Rated every player after a match.', automatic: true },
+  { key: 'organizer', title: 'Organizer', category: 'Automatic', categoryKey: 'auto', description: 'Created the first match.', automatic: true },
+  { key: 'form_up', title: 'Form up', category: 'Automatic', categoryKey: 'auto', description: 'Raised the average rating over the last 5 games.', automatic: true },
+  { key: 'dark_horse', title: 'Dark horse', category: 'Automatic', categoryKey: 'auto', description: 'Came in with a low rating and got MVP.', automatic: true },
+  { key: 'yard_elite', title: 'Yard elite', category: 'Automatic', categoryKey: 'auto', description: 'Reached top-3 rating.', automatic: true },
+  { key: 'underrated', title: 'Underrated', category: 'Automatic', categoryKey: 'auto', description: 'High stats but few MVP votes.', automatic: true }
 ];
 const QUICK_ACHIEVEMENT_BY_KEY = Object.fromEntries(QUICK_ACHIEVEMENTS.map((achievement) => [achievement.key, achievement]));
 const QUICK_SELECTABLE_ACHIEVEMENTS = QUICK_ACHIEVEMENTS.filter((achievement) => !achievement.automatic && !achievement.special);
@@ -76,22 +76,13 @@ const VENUE_DIRECTORY = [
   }
 ];
 const FILTER_CHIPS = [
-  { key: 'overall', label: 'Рейтинг' },
-  { key: 'games', label: 'Игры' },
-  { key: 'goals', label: 'Голы' },
-  { key: 'assists', label: 'Передачи' },
-  { key: 'pace', label: 'Скорость' },
-  { key: 'dribbling', label: 'Дриблинг' },
-  { key: 'shooting', label: 'Удар' },
-  { key: 'defense', label: 'Защита' },
-  { key: 'passing', label: 'Передачи' },
-  { key: 'physical', label: 'Физика' }
+  { key: 'overall', labelKey: 'players.filters.overall' }
 ];
 const GAME_FILTERS = [
-  { key: 'all', label: 'Все' },
-  { key: 'mine', label: 'Мои' },
-  { key: 'current', label: 'Текущие' },
-  { key: 'finished', label: 'Завершенные' }
+  { key: 'all', labelKey: 'match.filters.all' },
+  { key: 'mine', labelKey: 'match.filters.mine' },
+  { key: 'current', labelKey: 'match.filters.current' },
+  { key: 'finished', labelKey: 'match.filters.finished' }
 ];
 const MONTH_NAME_PATTERN = 'января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря';
 const GAME_DATE_REGEX = new RegExp(`(\\d{1,2})\\s+(${MONTH_NAME_PATTERN})`, 'i');
@@ -146,11 +137,15 @@ const state = {
   chatId: launchContext.chatId,
   token: '',
   snapshot: null,
+  locale: 'ru',
+  translations: {},
   allowDevLogin: false,
   activeTab: getSafeActiveTab(readInitialTabFromLaunch()),
   activeSort: 'overall',
   gamesFilter: 'all',
   positionFilter: '',
+  achievementFilter: '',
+  skillFilter: '',
   playerSearch: '',
   showCreateGameTooltip: false,
   selectedPlayerId: null,
@@ -201,6 +196,74 @@ const toastNode = document.getElementById('toast');
 let refreshTimer = null;
 let countdownTimer = null;
 let lastAuthError = '';
+
+function getTelegramLocale() {
+  return String(tg?.initDataUnsafe?.user?.language_code || navigator.language || 'ru')
+    .trim()
+    .toLowerCase()
+    .startsWith('en') ? 'en' : 'ru';
+}
+
+function getTranslationValue(key) {
+  return String(key || '')
+    .split('.')
+    .reduce((value, part) => (value && typeof value === 'object' ? value[part] : undefined), state.translations);
+}
+
+function t(key, params = {}) {
+  const value = getTranslationValue(key);
+  const template = typeof value === 'string' ? value : key;
+
+  return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, name) => {
+    const paramValue = params[name];
+    return paramValue === undefined || paramValue === null ? '' : String(paramValue);
+  });
+}
+
+function getTranslatedObject(key) {
+  const value = getTranslationValue(key);
+  return value && typeof value === 'object' ? value : null;
+}
+
+function getStatLabel(key, position = 'N/A') {
+  const labelKey = isGoalkeeperPosition(position) ? `stats.goalkeeper.${key}` : `stats.${key}`;
+  return t(labelKey);
+}
+
+function getPositionLabel(position = 'N/A', field = 'title') {
+  const meta = getPositionMeta(position);
+  const translated = getTranslatedObject(`players.positions.${position}`);
+  return translated?.[field] || meta[field] || meta.title;
+}
+
+function getAchievementMeta(achievementKey) {
+  const base = QUICK_ACHIEVEMENT_BY_KEY[achievementKey] || {};
+  const translated = getTranslatedObject(`achievements.${achievementKey}`);
+
+  return {
+    ...base,
+    title: translated?.title || base.title || achievementKey,
+    description: translated?.description || base.description || ''
+  };
+}
+
+function getLocalizedAchievement(achievement) {
+  const meta = getAchievementMeta(achievement.key);
+  return {
+    ...achievement,
+    ...meta
+  };
+}
+
+function applyI18nPayload(data = {}) {
+  if (data.locale) {
+    state.locale = data.locale;
+  }
+
+  if (data.translations && typeof data.translations === 'object') {
+    state.translations = data.translations;
+  }
+}
 
 function storageKey() {
   return 'fifa-miniapp-token:global';
@@ -276,6 +339,34 @@ function getPlural(count, forms) {
   return forms[2];
 }
 
+function getPluralCategory(count) {
+  const number = Math.abs(Number(count));
+
+  if (state.locale === 'en') {
+    return number === 1 ? 'one' : 'other';
+  }
+
+  const integer = Math.trunc(number);
+  const mod10 = integer % 10;
+  const mod100 = integer % 100;
+
+  if (mod10 === 1 && mod100 !== 11) {
+    return 'one';
+  }
+
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return 'few';
+  }
+
+  return 'many';
+}
+
+function getPointWord(count) {
+  const forms = getTranslatedObject('rating.point_forms');
+  const category = getPluralCategory(count);
+  return forms?.[category] || forms?.other || getPlural(count, ['очко', 'очка', 'очков']);
+}
+
 function normalizeUsername(value = '') {
   return String(value ?? '').trim().replace(/^@/, '').toLowerCase();
 }
@@ -290,11 +381,11 @@ function getScreenTitle() {
   }
 
   if (state.activeTab === 'games') {
-    return 'Игры';
+    return t('common.labels.games');
   }
 
   if (state.activeTab === 'players') {
-    return 'Игроки';
+    return t('common.labels.players');
   }
 
   return '';
@@ -305,7 +396,8 @@ function isGoalkeeperPosition(position) {
 }
 
 function getStatMetaForPosition(position) {
-  return isGoalkeeperPosition(position) ? GOALKEEPER_STAT_META : STAT_META;
+  const meta = isGoalkeeperPosition(position) ? GOALKEEPER_STAT_META : STAT_META;
+  return meta.map(([key]) => [key, getStatLabel(key, position)]);
 }
 
 function getVenueInfo(location = '') {
@@ -380,7 +472,7 @@ async function api(path, options = {}) {
 
 async function authenticateTelegram() {
   if (!tg?.initData) {
-    lastAuthError = 'Telegram не передал initData. Открой приложение кнопкой бота в личке, не обычной ссылкой.';
+    lastAuthError = t('auth.open_from_telegram');
     return false;
   }
 
@@ -392,16 +484,18 @@ async function authenticateTelegram() {
       body: {
         chatId: state.chatId,
         gameId: state.selectedGameId,
-        initData: tg.initData
+        initData: tg.initData,
+        locale: getTelegramLocale()
       }
     });
   } catch (error) {
-    lastAuthError = `Telegram-авторизация не прошла: ${error.message}`;
+    lastAuthError = t('auth.telegram_failed', { reason: error.message });
     return false;
   }
 
   state.token = data.token;
   state.snapshot = data.snapshot;
+  applyI18nPayload(data);
   state.chatId = state.chatId || data.snapshot?.chat?.id || '';
   localStorage.setItem(storageKey(), state.token);
   lastAuthError = '';
@@ -414,16 +508,18 @@ async function loginDev(username, displayName = '') {
     body: {
       chatId: state.chatId,
       username,
-      displayName
+      displayName,
+      locale: state.locale || getTelegramLocale()
     }
   });
 
   state.token = data.token;
   state.snapshot = data.snapshot;
+  applyI18nPayload(data);
   state.chatId = state.chatId || data.snapshot?.chat?.id || '';
   localStorage.setItem(storageKey(), state.token);
   render();
-  showToast('Dev-вход выполнен');
+  showToast(t('auth.dev_done'));
 }
 
 async function loadSnapshot() {
@@ -437,9 +533,12 @@ async function loadSnapshot() {
     params.set('chatId', state.chatId);
   }
 
+  params.set('locale', state.locale || getTelegramLocale());
+
   const query = params.toString() ? `?${params.toString()}` : '';
   const data = await api(`/api/bootstrap${query}`);
   state.snapshot = data.snapshot;
+  applyI18nPayload(data);
   state.allowDevLogin = data.allowDevLogin;
   state.chatId = state.chatId || data.snapshot?.chat?.id || '';
 
@@ -504,7 +603,7 @@ function getViewerPlayer() {
   return {
     id: `telegram_${telegramUser.id}`,
     username: username || 'unknown',
-    displayName: [telegramUser.first_name, telegramUser.last_name].filter(Boolean).join(' ') || (username ? `@${username}` : 'Игрок'),
+    displayName: [telegramUser.first_name, telegramUser.last_name].filter(Boolean).join(' ') || (username ? `@${username}` : t('players.unknown_player')),
     firstName: telegramUser.first_name || '',
     lastName: telegramUser.last_name || '',
     photoUrl: telegramUser.photo_url || '',
@@ -707,23 +806,23 @@ function isPlayerCardUnfilled(player, currentStats = null) {
 
 function getEmptyPlayerStatusLabel(player, game = null) {
   if (isPlayerCardUnfilled(player)) {
-    return 'Не заполнен';
+    return t('players.not_filled');
   }
 
   if (game?.hasStarted || game?.ratingWindowOpen || game?.status === 'live' || game?.status === 'finished') {
-    return 'Не оценён';
+    return t('players.not_rated');
   }
 
-  return 'Нет рейтинга';
+  return t('players.not_rated_generic');
 }
 
 function getCardStatusLabel(player, currentStats = null) {
   if (isPlayerCardUnfilled(player, currentStats)) {
-    return 'Не заполнен';
+    return t('players.not_filled');
   }
 
   if (!hasVisibleRating(player, currentStats)) {
-    return 'Нет рейтинга';
+    return t('players.not_rated_generic');
   }
 
   return '';
@@ -791,12 +890,12 @@ function getGamePlayerPositionLabel(player) {
     : (player.position || 'N/A');
   const positionLabel = getPositionMeta(position).short;
 
-  return positionLabel === '—' ? 'Позиция не выбрана' : positionLabel;
+  return positionLabel === '—' ? t('players.position_not_selected') : getPositionLabel(position, 'short');
 }
 
 function renderRatingCountBadge(count, className = 'rating-count-badge') {
   return `
-    <span class="${escapeHtml(className)}" aria-label="${escapeHtml(count)} оценили">
+    <span class="${escapeHtml(className)}" aria-label="${escapeHtml(t('rating.already_rated', { count }))}">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 12a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4Zm-7.4 8.2c.6-3.7 3.5-6.2 7.4-6.2s6.8 2.5 7.4 6.2c.1.5-.3.9-.8.9H5.4c-.5 0-.9-.4-.8-.9Z"></path>
       </svg>
@@ -875,7 +974,7 @@ function renderGamePlayerState(player, game) {
 
 function renderEditorStateBadge(player, gamePlayer, game) {
   if (!gamePlayer) {
-    return '<span class="editor-status">Карточка игрока</span>';
+    return `<span class="editor-status">${escapeHtml(t('players.card_title'))}</span>`;
   }
 
   const ratingState = getGamePlayerRatingState(gamePlayer, game);
@@ -894,7 +993,7 @@ function renderEditorStateBadge(player, gamePlayer, game) {
   }
 
   if (ratingState.phase === 'pre-game-rated') {
-    return '<span class="editor-status">Оценка матча</span>';
+    return `<span class="editor-status">${escapeHtml(t('rating.title'))}</span>`;
   }
 
   return `<span class="editor-status">${escapeHtml(getEmptyPlayerStatusLabel(gamePlayer, game))}</span>`;
@@ -929,28 +1028,58 @@ function getRatingCountdownLabel(endAt) {
   return formatCountdown(endTime - Date.now());
 }
 
+function getPlayerAchievementCount(player, achievementKey) {
+  if (!achievementKey) {
+    return 0;
+  }
+
+  return Math.max(0, Number(player?.achievementCounts?.[achievementKey] ?? 0));
+}
+
+function getEarnedAchievementOptions() {
+  const earnedKeys = new Set();
+
+  for (const player of getPlayers()) {
+    for (const [achievementKey, count] of Object.entries(player.achievementCounts ?? {})) {
+      if (QUICK_ACHIEVEMENT_BY_KEY[achievementKey] && Number(count) > 0) {
+        earnedKeys.add(achievementKey);
+      }
+    }
+  }
+
+  return QUICK_ACHIEVEMENTS
+    .filter((achievement) => earnedKeys.has(achievement.key))
+    .map((achievement) => getAchievementMeta(achievement.key));
+}
+
 function sortPlayers(players) {
   return [...players].sort((left, right) => {
     if (left.isMvp !== right.isMvp) {
       return left.isMvp ? -1 : 1;
     }
 
-    if (state.activeSort === 'position') {
+    if (state.achievementFilter) {
+      const leftAchievementCount = getPlayerAchievementCount(left, state.achievementFilter);
+      const rightAchievementCount = getPlayerAchievementCount(right, state.achievementFilter);
+
+      if (rightAchievementCount !== leftAchievementCount) {
+        return rightAchievementCount - leftAchievementCount;
+      }
+    }
+
+    if (state.skillFilter) {
+      const leftValue = Number(left.stats?.[state.skillFilter] ?? 0);
+      const rightValue = Number(right.stats?.[state.skillFilter] ?? 0);
+
+      if (rightValue !== leftValue) {
+        return rightValue - leftValue;
+      }
+    } else if (state.activeSort === 'position') {
       const leftOrder = getSortPosition(left.position);
       const rightOrder = getSortPosition(right.position);
 
       if (leftOrder !== rightOrder) {
         return leftOrder - rightOrder;
-      }
-    } else if (state.activeSort === 'games' && right.games !== left.games) {
-      return right.games - left.games;
-    } else if (state.activeSort === 'goals' && right.goals !== left.goals) {
-      return right.goals - left.goals;
-    } else if (state.activeSort === 'assists' && right.assists !== left.assists) {
-      return right.assists - left.assists;
-    } else if (STAT_META.some(([key]) => key === state.activeSort)) {
-      if (right.stats[state.activeSort] !== left.stats[state.activeSort]) {
-        return right.stats[state.activeSort] - left.stats[state.activeSort];
       }
     } else if (right.overall !== left.overall) {
       return right.overall - left.overall;
@@ -964,7 +1093,7 @@ function sortPlayers(players) {
       return right.games - left.games;
     }
 
-    return left.displayName.localeCompare(right.displayName, 'ru');
+    return left.displayName.localeCompare(right.displayName, state.locale || 'ru');
   });
 }
 
@@ -1075,7 +1204,7 @@ function renderEditablePositionSelector(label, value, selectedPosition, canEdit)
         ${POSITION_CHOICES
           .map((position) => `
             <option value="${position}" ${selectedValue === position ? 'selected' : ''}>
-              ${escapeHtml(getPositionMeta(position).title)}
+              ${escapeHtml(getPositionLabel(position, 'title'))}
             </option>
           `)
           .join('')}
@@ -1135,14 +1264,14 @@ function renderFifaCard(player, options = {}) {
   const statPlaceholder = '-';
   const statMeta = getStatMetaForPosition(effectivePosition);
   const overviewCells = [
-    { label: 'игр', value: hideMatchDetailsUntilViewerRates ? statPlaceholder : player.games }
+    { label: t('stats.games'), value: hideMatchDetailsUntilViewerRates ? statPlaceholder : player.games }
   ];
   const statCells = statMeta.map(([key, label]) => [
-    label.toLowerCase(),
+    label,
     !hideMatchDetailsUntilViewerRates && showKnownStats ? statValues[key] : statPlaceholder
   ]);
   const openAttribute = clickable ? ` data-open-player="${escapeHtml(player.id)}"` : '';
-  const actionNote = isRatingCard && ratingsCount > 0 ? `${ratingsCount} уже оценили` : '';
+  const actionNote = isRatingCard && ratingsCount > 0 ? t('rating.already_rated', { count: ratingsCount }) : '';
   const achievements = getUnlockedPlayerAchievements(player, currentStats);
 
   return `
@@ -1156,7 +1285,7 @@ function renderFifaCard(player, options = {}) {
             ? `
               <div class="hero-score ${statusLabel ? 'hero-score--with-status' : ''}">
                 ${renderRatingValue(overall, ratingDelta, 'hero-rating-value')}
-                <span>${escapeHtml(getPositionMeta(position).card)}</span>
+                <span>${escapeHtml(getPositionLabel(position, 'card'))}</span>
               </div>
             `
             : ''
@@ -1169,7 +1298,7 @@ function renderFifaCard(player, options = {}) {
         </div>
         ${
           isRatingCard
-            ? renderPositionSelector('Позиция', effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title)
+            ? renderPositionSelector(t('common.labels.position'), effectivePosition === 'N/A' ? t('common.misc.not_selected') : getPositionLabel(effectivePosition, 'title'))
             : ''
         }
         <div class="metric-grid metric-grid--summary ${overviewCells.length === 1 ? 'metric-grid--single' : ''}">
@@ -1232,13 +1361,13 @@ function renderEditorCards(defaults) {
   return `
     <section class="editor-cards-control ${enabled ? 'is-enabled' : ''}" data-card-control>
       <label class="editor-cards-toggle">
-        <span>Карточки</span>
+        <span>${escapeHtml(t('common.labels.cards'))}</span>
         <input type="checkbox" name="cardsEnabled" data-cards-toggle ${enabled ? 'checked' : ''}>
         <i aria-hidden="true"></i>
       </label>
       <div class="editor-cards-controls">
-        ${renderEditorCardStepper('yellowCards', 'желтые', 'yellow', cards.yellow, 2)}
-        ${renderEditorCardStepper('redCards', 'красная', 'red', cards.red, 1)}
+        ${renderEditorCardStepper('yellowCards', t('common.labels.yellow_cards'), 'yellow', cards.yellow, 2)}
+        ${renderEditorCardStepper('redCards', t('common.labels.red_card'), 'red', cards.red, 1)}
       </div>
     </section>
   `;
@@ -1265,7 +1394,7 @@ function renderSelfProfileStatStepper(name, label, value) {
         type="button"
         data-stepper-action="decrement"
         data-stepper-name="${escapeHtml(name)}"
-        aria-label="Уменьшить ${escapeHtml(label)}"
+        aria-label="${escapeHtml(t('common.aria.decrease', { label }))}"
       >−</button>
       <span>${escapeHtml(label)}</span>
       <strong><span data-stepper-value>${escapeHtml(safeValue)}</span></strong>
@@ -1274,7 +1403,7 @@ function renderSelfProfileStatStepper(name, label, value) {
         type="button"
         data-stepper-action="increment"
         data-stepper-name="${escapeHtml(name)}"
-        aria-label="Увеличить ${escapeHtml(label)}"
+        aria-label="${escapeHtml(t('common.aria.increase', { label }))}"
       >+</button>
     </div>
   `;
@@ -1303,15 +1432,15 @@ function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
               ? `
                 <div class="editor-form editor-form--quick">
                   <div class="quick-rating-block">
-                    <span class="quick-rating-label">MVP матча</span>
+                    <span class="quick-rating-label">${escapeHtml(t('mvp.vote_title'))}</span>
                     ${renderQuickRatingMvpButton(player, game, getQuickRatingDraft(game))}
                   </div>
                   <div class="quick-rating-block">
-                    <span class="quick-rating-label">Очки статов</span>
-                    <p class="quick-rating-hint">Всего на матч доступно ${QUICK_RATING_POINTS} очка. Можно отдать все одному игроку или распределить между несколькими.</p>
+                    <span class="quick-rating-label">${escapeHtml(t('rating.stat_points'))}</span>
+                    <p class="quick-rating-hint">${escapeHtml(t('rating.stat_points_hint', { count: QUICK_RATING_POINTS }))}</p>
                     ${renderQuickStatControls(player, game, getQuickRatingDraft(game))}
                   </div>
-                  <button type="button" class="primary-button card-action editor-submit" data-submit-quick-rating="${escapeHtml(game.id)}">Сохранить</button>
+                  <button type="button" class="primary-button card-action editor-submit" data-submit-quick-rating="${escapeHtml(game.id)}">${escapeHtml(t('common.buttons.save'))}</button>
                 </div>
               `
               : `
@@ -1321,7 +1450,7 @@ function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
                   clickable: false
                 })}
                 <div class="panel subtle-panel">
-                  <p>Этого игрока сейчас можно только посмотреть. Оценка доступна после старта матча и только для других участников текущей игры.</p>
+                  <p>${escapeHtml(t('players.view_only_description'))}</p>
                 </div>
               `
           }
@@ -1332,7 +1461,7 @@ function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
 }
 
 function renderGameHeader(game) {
-  const statusText = game.status === 'upcoming' ? 'Игра впереди' : game.status === 'live' ? 'Идет игра' : 'Игра закончена';
+  const statusText = game.status === 'upcoming' ? t('match.forward') : game.status === 'live' ? t('match.live') : t('match.finished');
   const venue = getVenueInfo(game.location);
   const playerCountBadges = renderPlayerCountBadges(game.playersCount ?? game.participants.length, game);
 
@@ -1341,29 +1470,29 @@ function renderGameHeader(game) {
       <div class="game-summary">
         <div>
           <h2>${escapeHtml(getGameDateShort(game.dateLabel))}</h2>
-          <p class="game-location">${escapeHtml(game.location || 'Не указано')}</p>
+          <p class="game-location">${escapeHtml(game.location || t('common.misc.not_specified'))}</p>
         </div>
         <span class="status-pill ${escapeHtml(game.status)}">${escapeHtml(statusText)}</span>
       </div>
       <div class="game-facts">
         <div>
-          <span>Время</span>
+          <span>${escapeHtml(t('common.labels.time'))}</span>
           <strong>${escapeHtml(game.time)}</strong>
         </div>
         <div>
-          <span>Игроков</span>
+          <span>${escapeHtml(t('common.labels.players'))}</span>
           <strong class="game-card-badges-value">${playerCountBadges}</strong>
         </div>
       </div>
       <div class="game-venue">
         <div class="game-venue-copy">
-          <span>Адрес</span>
-          <strong>${escapeHtml(venue?.venue || game.location || 'Не указано')}</strong>
-          <p>${escapeHtml(venue?.address || game.location || 'Не указано')}</p>
+          <span>${escapeHtml(t('common.labels.address'))}</span>
+          <strong>${escapeHtml(venue?.venue || game.location || t('common.misc.not_specified'))}</strong>
+          <p>${escapeHtml(venue?.address || game.location || t('common.misc.not_specified'))}</p>
         </div>
         ${
           venue?.mapUrl
-            ? `<button type="button" class="primary-button map-button" data-map-link="${escapeHtml(venue.mapUrl)}">На карте</button>`
+            ? `<button type="button" class="primary-button map-button" data-map-link="${escapeHtml(venue.mapUrl)}">${escapeHtml(t('common.buttons.open_map'))}</button>`
             : ''
         }
       </div>
@@ -1382,7 +1511,7 @@ function renderRatingBanner(game) {
       return `
         <section class="notice-banner notice-banner--rating-live notice-banner--rating-viewer">
           <div class="rating-live-main">
-            <p>Оценка для участников стартовала</p>
+            <p>${escapeHtml(t('rating.for_participants_started'))}</p>
             ${timer}
           </div>
         </section>
@@ -1396,14 +1525,17 @@ function renderRatingBanner(game) {
     return `
       <section class="notice-banner notice-banner--rating-live">
         <div class="rating-live-main">
-          <p>Раздай до ${escapeHtml(game.quickRatingPoints ?? QUICK_RATING_POINTS)} очков и&nbsp;выбери MVP</p>
+          <p>${escapeHtml(t('rating.give_points'))}</p>
           ${timer}
         </div>
         <div class="rating-live-chips">
-          <span>${escapeHtml(remainingPoints)} ${escapeHtml(getPlural(remainingPoints, ['очко', 'очка', 'очков']))} осталось</span>
+          <span>${escapeHtml(t('rating.points_left', {
+            count: remainingPoints,
+            word: getPointWord(remainingPoints)
+          }))}</span>
           ${
             ratedCount
-              ? `<span>${escapeHtml(ratedCount)} уже ${escapeHtml(ratedCount === 1 ? 'оценил' : 'оценили')}</span>`
+              ? `<span>${escapeHtml(t('rating.already_rated', { count: ratedCount }))}</span>`
               : ''
           }
         </div>
@@ -1415,10 +1547,10 @@ function renderRatingBanner(game) {
     return '';
   }
 
-  let message = 'Оцените игроков после начала игры';
+  let message = t('rating.available_after_start');
 
   if (game.hasStarted && !game.viewerIsParticipant) {
-    message = 'Оценивать могут только участники текущего матча.';
+    message = t('rating.not_allowed');
   }
 
   return `
@@ -1453,7 +1585,7 @@ function renderQuickPlayerSelect(game, selectedPlayerId, attributes = '') {
 
   return `
     <select ${attributes}>
-      <option value="">не выбран</option>
+      <option value="">${escapeHtml(t('common.misc.not_selected').toLowerCase())}</option>
       ${targets
         .map((player) => `
           <option value="${escapeHtml(player.id)}" ${selectedPlayerId === player.id ? 'selected' : ''}>
@@ -1466,9 +1598,9 @@ function renderQuickPlayerSelect(game, selectedPlayerId, attributes = '') {
 }
 
 function renderQuickAchievementInfoButton(achievementKey) {
-  const achievement = QUICK_ACHIEVEMENT_BY_KEY[achievementKey];
+  const achievement = getAchievementMeta(achievementKey);
 
-  if (!achievement) {
+  if (!achievement?.key) {
     return '';
   }
 
@@ -1498,9 +1630,9 @@ function renderQuickSelectField({ label, valueLabel, selectHtml }) {
 }
 
 function renderQuickAchievementField(game, draft, achievementKey) {
-  const achievement = QUICK_ACHIEVEMENT_BY_KEY[achievementKey];
+  const achievement = getAchievementMeta(achievementKey);
 
-  if (!achievement) {
+  if (!achievement?.key) {
     return '';
   }
 
@@ -1525,7 +1657,7 @@ function renderQuickAchievementPicker(game, draft) {
   const usedKeys = new Set(normalizeQuickAchievements(draft.achievements).map((achievement) => achievement.achievementKey));
   const achievements = QUICK_SELECTABLE_ACHIEVEMENTS.filter((achievement) => !usedKeys.has(achievement.key));
   const groupedAchievements = achievements.reduce((groups, achievement) => {
-    const category = achievement.category || 'другое';
+    const category = achievement.categoryKey ? t(`achievements.category.${achievement.categoryKey}`) : (achievement.category || t('achievements.category.other'));
     groups.set(category, [...(groups.get(category) || []), achievement]);
     return groups;
   }, new Map());
@@ -1545,7 +1677,7 @@ function renderQuickAchievementPicker(game, draft) {
                   data-add-quick-achievement="${escapeHtml(achievement.key)}"
                   data-game-id="${escapeHtml(game.id)}"
                 >
-                  <span class="quick-achievement-option-title">${escapeHtml(achievement.title)}</span>
+                  <span class="quick-achievement-option-title">${escapeHtml(getAchievementMeta(achievement.key).title)}</span>
                   ${renderQuickAchievementInfoButton(achievement.key)}
                 </div>
               `)
@@ -1567,7 +1699,7 @@ function renderQuickAchievementFields(game, draft) {
 
   return `
     <section class="panel quick-rating-panel quick-rating-panel--simple ${draft.achievementPickerOpen ? 'is-picker-open' : ''}">
-      <h2>Оценка</h2>
+      <h2>${escapeHtml(t('rating.title'))}</h2>
       <div class="quick-rating-fields">
         ${renderQuickSelectField({
           label: 'MVP',
@@ -1585,7 +1717,7 @@ function renderQuickAchievementFields(game, draft) {
               ${extraAchievementKeys.map((key) => renderQuickAchievementField(game, draft, key)).join('')}
               <div class="quick-add-achievement-wrap ${draft.achievementPickerOpen ? 'is-open' : ''}">
                 <button type="button" class="quick-add-achievement" data-toggle-quick-achievements="${escapeHtml(game.id)}">
-                  Добавить
+                  ${escapeHtml(t('common.buttons.add'))}
                 </button>
                 ${renderQuickAchievementPicker(game, draft)}
               </div>
@@ -1604,7 +1736,7 @@ function renderQuickFloatingSave(game) {
 
   return `
     <div class="quick-floating-save">
-      <button type="button" class="primary-button" data-submit-quick-rating="${escapeHtml(game.id)}">Сохранить</button>
+      <button type="button" class="primary-button" data-submit-quick-rating="${escapeHtml(game.id)}">${escapeHtml(t('common.buttons.save'))}</button>
     </div>
   `;
 }
@@ -1629,7 +1761,7 @@ function renderQuickStatControls(player, game, draft) {
                 data-quick-boost-stat="${escapeHtml(key)}"
                 data-game-id="${escapeHtml(game.id)}"
                 ${points ? '' : 'disabled'}
-                aria-label="Убрать очко ${escapeHtml(label)}"
+                aria-label="${escapeHtml(t('common.aria.decrease', { label }))}"
               >−</button>
               <span>${escapeHtml(label)}</span>
               <strong>${escapeHtml(points ? `+${points}` : '+')}</strong>
@@ -1639,7 +1771,7 @@ function renderQuickStatControls(player, game, draft) {
                 data-quick-boost-stat="${escapeHtml(key)}"
                 data-game-id="${escapeHtml(game.id)}"
                 ${disabled ? 'disabled' : ''}
-                aria-label="Добавить очко ${escapeHtml(label)}"
+                aria-label="${escapeHtml(t('common.aria.increase', { label }))}"
               >+</button>
             </div>
           `;
@@ -1772,7 +1904,7 @@ function renderAchievementTitle(achievements) {
 
   return `
     <div class="achievement-section-title">
-      <span>Достижения</span>
+      <span>${escapeHtml(t('players.achievements'))}</span>
       ${total > 1 ? `<strong>${escapeHtml(total)}</strong>` : ''}
     </div>
   `;
@@ -1828,9 +1960,9 @@ function renderQuickPlayerStatControl(player, game, draft, key, label) {
         data-quick-boost-stat="${escapeHtml(key)}"
         data-game-id="${escapeHtml(game.id)}"
         ${points ? '' : 'disabled'}
-        aria-label="Убрать очко ${escapeHtml(label)}"
+        aria-label="${escapeHtml(t('common.aria.decrease', { label }))}"
       >−</button>
-      <span>${escapeHtml(label.toLowerCase())}</span>
+      <span>${escapeHtml(label)}</span>
       <strong>
         ${statValue ? escapeHtml(Math.round(Number(statValue))) : '-'}
         ${points ? `<em>+${escapeHtml(points)}</em>` : ''}
@@ -1841,7 +1973,7 @@ function renderQuickPlayerStatControl(player, game, draft, key, label) {
         data-quick-boost-stat="${escapeHtml(key)}"
         data-game-id="${escapeHtml(game.id)}"
         ${disabled ? 'disabled' : ''}
-        aria-label="Добавить очко ${escapeHtml(label)}"
+        aria-label="${escapeHtml(t('common.aria.increase', { label }))}"
       >+</button>
     </div>
   `;
@@ -1964,24 +2096,24 @@ function renderGamePlayerRow(player) {
 
 function renderJoinRequestCard(player, game) {
   const rating = getPlayerOverallLabel(player);
-  const positionLabel = getPositionMeta(player.position || 'N/A').short;
+  const positionLabel = getPositionLabel(player.position || 'N/A', 'short');
   const statusBadge = isPlayerCardUnfilled(player)
-    ? 'Не заполнен'
+    ? t('players.not_filled')
     : rating
       ? ''
       : getEmptyPlayerStatusLabel(player, game);
   const actions = [
     player.canViewerAcceptInvite
-      ? `<button type="button" class="primary-button join-request-action" data-accept-game-invite="${escapeHtml(game.id)}">Принять</button>`
+      ? `<button type="button" class="primary-button join-request-action" data-accept-game-invite="${escapeHtml(game.id)}">${escapeHtml(t('common.buttons.accept'))}</button>`
       : '',
     player.canViewerDeclineInvite
-      ? `<button type="button" class="ghost-action join-request-action" data-decline-game-invite="${escapeHtml(game.id)}">Отклонить</button>`
+      ? `<button type="button" class="ghost-action join-request-action" data-decline-game-invite="${escapeHtml(game.id)}">${escapeHtml(t('common.buttons.decline'))}</button>`
       : '',
     player.canViewerApproveJoin
-      ? `<button type="button" class="primary-button join-request-action" data-approve-join-player="${escapeHtml(player.id)}" data-game-id="${escapeHtml(game.id)}">Добавить</button>`
+      ? `<button type="button" class="primary-button join-request-action" data-approve-join-player="${escapeHtml(player.id)}" data-game-id="${escapeHtml(game.id)}">${escapeHtml(t('common.buttons.add'))}</button>`
       : '',
     player.canViewerCancelJoin
-      ? `<button type="button" class="ghost-action join-request-action" data-cancel-join-request="${escapeHtml(game.id)}" data-cancel-join-player="${escapeHtml(player.id)}">Отменить</button>`
+      ? `<button type="button" class="ghost-action join-request-action" data-cancel-join-request="${escapeHtml(game.id)}" data-cancel-join-player="${escapeHtml(player.id)}">${escapeHtml(t('common.buttons.cancel'))}</button>`
       : ''
   ].filter(Boolean);
   const actionClass = actions.length === 1 ? 'join-request-actions join-request-actions--single' : 'join-request-actions';
@@ -1991,7 +2123,7 @@ function renderJoinRequestCard(player, game) {
       <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
       <div class="game-player-main">
         <strong>${escapeHtml(player.displayName)}</strong>
-        <span>${escapeHtml(positionLabel === '—' ? 'Нет позиции' : positionLabel)}</span>
+        <span>${escapeHtml(positionLabel === '—' ? t('players.no_position') : positionLabel)}</span>
       </div>
       <div class="join-request-meta">
         ${rating ? renderRatingValue(rating, player.ratingDelta, 'game-player-rating') : ''}
@@ -2013,7 +2145,7 @@ function renderJoinControls(game) {
 
   return `
     <section class="join-cta">
-      <button type="button" class="primary-button join-cta-button" data-join-game="${escapeHtml(game.id)}">Присоединиться</button>
+      <button type="button" class="primary-button join-cta-button" data-join-game="${escapeHtml(game.id)}">${escapeHtml(t('common.buttons.join'))}</button>
     </section>
   `;
 }
@@ -2063,7 +2195,7 @@ function renderRosterLockControls(game) {
   }
 
   const nextLocked = !game.rosterLocked;
-  const label = game.rosterLocked ? 'Открыть набор' : 'Состав собран';
+  const label = game.rosterLocked ? t('match.roster_lock_open') : t('match.roster_lock_closed');
 
   return `
     <section class="roster-lock-actions">
@@ -2090,7 +2222,7 @@ function renderWaitingPlayersSection(game) {
   return `
     <section class="join-requests-panel">
       <div class="join-requests-head">
-        <h3>Ожидают</h3>
+        <h3>${escapeHtml(t('match.waiting'))}</h3>
       </div>
       <div class="join-requests-list">
         ${waitingPlayers.map((player) => renderJoinRequestCard(player, game)).join('')}
@@ -2105,8 +2237,8 @@ function renderGameTab() {
   if (!game) {
     return `
       <section class="empty-state">
-        <h2>Пока нет игр</h2>
-        <p>Как только бот увидит сообщение с датой, местом, временем и списком отмеченных игроков, здесь появится текущий матч.</p>
+        <h2>${escapeHtml(t('match.no_current_game'))}</h2>
+        <p>${escapeHtml(t('match.no_current_game_description'))}</p>
       </section>
     `;
   }
@@ -2129,10 +2261,10 @@ function renderGameTab() {
 
 function getGameStatusLabel(status) {
   if (status === 'upcoming') {
-    return 'Скоро игра';
+    return t('match.soon');
   }
 
-  return status === 'live' ? 'Игра идет' : 'Игра закончена';
+  return status === 'live' ? t('match.live') : t('match.finished');
 }
 
 function getGameLevelMeta(averageOverall) {
@@ -2143,14 +2275,14 @@ function getGameLevelMeta(averageOverall) {
   }
 
   if (rating < 55) {
-    return { label: 'Низкий', tone: 'low', rating: Math.round(rating) };
+    return { label: t('match.level_low'), tone: 'low', rating: Math.round(rating) };
   }
 
   if (rating < 70) {
-    return { label: 'Средний', tone: 'mid', rating: Math.round(rating) };
+    return { label: t('match.level_mid'), tone: 'mid', rating: Math.round(rating) };
   }
 
-  return { label: 'Высокий', tone: 'high', rating: Math.round(rating) };
+  return { label: t('match.level_high'), tone: 'high', rating: Math.round(rating) };
 }
 
 function renderGameLevelBadges(averageOverall) {
@@ -2170,7 +2302,7 @@ function renderGameLevelBadges(averageOverall) {
 
 function renderPlayerCountBadges(count, game) {
   const shouldShowRosterStatus = game.status === 'upcoming';
-  const rosterLabel = game.rosterLocked ? 'Состав собран' : 'Набор открыт';
+  const rosterLabel = game.rosterLocked ? t('match.lineup_closed') : t('match.lineup_open');
   const rosterTone = game.rosterLocked ? 'mid' : 'high';
 
   return `
@@ -2209,7 +2341,7 @@ function renderGamesFilterBar() {
       ${GAME_FILTERS.map(
         (filter) => `
           <button type="button" class="chip ${state.gamesFilter === filter.key ? 'active' : ''}" data-games-filter="${escapeHtml(filter.key)}">
-            ${escapeHtml(filter.label)}
+            ${escapeHtml(t(filter.labelKey))}
           </button>
         `
       ).join('')}
@@ -2238,7 +2370,7 @@ function renderGameCard(game) {
         </div>
         <span class="status-pill ${escapeHtml(game.status)}">${escapeHtml(getGameStatusLabel(game.status))}</span>
       </div>
-      <p class="game-card-location">${escapeHtml(game.location || 'Не указано')}</p>
+      <p class="game-card-location">${escapeHtml(game.location || t('common.misc.not_specified'))}</p>
       <div class="game-card-stats">
         ${
           game.status !== 'upcoming' && mvpBadges
@@ -2254,7 +2386,7 @@ function renderGameCard(game) {
           gameLevelBadges
             ? `
               <div>
-                <span>Уровень игры</span>
+                <span>${escapeHtml(t('match.level'))}</span>
                 <strong class="game-card-badges-value">${gameLevelBadges}</strong>
               </div>
             `
@@ -2264,14 +2396,14 @@ function renderGameCard(game) {
           hasDisciplineCards(game.cards)
             ? `
               <div>
-                <span>Карточки</span>
+                <span>${escapeHtml(t('common.labels.cards'))}</span>
                 <strong class="game-card-cards">${renderDisciplineCards(game.cards, 'game-summary-cards')}</strong>
               </div>
             `
             : ''
         }
         <div>
-          <span>Игроков</span>
+          <span>${escapeHtml(t('common.labels.players'))}</span>
           <strong class="game-card-badges-value">${renderPlayerCountBadges(game.playersCount, game)}</strong>
         </div>
       </div>
@@ -2334,7 +2466,7 @@ function renderManualPlayerCard(player) {
       </span>
       <span class="manual-player-meta">
         ${rating ? `<strong>${escapeHtml(rating)}</strong>` : ''}
-        <small>${escapeHtml(position === '—' ? 'позиция?' : position)}</small>
+        <small>${escapeHtml(position === '—' ? t('players.no_position') : position)}</small>
       </span>
     </button>
   `;
@@ -2344,7 +2476,7 @@ function renderManualSelectedPlayers() {
   const selectedPlayers = getManualSelectedPlayers();
 
   if (!selectedPlayers.length) {
-    return '<p class="manual-selected-empty">Выбранные игроки появятся здесь.</p>';
+    return `<p class="manual-selected-empty">${escapeHtml(t('match.players_selected_empty'))}</p>`;
   }
 
   return `
@@ -2369,11 +2501,11 @@ function renderManualPlayerPicker() {
   const players = getManualFilteredPlayers();
 
   return `
-    <section class="manual-player-picker" aria-label="Выбор игроков">
+    <section class="manual-player-picker" aria-label="${escapeHtml(t('match.picker_label'))}">
       ${
         players.length
           ? players.map((player) => renderManualPlayerCard(player)).join('')
-          : '<p class="achievement-empty">Никого не нашли. Попробуйте другой запрос.</p>'
+          : `<p class="achievement-empty">${escapeHtml(t('match.picker_empty'))}</p>`
       }
     </section>
   `;
@@ -2389,7 +2521,7 @@ function refreshManualPlayerPicker() {
   const players = getManualFilteredPlayers();
   picker.innerHTML = players.length
     ? players.map((player) => renderManualPlayerCard(player)).join('')
-    : '<p class="achievement-empty">Никого не нашли. Попробуйте другой запрос.</p>';
+    : `<p class="achievement-empty">${escapeHtml(t('match.picker_empty'))}</p>`;
 }
 
 function renderManualFieldPreview() {
@@ -2403,7 +2535,7 @@ function renderManualFieldPreview() {
     }))
   }, {
     className: 'manual-field-panel',
-    emptyMessage: 'Добавьте игроков, и здесь появится баланс команд и расстановка по позициям.'
+    emptyMessage: t('match.field_empty')
   });
 }
 
@@ -2434,13 +2566,13 @@ function renderCreateGameModal() {
   if (state.manualGameConfirm) {
     return `
       <div class="modal-backdrop modal-backdrop--center" data-create-backdrop="true">
-        <section class="modal-card confirm-card" role="dialog" aria-modal="true" aria-label="Сообщить игрокам">
+        <section class="modal-card confirm-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('match.manual_confirm'))}">
           <button class="modal-close" type="button" data-close-create-game="true">×</button>
-          <h2>Сообщить игрокам об игре?</h2>
-          <p>Игроки, которые запускали бота, смогут подтвердить участие.</p>
+          <h2>${escapeHtml(t('match.manual_confirm'))}</h2>
+          <p>${escapeHtml(t('match.manual_confirm_description'))}</p>
           <div class="confirm-actions">
-            <button type="button" class="primary-button" data-create-game-confirm="yes">Да</button>
-            <button type="button" class="ghost-action" data-create-game-confirm="skip">Пропустить</button>
+            <button type="button" class="primary-button" data-create-game-confirm="yes">${escapeHtml(t('common.buttons.yes'))}</button>
+            <button type="button" class="ghost-action" data-create-game-confirm="skip">${escapeHtml(t('common.buttons.pass'))}</button>
           </div>
         </section>
       </div>
@@ -2459,41 +2591,41 @@ function renderCreateGameScreen() {
   const isEditing = state.manualGameMode === 'edit';
 
   return `
-    <section class="create-game-screen" aria-label="${isEditing ? 'Редактировать игру' : 'Новая игра'}">
+    <section class="create-game-screen" aria-label="${escapeHtml(isEditing ? t('match.edit_game') : t('match.new_game'))}">
       <header class="create-game-header">
-        <h2>${isEditing ? 'Редактировать игру' : 'Новая игра'}</h2>
-        <button class="create-game-close" type="button" data-close-create-game="true" aria-label="Закрыть">×</button>
+        <h2>${escapeHtml(isEditing ? t('match.edit_game') : t('match.new_game'))}</h2>
+        <button class="create-game-close" type="button" data-close-create-game="true" aria-label="${escapeHtml(t('common.buttons.close'))}">×</button>
       </header>
       <form id="manualGameForm" class="manual-game-form">
         <section class="panel create-game-details">
           <div class="game-summary">
             <div>
-              <h2>Детали игры</h2>
+              <h2>${escapeHtml(t('match.details_title'))}</h2>
             </div>
           </div>
           <div class="manual-fields">
             <label>
-              <span>Дата</span>
+              <span>${escapeHtml(t('common.labels.date'))}</span>
               <input type="date" name="date" value="${escapeHtml(state.manualGameDraft.date)}" required>
             </label>
             <label>
-              <span>Время</span>
+              <span>${escapeHtml(t('common.labels.time'))}</span>
               <input type="time" name="time" value="${escapeHtml(state.manualGameDraft.time)}" required>
             </label>
             <label class="manual-field-wide">
-              <span>Место</span>
-              <input type="text" name="location" value="${escapeHtml(state.manualGameDraft.location)}" placeholder="Например: Сокольники, поле 10" required>
+              <span>${escapeHtml(t('common.labels.location'))}</span>
+              <input type="text" name="location" value="${escapeHtml(state.manualGameDraft.location)}" placeholder="${escapeHtml(t('match.location_placeholder'))}" required>
             </label>
             <label class="manual-field-wide">
-              <span>Дополнительно</span>
-              <textarea name="additionalInfo" rows="3" placeholder="Например: цена, телефон, банк">${escapeHtml(state.manualGameDraft.additionalInfo)}</textarea>
+              <span>${escapeHtml(t('common.labels.additional'))}</span>
+              <textarea name="additionalInfo" rows="3" placeholder="${escapeHtml(t('match.additional_placeholder'))}">${escapeHtml(state.manualGameDraft.additionalInfo)}</textarea>
             </label>
           </div>
         </section>
         <section class="panel manual-player-panel">
           <div class="manual-section-title">
-            <h3>Игроки</h3>
-            <span>${escapeHtml(state.manualGameDraft.playerIds.length)} выбрано</span>
+            <h3>${escapeHtml(t('common.labels.players'))}</h3>
+            <span>${escapeHtml(t('match.players_selected', { count: state.manualGameDraft.playerIds.length }))}</span>
           </div>
           <div class="manual-player-search-wrap">
             <input
@@ -2501,7 +2633,7 @@ function renderCreateGameScreen() {
               class="manual-player-search"
               name="playerSearch"
               value="${escapeHtml(state.manualPlayerSearch)}"
-              placeholder="Поиск по имени или @нику"
+              placeholder="${escapeHtml(t('match.players_search'))}"
               autocomplete="off"
               data-manual-player-search="true"
             >
@@ -2510,7 +2642,7 @@ function renderCreateGameScreen() {
           ${renderManualSelectedPlayers()}
         </section>
         ${renderManualFieldPreview()}
-        <button type="submit" class="primary-button card-action manual-submit">${isEditing ? 'Сохранить' : 'Создать'}</button>
+        <button type="submit" class="primary-button card-action manual-submit">${escapeHtml(isEditing ? t('common.buttons.save') : t('common.buttons.create'))}</button>
       </form>
     </section>
   `;
@@ -2525,14 +2657,14 @@ function renderGameActionsModal() {
 
   return `
     <div class="modal-backdrop modal-backdrop--compact" data-game-actions-backdrop="true">
-      <section class="modal-card game-actions-card" role="dialog" aria-modal="true" aria-label="Действия с игрой">
-        <h2>Действия</h2>
-        <button type="button" class="game-action-button" data-share-game="true">Пошерить игру</button>
+      <section class="modal-card game-actions-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('match.actions'))}">
+        <h2>${escapeHtml(t('match.actions'))}</h2>
+        <button type="button" class="game-action-button" data-share-game="true">${escapeHtml(t('common.buttons.share_game'))}</button>
         ${
           game.canViewerManage
             ? `
-              <button type="button" class="game-action-button" data-edit-game="true">Редактировать</button>
-              <button type="button" class="game-action-button game-action-button--danger" data-delete-game="true">Удалить игру</button>
+              <button type="button" class="game-action-button" data-edit-game="true">${escapeHtml(t('common.buttons.edit'))}</button>
+              <button type="button" class="game-action-button game-action-button--danger" data-delete-game="true">${escapeHtml(t('common.buttons.delete'))}</button>
             `
             : ''
         }
@@ -2548,19 +2680,31 @@ function renderProfileActionsModal() {
 
   return `
     <div class="modal-backdrop modal-backdrop--compact" data-profile-actions-backdrop="true">
-      <section class="modal-card profile-actions-card" role="dialog" aria-modal="true" aria-label="Настройки профиля">
-        <h2>Настройки</h2>
-        <button type="button" class="game-action-button" data-share-profile="true">Пошерить карточку</button>
-        <button type="button" class="game-action-button" data-edit-self-profile="true">Редактировать</button>
+      <section class="modal-card profile-actions-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('players.settings'))}">
+        <h2>${escapeHtml(t('players.settings'))}</h2>
+        <div class="language-actions" role="group" aria-label="${escapeHtml(t('settings.language.choose'))}">
+          <button type="button" class="game-action-button ${state.locale === 'ru' ? 'is-active' : ''}" data-set-locale="ru">
+            ${escapeHtml(t('settings.language.ru'))}
+          </button>
+          <button type="button" class="game-action-button ${state.locale === 'en' ? 'is-active' : ''}" data-set-locale="en">
+            ${escapeHtml(t('settings.language.en'))}
+          </button>
+        </div>
+        <button type="button" class="game-action-button" data-share-profile="true">${escapeHtml(t('common.buttons.share_card'))}</button>
+        <button type="button" class="game-action-button" data-edit-self-profile="true">${escapeHtml(t('common.buttons.edit'))}</button>
       </section>
     </div>
   `;
 }
 
 function renderAchievementDetailModal() {
-  const achievement = QUICK_ACHIEVEMENT_BY_KEY[state.achievementDetailKey];
+  if (!state.achievementDetailKey) {
+    return '';
+  }
 
-  if (!achievement) {
+  const achievement = getAchievementMeta(state.achievementDetailKey);
+
+  if (!achievement?.key) {
     return '';
   }
 
@@ -2580,9 +2724,9 @@ function renderAchievementAwardModal() {
   const awards = state.achievementAwardQueue;
   const awardIndex = Math.min(Math.max(0, state.achievementAwardIndex), Math.max(0, awards.length - 1));
   const award = awards[awardIndex];
-  const achievement = QUICK_ACHIEVEMENT_BY_KEY[award?.key];
+  const achievement = getAchievementMeta(award?.key);
 
-  if (!achievement) {
+  if (!achievement?.key) {
     return '';
   }
 
@@ -2593,14 +2737,14 @@ function renderAchievementAwardModal() {
       <section class="modal-card achievement-detail-card achievement-award-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(achievement.title)}">
         <button type="button" class="editor-close achievement-detail-close" data-close-achievement-award="true">×</button>
         <div class="achievement-detail-icon">${renderAchievementIcon(achievement.key)}</div>
-        <span class="achievement-award-badge">Получена награда</span>
+        <span class="achievement-award-badge">${escapeHtml(t('achievements.award_badge'))}</span>
         <h2>${escapeHtml(achievement.title)}</h2>
         <p>${escapeHtml(achievement.description)}</p>
         <div class="achievement-award-actions ${remainingCount > 0 ? 'achievement-award-actions--split' : ''}">
-          <button type="button" class="primary-button" data-close-achievement-award="true">Кайф</button>
+          <button type="button" class="primary-button" data-close-achievement-award="true">${escapeHtml(t('common.buttons.ok'))}</button>
           ${
             remainingCount > 0
-              ? `<button type="button" class="ghost-action" data-next-achievement-award="true">Ещё ${escapeHtml(remainingCount)}</button>`
+              ? `<button type="button" class="ghost-action" data-next-achievement-award="true">${escapeHtml(t('common.buttons.next', { count: remainingCount }))}</button>`
               : ''
           }
         </div>
@@ -2636,11 +2780,11 @@ function renderSelfProfilePromptModal() {
 
   return `
     <div class="modal-backdrop modal-backdrop--center" data-self-profile-prompt-backdrop="true">
-      <section class="modal-card self-profile-prompt" role="dialog" aria-modal="true" aria-label="Заполни карточку игрока">
+      <section class="modal-card self-profile-prompt" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('players.self_profile_prompt_title'))}">
         <button class="modal-close" type="button" data-dismiss-self-profile-prompt="true">×</button>
-        <h2>Твоя карточка игрока не заполнена</h2>
-        <p>Пройди самооценку, чтобы лучше подобрать игру и помочь командам распределяться честнее.</p>
-        <button type="button" class="primary-button" data-start-self-profile="true">Пройти</button>
+        <h2>${escapeHtml(t('players.self_profile_prompt_title'))}</h2>
+        <p>${escapeHtml(t('players.self_profile_prompt_description'))}</p>
+        <button type="button" class="primary-button" data-start-self-profile="true">${escapeHtml(t('common.buttons.enter'))}</button>
       </section>
     </div>
   `;
@@ -2656,37 +2800,55 @@ function renderGamesTab() {
         ? `<section class="stack games-stack">${games.map((game) => renderGameCard(game)).join('')}</section>`
         : `
           <section class="empty-state">
-            <h2>Игр нет</h2>
-            <p>В этом фильтре пока нет матчей.</p>
+            <h2>${escapeHtml(t('match.empty'))}</h2>
+            <p>${escapeHtml(t('match.empty_description'))}</p>
           </section>
         `
     }
     <div class="floating-create-action">
       ${
         state.showCreateGameTooltip
-          ? '<div class="floating-create-tooltip" role="status">Создать игру</div>'
+          ? `<div class="floating-create-tooltip" role="status">${escapeHtml(t('match.create_tooltip'))}</div>`
           : ''
       }
-      <button type="button" class="floating-create-button" data-open-create-game="true" aria-label="Создать игру">+</button>
+      <button type="button" class="floating-create-button" data-open-create-game="true" aria-label="${escapeHtml(t('match.create_tooltip'))}">+</button>
     </div>
   `;
 }
 
 function renderFilterBar() {
+  const achievementOptions = getEarnedAchievementOptions();
+
   return `
     <div class="filter-row">
       ${FILTER_CHIPS.map(
         (filter) => `
-          <button type="button" class="chip ${state.activeSort === filter.key ? 'active' : ''}" data-sort="${escapeHtml(filter.key)}">
-            ${escapeHtml(filter.label)}
+          <button type="button" class="chip ${state.activeSort === filter.key && !state.skillFilter ? 'active' : ''}" data-sort="${escapeHtml(filter.key)}">
+            ${escapeHtml(t(filter.labelKey))}
           </button>
         `
       ).join('')}
       <label class="chip chip-select ${state.positionFilter ? 'active' : ''}">
         <select id="positionFilter">
-          <option value="">Позиция</option>
+          <option value="">${escapeHtml(t('common.labels.position'))}</option>
           ${['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'ST', 'LW', 'RW']
-            .map((position) => `<option value="${position}" ${state.positionFilter === position ? 'selected' : ''}>${escapeHtml(getPositionMeta(position).short)}</option>`)
+            .map((position) => `<option value="${position}" ${state.positionFilter === position ? 'selected' : ''}>${escapeHtml(getPositionLabel(position, 'short'))}</option>`)
+            .join('')}
+        </select>
+      </label>
+      <label class="chip chip-select ${state.achievementFilter ? 'active' : ''}">
+        <select id="achievementFilter">
+          <option value="">${escapeHtml(t('players.filters.achievements'))}</option>
+          ${achievementOptions
+            .map((achievement) => `<option value="${escapeHtml(achievement.key)}" ${state.achievementFilter === achievement.key ? 'selected' : ''}>${escapeHtml(achievement.title)}</option>`)
+            .join('')}
+        </select>
+      </label>
+      <label class="chip chip-select ${state.skillFilter ? 'active' : ''}">
+        <select id="skillFilter">
+          <option value="">${escapeHtml(t('players.filters.skills'))}</option>
+          ${STAT_META
+            .map(([skillKey]) => `<option value="${escapeHtml(skillKey)}" ${state.skillFilter === skillKey ? 'selected' : ''}>${escapeHtml(t(`players.filters.${skillKey}`))}</option>`)
             .join('')}
         </select>
       </label>
@@ -2699,13 +2861,16 @@ function getFilteredPlayers() {
   const positionFilteredPlayers = state.positionFilter
     ? getPlayers().filter((player) => player.position === state.positionFilter)
     : getPlayers();
+  const achievementFilteredPlayers = state.achievementFilter
+    ? positionFilteredPlayers.filter((player) => getPlayerAchievementCount(player, state.achievementFilter) > 0)
+    : positionFilteredPlayers;
 
   if (!searchQuery) {
-    return sortPlayers(positionFilteredPlayers);
+    return sortPlayers(achievementFilteredPlayers);
   }
 
   return sortPlayers(
-    positionFilteredPlayers.filter((player) => {
+    achievementFilteredPlayers.filter((player) => {
       const searchable = [
         player.displayName,
         player.username ? `@${player.username}` : '',
@@ -2728,10 +2893,10 @@ function renderPlayerSearch() {
           type="search"
           data-player-search
           value="${escapeHtml(state.playerSearch)}"
-          placeholder="Поиск по игрокам"
+          placeholder="${escapeHtml(t('players.search'))}"
           autocomplete="off"
         >
-        <button type="button" data-clear-player-search ${state.playerSearch ? '' : 'hidden'} aria-label="Очистить поиск">×</button>
+        <button type="button" data-clear-player-search ${state.playerSearch ? '' : 'hidden'} aria-label="${escapeHtml(t('players.search_clear'))}">×</button>
       </label>
     </div>
   `;
@@ -2743,8 +2908,8 @@ function renderPlayersResults() {
   if (!players.length) {
     return `
       <section class="empty-state players-empty" data-players-results>
-        <h2>Никого не нашли</h2>
-        <p>Попробуй другое имя или ник в Telegram.</p>
+        <h2>${escapeHtml(t('players.not_found'))}</h2>
+        <p>${escapeHtml(t('players.not_found_description'))}</p>
       </section>
     `;
   }
@@ -2889,18 +3054,18 @@ function renderAchievementIcon(type) {
 }
 
 function formatAchievementCount(count) {
-  return count === 1 ? '1 раз' : `${count} раз`;
+  return t('achievements.times', { count });
 }
 
 function getPlayerAchievements(player) {
   const achievementCounts = player.achievementCounts ?? {};
 
   return QUICK_ACHIEVEMENTS.map((achievement) => ({
-    ...achievement,
+    ...getAchievementMeta(achievement.key),
     count: achievementCounts[achievement.key] ?? 0,
     detail: achievementCounts[achievement.key]
       ? formatAchievementCount(achievementCounts[achievement.key])
-      : 'ещё не получено'
+      : t('achievements.not_received')
   }));
 }
 
@@ -2932,12 +3097,12 @@ function renderSelfProfileForm(player, defaults, options = {}) {
   return `
     <form id="selfProfileForm" class="profile-form">
       <label class="editor-select">
-        <span>позиция</span>
+        <span>${escapeHtml(t('common.labels.position').toLowerCase())}</span>
         <select name="position">
           ${POSITION_CHOICES
             .map((position) => `
               <option value="${position}" ${effectivePosition === position ? 'selected' : ''}>
-                ${escapeHtml(getPositionMeta(position).title)}
+                ${escapeHtml(getPositionLabel(position, 'title'))}
               </option>
             `)
             .join('')}
@@ -2951,15 +3116,15 @@ function renderSelfProfileForm(player, defaults, options = {}) {
           ? `
             <div class="profile-stat-grid">
               ${getStatMetaForPosition(effectivePosition)
-                .map(([key, label]) => renderSelfProfileStatStepper(key, label.toLowerCase(), defaults[key] ?? 50))
+                .map(([key, label]) => renderSelfProfileStatStepper(key, label, defaults[key] ?? 50))
                 .join('')}
             </div>
           `
           : ''
       }
       <div class="profile-floating-actions">
-        <button type="submit" class="primary-button profile-submit">Сохранить</button>
-        <button type="button" class="ghost-action profile-cancel" data-cancel-self-profile="true">Отменить</button>
+        <button type="submit" class="primary-button profile-submit">${escapeHtml(t('common.buttons.save'))}</button>
+        <button type="button" class="ghost-action profile-cancel" data-cancel-self-profile="true">${escapeHtml(t('common.buttons.cancel'))}</button>
       </div>
     </form>
   `;
@@ -2971,8 +3136,8 @@ function renderProfileTab() {
   if (!player) {
     return `
       <section class="empty-state">
-        <h2>Профиль пока недоступен</h2>
-        <p>Открой ⚽ из Telegram или войди через dev-вход, чтобы увидеть свою карточку игрока.</p>
+        <h2>${escapeHtml(t('players.profile_unavailable'))}</h2>
+        <p>${escapeHtml(t('players.profile_unavailable_description'))}</p>
       </section>
     `;
   }
@@ -2994,17 +3159,17 @@ function renderProfileTab() {
   const showProfileValues = hasCareerRatings || player.hasSelfProfile;
   const statMeta = getStatMetaForPosition(effectivePosition);
   const overviewCells = [
-    { label: 'игр', value: player.games }
+    { label: t('stats.games'), value: player.games }
   ];
   if (hasDisciplineCards(player)) {
     overviewCells.push({
-      label: 'карточки',
+      label: t('stats.cards'),
       value: renderDisciplineCards(player.cards || player, 'profile-cards-total'),
       html: true
     });
   }
   const statCells = statMeta.map(([key, label]) => [
-    label.toLowerCase(),
+    label,
     showProfileValues ? player.stats[key] : '-'
   ]);
   const achievements = getPlayerAchievements(player);
@@ -3012,19 +3177,19 @@ function renderProfileTab() {
   const profileStatusLabel = getCardStatusLabel(player);
 
   return `
-    <section class="editor-screen profile-screen" aria-label="Профиль игрока">
+    <section class="editor-screen profile-screen" aria-label="${escapeHtml(t('players.card_title'))}">
       <div class="editor-hero profile-hero">
         ${renderCardHero(player)}
         ${
           canEditOwnProfile
             ? `
-              <button type="button" class="profile-menu-button" data-open-profile-actions aria-label="Настройки профиля">
+              <button type="button" class="profile-menu-button" data-open-profile-actions aria-label="${escapeHtml(t('players.settings'))}">
                 ${renderDotsIcon()}
               </button>
             `
             : ''
         }
-        <button type="button" class="profile-share-button" data-share-profile aria-label="Поделиться профилем">
+        <button type="button" class="profile-share-button" data-share-profile aria-label="${escapeHtml(t('common.buttons.share_card'))}">
           ${renderShareIcon()}
         </button>
         ${profileStatusLabel ? `<span class="editor-status">${escapeHtml(profileStatusLabel)}</span>` : ''}
@@ -3033,7 +3198,7 @@ function renderProfileTab() {
             ? `
               <div class="hero-score ${profileStatusLabel ? 'hero-score--with-status' : ''}">
                 ${renderRatingValue(player.overall, player.ratingDelta, 'hero-rating-value')}
-                <span>${escapeHtml(getPositionMeta(effectivePosition).card)}</span>
+                <span>${escapeHtml(getPositionLabel(effectivePosition, 'card'))}</span>
               </div>
             `
             : ''
@@ -3049,8 +3214,8 @@ function renderProfileTab() {
             ? renderSelfProfileForm(player, selfProfileDefaults, { includeStats: !hasCareerRatings })
             : `
               ${renderEditablePositionSelector(
-                'Позиция',
-                effectivePosition === 'N/A' ? 'Не выбрана' : getPositionMeta(effectivePosition).title,
+                t('common.labels.position'),
+                effectivePosition === 'N/A' ? t('common.misc.not_selected') : getPositionLabel(effectivePosition, 'title'),
                 effectivePosition,
                 canEditOwnProfile
               )}
@@ -3074,7 +3239,7 @@ function renderProfileTab() {
           isEditingSelfProfile
             ? ''
             : `
-              <section class="profile-achievements" aria-label="Достижения">
+              <section class="profile-achievements" aria-label="${escapeHtml(t('players.achievements'))}">
                 ${renderAchievementTitle(unlockedAchievements)}
                 ${
                   unlockedAchievements.length
@@ -3083,7 +3248,7 @@ function renderProfileTab() {
                         ${unlockedAchievements.map((achievement) => renderAchievementCard(achievement)).join('')}
                       </div>
                     `
-                    : '<p class="achievement-empty">Тут будут твои достижения</p>'
+                    : `<p class="achievement-empty">${escapeHtml(t('players.empty_achievements'))}</p>`
                 }
               </section>
             `
@@ -3116,12 +3281,12 @@ function renderLoginPanel() {
 
   return `
     <section class="panel dev-panel">
-      <h2>Dev-вход</h2>
-      <p>Для локальной проверки можно войти как любой игрок по username.</p>
+      <h2>${escapeHtml(t('auth.dev_login'))}</h2>
+      <p>${escapeHtml(t('auth.dev_login_description'))}</p>
       <form id="devLoginForm" class="dev-form">
-        <input type="text" name="username" placeholder="username без @" required>
-        <input type="text" name="displayName" placeholder="Имя для карточки">
-        <button type="submit" class="primary-button">Войти</button>
+        <input type="text" name="username" placeholder="${escapeHtml(t('common.labels.username'))}" required>
+        <input type="text" name="displayName" placeholder="${escapeHtml(t('common.labels.display_name'))}">
+        <button type="submit" class="primary-button">${escapeHtml(t('common.buttons.enter'))}</button>
       </form>
     </section>
   `;
@@ -3266,8 +3431,20 @@ function syncTabbar() {
   });
 }
 
+function syncStaticLabels() {
+  document.documentElement.lang = state.locale || 'ru';
+  gameMenuButtonNode?.setAttribute('aria-label', t('match.actions'));
+  gameShareButtonNode?.setAttribute('aria-label', t('common.buttons.share_game'));
+  closeGameButtonNode?.setAttribute('aria-label', t('common.buttons.close'));
+  document.querySelector('.tabbar')?.setAttribute('aria-label', t('common.labels.navigation'));
+  document.getElementById('tab-games')?.setAttribute('aria-label', t('common.labels.games'));
+  document.getElementById('tab-players')?.setAttribute('aria-label', t('common.labels.players_list'));
+  document.getElementById('tab-profile')?.setAttribute('aria-label', t('common.labels.profile'));
+}
+
 function render() {
   syncAchievementAwards();
+  syncStaticLabels();
 
   const screenTitle = getScreenTitle();
   chatTitleNode.textContent = screenTitle;
@@ -3301,8 +3478,8 @@ function render() {
     contentNode.innerHTML = `
       ${renderLoginPanel()}
       <section class="empty-state">
-        <h2>Чат еще не инициализирован</h2>
-        <p>Добавьте бота в футбольный чат, отправьте <code>/open</code> или первое сообщение с анонсом игры, и данные подтянутся сюда.</p>
+        <h2>${escapeHtml(t('errors.chat_not_initialized'))}</h2>
+        <p>${escapeHtml(t('errors.chat_not_initialized_description'))}</p>
       </section>
     `;
     renderModal();
@@ -3346,14 +3523,14 @@ async function submitRating(form) {
   delete state.ratingDrafts[getRatingDraftKey(gameId, targetPlayerId)];
   state.selectedPlayerId = null;
   render();
-  showToast('Оценка сохранена');
+  showToast(t('rating.saved'));
 }
 
 async function submitQuickRating(gameId) {
   const game = getGameDays().find((item) => item.id === gameId) ?? getCurrentGame();
 
   if (!game?.id) {
-    throw new Error('Игра не найдена');
+    throw new Error(t('match.unknown'));
   }
 
   const draft = getQuickRatingDraft(game);
@@ -3372,7 +3549,7 @@ async function submitQuickRating(gameId) {
   delete state.quickRatingDrafts[getQuickRatingDraftKey(gameId)];
   state.selectedPlayerId = null;
   render();
-  showToast('Оценка сохранена');
+  showToast(t('rating.saved'));
 }
 
 async function submitSelfProfile(form) {
@@ -3387,7 +3564,7 @@ async function submitSelfProfile(form) {
   state.selfProfileDraft = null;
   state.selfProfileEditing = false;
   render();
-  showToast('Карточка сохранена');
+  showToast(t('players.card_saved'));
 }
 
 async function updateProfilePosition(position) {
@@ -3400,7 +3577,23 @@ async function updateProfilePosition(position) {
   state.selfProfileDraft = null;
   state.selfProfileEditing = false;
   render();
-  showToast('Сохранено');
+  showToast(t('common.misc.updated'));
+}
+
+async function updateLocale(locale) {
+  if (!(await ensureAuthorizedForAction())) {
+    return;
+  }
+
+  const data = await api('/api/locale', {
+    method: 'PATCH',
+    body: { locale }
+  });
+
+  applyI18nPayload(data);
+  state.snapshot = data.snapshot;
+  render();
+  showToast(t('settings.language.updated'));
 }
 
 async function submitManualGame(notifyPlayers) {
@@ -3426,7 +3619,7 @@ async function submitManualGame(notifyPlayers) {
   state.activeTab = 'game';
   resetManualGameState();
   render();
-  showToast(isEditing ? 'Игра сохранена' : notifyPlayers ? 'Игра создана, приглашения отправлены' : 'Игра создана');
+  showToast(isEditing ? t('match.saved') : notifyPlayers ? t('match.created_invites') : t('match.created'));
 }
 
 async function deleteCurrentGame() {
@@ -3446,7 +3639,7 @@ async function deleteCurrentGame() {
   state.activeTab = 'games';
   showCreateGameTooltip();
   render();
-  showToast('Игра удалена');
+  showToast(t('match.deleted'));
 }
 
 async function ensureAuthorizedForAction() {
@@ -3457,7 +3650,7 @@ async function ensureAuthorizedForAction() {
   const authenticated = await authenticateTelegram().catch(() => false);
 
   if (!authenticated) {
-    showToast(lastAuthError || 'Открой ⚽ из Telegram, чтобы продолжить');
+    showToast(lastAuthError || t('auth.open_from_telegram'));
     return false;
   }
 
@@ -3474,7 +3667,7 @@ async function requestJoinGame(gameId) {
   });
   state.snapshot = data.snapshot;
   render();
-  showToast('Заявка отправлена');
+  showToast(t('match.join_requested'));
 }
 
 async function cancelJoinRequest(gameId, playerId = '') {
@@ -3488,7 +3681,7 @@ async function cancelJoinRequest(gameId, playerId = '') {
   });
   state.snapshot = data.snapshot;
   render();
-  showToast('Заявка отменена');
+  showToast(t('match.join_cancelled'));
 }
 
 async function approveJoinRequest(gameId, playerId) {
@@ -3501,7 +3694,7 @@ async function approveJoinRequest(gameId, playerId) {
   });
   state.snapshot = data.snapshot;
   render();
-  showToast('Игрок добавлен');
+  showToast(t('match.player_added'));
 }
 
 async function toggleRosterLock(gameId, rosterLocked) {
@@ -3515,7 +3708,7 @@ async function toggleRosterLock(gameId, rosterLocked) {
   });
   state.snapshot = data.snapshot;
   render();
-  showToast(rosterLocked ? 'Состав собран' : 'Набор открыт');
+  showToast(rosterLocked ? t('match.lineup_closed') : t('match.lineup_open'));
 }
 
 async function acceptGameInvite(gameId) {
@@ -3528,7 +3721,7 @@ async function acceptGameInvite(gameId) {
   });
   state.snapshot = data.snapshot;
   render();
-  showToast('Ты в составе');
+  showToast(t('match.joined'));
 }
 
 async function declineGameInvite(gameId) {
@@ -3541,11 +3734,11 @@ async function declineGameInvite(gameId) {
   });
   state.snapshot = data.snapshot;
   render();
-  showToast('Приглашение отклонено');
+  showToast(t('common.buttons.decline'));
 }
 
 async function shareFallback(fallback = {}) {
-  const title = fallback.title || 'Футбольчик';
+  const title = fallback.title || t('common.misc.share_title');
   const text = fallback.text || title;
   const url = fallback.url || window.location.href;
 
@@ -3563,7 +3756,7 @@ async function shareFallback(fallback = {}) {
 
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(url);
-    showToast('Ссылка скопирована');
+    showToast(t('common.misc.copied'));
     return;
   }
 
@@ -3575,7 +3768,7 @@ async function sharePreparedOrFallback(data) {
     try {
       tg.shareMessage(data.preparedMessageId, (success) => {
         if (!success) {
-          showToast('Шаринг отменён');
+          showToast(t('common.misc.share_cancelled'));
         }
       });
       return;
@@ -3602,7 +3795,7 @@ async function shareCurrentGame() {
   const game = getCurrentGame();
 
   if (!game) {
-    showToast('Игра не найдена');
+    showToast(t('match.unknown'));
     return;
   }
 
@@ -3655,7 +3848,7 @@ async function refreshSnapshot({ silent = false } = {}) {
     await loadSnapshot();
     render();
     if (!silent) {
-      showToast('Обновлено');
+      showToast(t('common.misc.updated'));
     }
   } catch (error) {
     if (!silent) {
@@ -3851,6 +4044,16 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
+  const localeButton = event.target.closest('[data-set-locale]');
+
+  if (localeButton) {
+    state.profileActionsOpen = false;
+    updateLocale(localeButton.dataset.setLocale).catch((error) => {
+      showToast(error.message);
+    });
+    return;
+  }
+
   const shareGameButton = event.target.closest('[data-share-game]');
 
   if (shareGameButton) {
@@ -3897,13 +4100,13 @@ document.addEventListener('click', async (event) => {
       const authenticated = await authenticateTelegram().catch(() => false);
 
       if (!authenticated) {
-        showToast(lastAuthError || 'Открой ⚽ из Telegram, чтобы создать игру');
+        showToast(lastAuthError || t('auth.open_from_telegram_create'));
         return;
       }
     }
 
     if (!state.snapshot?.viewerCanCreateGames && !state.allowDevLogin) {
-      showToast('Сначала запусти бота в личке командой /start');
+      showToast(t('auth.start_private_first'));
       return;
     }
 
@@ -4199,7 +4402,7 @@ document.addEventListener('click', async (event) => {
     const used = getQuickRatingPointsUsed(draft);
 
     if (used >= QUICK_RATING_POINTS) {
-      showToast(`Можно раздать максимум ${QUICK_RATING_POINTS} очка`);
+      showToast(t('rating.max_points', { count: QUICK_RATING_POINTS }));
       return;
     }
 
@@ -4239,6 +4442,8 @@ document.addEventListener('click', async (event) => {
     state.manualGameOpen = false;
     state.playerSearch = '';
     state.positionFilter = '';
+    state.achievementFilter = '';
+    state.skillFilter = '';
     state.playerScrollTargetId = scrollPlayerButton.dataset.scrollPlayer || '';
     render();
     return;
@@ -4290,6 +4495,7 @@ document.addEventListener('click', async (event) => {
 
   if (sortButton) {
     state.activeSort = sortButton.dataset.sort;
+    state.skillFilter = '';
     render();
   }
 
@@ -4323,6 +4529,18 @@ document.addEventListener('change', (event) => {
 
   if (event.target.id === 'positionFilter') {
     state.positionFilter = event.target.value;
+    render();
+    return;
+  }
+
+  if (event.target.id === 'achievementFilter') {
+    state.achievementFilter = event.target.value;
+    render();
+    return;
+  }
+
+  if (event.target.id === 'skillFilter') {
+    state.skillFilter = event.target.value;
     render();
     return;
   }
@@ -4431,12 +4649,12 @@ document.addEventListener('submit', async (event) => {
     const payload = readManualGameForm(event.target);
 
     if (!payload.date || !payload.time || !payload.location) {
-      showToast('Заполните дату, время и место');
+      showToast(t('match.validation_required'));
       return;
     }
 
     if (new Set([state.snapshot?.viewerPlayerId, ...payload.playerIds].filter(Boolean)).size < 2) {
-      showToast('Добавьте минимум двух игроков');
+      showToast(t('match.validation_players_min'));
       return;
     }
 
@@ -4511,7 +4729,7 @@ async function init() {
       }
     }
   } catch (error) {
-    contentNode.innerHTML = `<section class="empty-state"><h2>Ошибка</h2><p>${escapeHtml(error.message)}</p></section>`;
+    contentNode.innerHTML = `<section class="empty-state"><h2>${escapeHtml(t('errors.generic'))}</h2><p>${escapeHtml(error.message)}</p></section>`;
     return;
   }
 
@@ -4520,7 +4738,7 @@ async function init() {
   }
   render();
   if (authError) {
-    showToast(`Telegram-авторизация не прошла: ${authError}`);
+    showToast(t('auth.telegram_failed', { reason: authError }));
   }
   setupAutoRefresh();
 }

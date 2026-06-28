@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 
 import { Resvg } from '@resvg/resvg-js';
 
+import { translate } from '../../packages/i18n/index.js';
 import { getInitials, getPositionMeta } from './lineup.js';
 
 const WIDTH = 680;
@@ -9,23 +10,7 @@ const HEIGHT = 1060;
 const HERO_HEIGHT = 360;
 const PHOTO_FETCH_TIMEOUT_MS = 1200;
 
-const STAT_META = [
-  ['pace', 'скорость'],
-  ['dribbling', 'дриблинг'],
-  ['shooting', 'удар'],
-  ['defense', 'защита'],
-  ['passing', 'передачи'],
-  ['physical', 'физика']
-];
-
-const GOALKEEPER_STAT_META = [
-  ['pace', 'игра на линии'],
-  ['dribbling', 'фиксация мяча'],
-  ['shooting', 'выносы'],
-  ['defense', 'рефлексы'],
-  ['passing', 'скорость'],
-  ['physical', 'выбор позиции']
-];
+const STAT_KEYS = ['pace', 'dribbling', 'shooting', 'defense', 'passing', 'physical'];
 
 function escapeXml(value) {
   return String(value ?? '')
@@ -54,13 +39,28 @@ function hasVisibleStats(player) {
   return hasRating(player) || Boolean(player?.hasSelfProfile);
 }
 
-function getCardStatusLabel(player) {
+function t(locale, key, params = {}) {
+  return translate(locale, key, params);
+}
+
+function getPositionCardLabel(locale, position) {
+  const normalizedPosition = position || 'N/A';
+  const translated = t(locale, `players.positions.${normalizedPosition}.card`);
+
+  if (translated !== `players.positions.${normalizedPosition}.card`) {
+    return translated;
+  }
+
+  return getPositionMeta(normalizedPosition).card;
+}
+
+function getCardStatusLabel(player, locale) {
   if (!player?.hasSelfProfile) {
-    return 'Не заполнен';
+    return t(locale, 'players.not_filled');
   }
 
   if (!hasRating(player)) {
-    return 'Нет рейтинга';
+    return t(locale, 'players.not_rated_generic');
   }
 
   return '';
@@ -113,17 +113,20 @@ function renderHero(player, photoDataUrl) {
   `;
 }
 
-function renderHeroBadge(player) {
-  const statusLabel = getCardStatusLabel(player);
+function renderHeroBadge(player, locale) {
+  const statusLabel = getCardStatusLabel(player, locale);
 
   if (!hasRating(player)) {
+    const statusWidth = Math.max(150, Math.min(230, statusLabel.length * 15 + 34));
+    const statusCenter = 24 + statusWidth / 2;
+
     return `
-      <rect x="24" y="24" width="${statusLabel === 'Не заполнен' ? 170 : 168}" height="50" rx="14" fill="#fffaf0"></rect>
-      <text x="${statusLabel === 'Не заполнен' ? 109 : 108}" y="57" text-anchor="middle" font-size="24" font-weight="900" fill="#1d160a">${escapeXml(statusLabel)}</text>
+      <rect x="24" y="24" width="${statusWidth}" height="50" rx="14" fill="#fffaf0"></rect>
+      <text x="${statusCenter}" y="57" text-anchor="middle" font-size="24" font-weight="900" fill="#1d160a">${escapeXml(statusLabel)}</text>
     `;
   }
 
-  const position = getPositionMeta(player.position || 'N/A').card;
+  const position = getPositionCardLabel(locale, player.position);
   return `
     <text x="32" y="82" font-size="72" font-weight="900" fill="#fffaf0">${escapeXml(Math.round(Number(player.overall)))}</text>
     <text x="36" y="124" font-size="34" font-weight="900" fill="#fffaf0">${escapeXml(position)}</text>
@@ -148,25 +151,25 @@ function renderMetricCell({ x, y, width, label, value, emphasis = false }) {
   `;
 }
 
-function renderMetrics(player) {
+function renderMetrics(player, locale) {
   const rated = hasRating(player);
   const showStats = hasVisibleStats(player);
   const isGoalkeeper = player?.position === 'GK';
   const stats = player?.stats ?? {};
   const summary = [
-    { label: 'игр', value: player?.games ?? 0, emphasis: true },
+    { label: t(locale, 'stats.games'), value: player?.games ?? 0, emphasis: true },
     ...(
       isGoalkeeper
         ? []
         : [
-            { label: 'голов', value: rated ? player?.goals ?? 0 : '-' },
-            { label: 'голевых', value: rated ? player?.assists ?? 0 : '-' }
+            { label: t(locale, 'stats.goals'), value: rated ? player?.goals ?? 0 : '-' },
+            { label: t(locale, 'stats.assists'), value: rated ? player?.assists ?? 0 : '-' }
           ]
     )
   ];
-  const statRows = (isGoalkeeper ? GOALKEEPER_STAT_META : STAT_META)
-    .map(([key, label]) => ({
-      label,
+  const statRows = STAT_KEYS
+    .map((key) => ({
+      label: t(locale, isGoalkeeper ? `stats.goalkeeper.${key}` : `stats.${key}`),
       value: showStats ? stats[key] ?? '-' : '-'
     }));
   const cells = [...summary, ...statRows];
@@ -189,9 +192,9 @@ function renderMetrics(player) {
     .join('');
 }
 
-export async function renderPlayerShareCardPng(player) {
+export async function renderPlayerShareCardPng(player, locale = 'ru') {
   const photoDataUrl = await fetchPhotoDataUrl(player?.photoUrl);
-  const displayName = truncate(player?.displayName || (player?.username ? `@${player.username}` : 'Игрок'), 22);
+  const displayName = truncate(player?.displayName || (player?.username ? `@${player.username}` : t(locale, 'players.unknown_player')), 22);
   const username = player?.username ? `@${truncate(player.username, 24)}` : '@unknown';
 
   const svg = `
@@ -214,12 +217,12 @@ export async function renderPlayerShareCardPng(player) {
         <rect x="18" y="18" width="${WIDTH - 36}" height="${HEIGHT - 36}" fill="#06120c"></rect>
         <g transform="translate(18 18)">
           ${renderHero(player, photoDataUrl)}
-          ${renderHeroBadge(player)}
+          ${renderHeroBadge(player, locale)}
         </g>
         <rect x="18" y="${HERO_HEIGHT + 18}" width="${WIDTH - 36}" height="${HEIGHT - HERO_HEIGHT - 36}" fill="url(#panelGradient)"></rect>
         <text x="${WIDTH / 2}" y="438" text-anchor="middle" fill="#fffaf0" font-size="40" font-weight="900">${escapeXml(displayName)}</text>
         <text x="${WIDTH / 2}" y="482" text-anchor="middle" fill="#d8c394" font-size="24" font-weight="800">${escapeXml(username)}</text>
-        ${renderMetrics(player)}
+        ${renderMetrics(player, locale)}
       </g>
       <rect x="18" y="18" width="${WIDTH - 36}" height="${HEIGHT - 36}" rx="36" fill="none" stroke="#e3c274" stroke-opacity="0.36" stroke-width="2"></rect>
     </svg>

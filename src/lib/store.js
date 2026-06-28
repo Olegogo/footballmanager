@@ -6,6 +6,7 @@ import { createSessionToken } from './auth.js';
 import { parseAnnouncementTextLog, parseTelegramExportGames } from './parser.js';
 import { MAX_RED_CARDS, MAX_YELLOW_CARDS, POSITION_OPTIONS, QUICK_ACHIEVEMENT_DEFINITIONS, QUICK_RATING_POINTS, RATING_WINDOW_MS, STAT_KEYS, buildChatSnapshot, buildGlobalCareerIndex, isRatingWindowOpen } from './stats.js';
 import { clamp, formatDisplayName, normalizeUsername, toIsoString, unique } from './utils.js';
+import { DEFAULT_LOCALE, normalizeLocale, resolveLocale } from '../../packages/i18n/index.js';
 
 const DEFAULT_POSITION_BY_USERNAME = {
   dbabanin: 'GK',
@@ -32,6 +33,42 @@ function defaultState() {
     achievementVotes: {},
     sessions: {}
   };
+}
+
+function ensureLocaleFields(state) {
+  let changed = false;
+
+  for (const chat of Object.values(state.chats ?? {})) {
+    const nextLocale = normalizeLocale(chat.locale || DEFAULT_LOCALE);
+    const nextSource = chat.localeSource || 'fallback';
+
+    if (chat.locale !== nextLocale) {
+      chat.locale = nextLocale;
+      changed = true;
+    }
+
+    if (chat.localeSource !== nextSource) {
+      chat.localeSource = nextSource;
+      changed = true;
+    }
+  }
+
+  for (const player of Object.values(state.players ?? {})) {
+    const nextLocale = normalizeLocale(player.locale || DEFAULT_LOCALE);
+    const nextSource = player.localeSource || 'fallback';
+
+    if (player.locale !== nextLocale) {
+      player.locale = nextLocale;
+      changed = true;
+    }
+
+    if (player.localeSource !== nextSource) {
+      player.localeSource = nextSource;
+      changed = true;
+    }
+  }
+
+  return changed;
 }
 
 const QUICK_ACHIEVEMENT_KEYS = new Set(
@@ -76,6 +113,8 @@ function ensureChatState(state, chat) {
     currentGameId: null,
     playerIds: [],
     adminPlayerIds: [],
+    locale: normalizeLocale(chat.locale),
+    localeSource: chat.locale ? (chat.localeSource ?? 'manual') : 'fallback',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -84,6 +123,8 @@ function ensureChatState(state, chat) {
   existing.type = chat.type ?? existing.type;
   existing.username = chat.username ?? existing.username;
   existing.adminPlayerIds = Array.isArray(existing.adminPlayerIds) ? existing.adminPlayerIds : [];
+  existing.locale = normalizeLocale(existing.locale || chat.locale || DEFAULT_LOCALE);
+  existing.localeSource = existing.localeSource || (chat.locale ? (chat.localeSource ?? 'manual') : 'fallback');
   existing.updatedAt = new Date().toISOString();
   state.chats[id] = existing;
   return existing;
@@ -101,6 +142,8 @@ function createPlayerRecord(state, username = '') {
     lastName: '',
     photoUrl: '',
     chatIds: [],
+    locale: DEFAULT_LOCALE,
+    localeSource: 'fallback',
     createdAt: now,
     updatedAt: now
   };
@@ -1048,6 +1091,9 @@ export class AppStore {
           .map(([token, session]) => [token, session])
       );
       this.state.sessions = Object.fromEntries(this.sessions);
+      if (ensureLocaleFields(this.state)) {
+        await this.persist();
+      }
     } catch (error) {
       if (error.code !== 'ENOENT') {
         throw error;
@@ -1097,6 +1143,60 @@ export class AppStore {
     });
   }
 
+  async setChatLocale(chatId, locale, localeSource = 'manual') {
+    return this.mutate((state) => {
+      const chat = ensureChatState(state, { id: chatId, title: '', type: 'supergroup' });
+      chat.locale = normalizeLocale(locale);
+      chat.localeSource = localeSource;
+      chat.updatedAt = new Date().toISOString();
+      return chat;
+    });
+  }
+
+  async setPlayerLocale(playerId, locale, localeSource = 'manual') {
+    return this.mutate((state) => {
+      const player = findPlayerById(state, playerId);
+
+      if (!player) {
+        throw new Error('Игрок не найден');
+      }
+
+      player.locale = normalizeLocale(locale);
+      player.localeSource = localeSource;
+      player.updatedAt = new Date().toISOString();
+      return player;
+    });
+  }
+
+  async setPlayerLocaleByTelegramUserId(telegramUserId, locale, localeSource = 'manual') {
+    return this.mutate((state) => {
+      const player = findPlayerByTelegramUserId(state, telegramUserId);
+
+      if (!player) {
+        throw new Error('Игрок не найден');
+      }
+
+      player.locale = normalizeLocale(locale);
+      player.localeSource = localeSource;
+      player.updatedAt = new Date().toISOString();
+      return player;
+    });
+  }
+
+  getChatLocale(chatId) {
+    const chat = this.state.chats[String(chatId)];
+    return normalizeLocale(chat?.locale || DEFAULT_LOCALE);
+  }
+
+  getPlayerLocale(playerId) {
+    const player = findPlayerById(this.state, playerId);
+    return normalizeLocale(player?.locale || DEFAULT_LOCALE);
+  }
+
+  getChatById(chatId) {
+    return this.state.chats[String(chatId)] ?? null;
+  }
+
   findGameByMessage(chatId, messageId) {
     return Object.values(this.state.games).find(
       (game) => game.chatId === String(chatId) && isSameTelegramMessageId(game.messageId, messageId)
@@ -1125,9 +1225,21 @@ export class AppStore {
       player.lastName = user?.last_name ?? player.lastName;
       player.displayName = extra.displayName || formatDisplayName(user) || player.displayName;
       player.photoUrl = extra.photoUrl || user?.photo_url || player.photoUrl;
+      if (player.localeSource !== 'manual') {
+        const localeResolution = resolveLocale({
+          telegramLocale: user?.language_code,
+          fallback: player.locale || DEFAULT_LOCALE
+        });
+        player.locale = localeResolution.locale;
+        player.localeSource = localeResolution.localeSource;
+      }
       if (chat.type === 'private') {
         player.privateChatId = String(chat.id);
         player.privateStartedAt = player.privateStartedAt || new Date().toISOString();
+        if (chat.localeSource !== 'manual') {
+          chat.locale = player.locale;
+          chat.localeSource = player.localeSource;
+        }
       }
       player.updatedAt = new Date().toISOString();
       applyPlayerDefaults(player, normalizedUsername);

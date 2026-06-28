@@ -292,6 +292,7 @@ p {
 .game-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: 12px;
 }
 
@@ -541,6 +542,7 @@ p {
 .game-card-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  align-items: start;
   gap: 12px;
 }
 

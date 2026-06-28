@@ -93,6 +93,49 @@ test('processPendingRatingPrompts falls back to plain link when keyboard send fa
   assert.deepEqual(marked, [{ gameId: 'game_2', messageId: 88 }]);
 });
 
+test('processPendingRatingPrompts sends private prompts when chat prompt fails', async () => {
+  const games = [
+    {
+      id: 'game_3',
+      chatId: '-1003',
+      playerIds: ['player_1'],
+      scheduledAt: '2099-05-19T16:30:00.000Z'
+    }
+  ];
+  const { store, marked } = createBotStore(games);
+  const sent = [];
+
+  store.state.chats['-1003'] = { type: 'supergroup' };
+  store.getPlayerById = (playerId) => (
+    playerId === 'player_1'
+      ? { id: 'player_1', privateChatId: '777001', locale: 'ru' }
+      : null
+  );
+
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+
+  bot.sendMiniAppEntry = async (chatId, chatType, targetChatId, options = {}) => {
+    sent.push({ chatId, chatType, targetChatId, options });
+
+    if (chatId === '-1003') {
+      throw new Error('Telegram rejected chat prompt');
+    }
+
+    return { message_id: 91 };
+  };
+
+  await bot.processPendingRatingPrompts();
+
+  assert.equal(sent.length, 2);
+  assert.equal(sent[0].chatId, '-1003');
+  assert.equal(sent[1].chatId, '777001');
+  assert.equal(sent[1].options.buttonText, 'Оценить');
+  assert.deepEqual(marked, [{ gameId: 'game_3', messageId: null }]);
+});
+
 test('/open falls back to plain link when Telegram rejects keyboard', async () => {
   const { store } = createBotStore([]);
   const bot = new TelegramBot({

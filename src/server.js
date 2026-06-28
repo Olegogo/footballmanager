@@ -8,6 +8,7 @@ import { renderLineupPng } from './lib/lineup-image.js';
 import { renderPlayerShareCardPng } from './lib/player-card-image.js';
 import { AppStore } from './lib/store.js';
 import { getBearerToken, notFound, readJsonBody, sendJson, sendText, serveStaticFile, setCorsHeaders } from './lib/utils.js';
+import { getDictionary, normalizeLocale, translate } from '../packages/i18n/index.js';
 
 const GLOBAL_SNAPSHOT_CHAT_ID = 'global';
 
@@ -184,6 +185,28 @@ function getPlayerCard(playerId) {
   return (snapshot.players ?? []).find((player) => player.id === playerId) ?? null;
 }
 
+function getLocalePayload(locale) {
+  const normalizedLocale = normalizeLocale(locale);
+
+  return {
+    locale: normalizedLocale,
+    translations: getDictionary(normalizedLocale)
+  };
+}
+
+function getRequestLocale(req, url, session = null) {
+  if (session?.playerId) {
+    return store.getPlayerLocale(session.playerId);
+  }
+
+  const headerLocale = String(req.headers['accept-language'] || '').split(',')[0];
+  return normalizeLocale(url.searchParams.get('locale') || headerLocale);
+}
+
+function t(locale, key, params = {}) {
+  return translate(locale, key, params);
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
@@ -215,6 +238,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && /^\/api\/share-images\/players\/[^/]+\.png$/.test(url.pathname)) {
+      const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
       const playerId = decodeURIComponent(url.pathname.split('/')[4].replace(/\.png$/, ''));
       const player = getPlayerCard(playerId);
 
@@ -223,7 +248,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      sendPng(res, await renderPlayerShareCardPng(player));
+      sendPng(res, await renderPlayerShareCardPng(player, locale));
       return;
     }
 
@@ -302,6 +327,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/bootstrap') {
       const session = getViewerSession(req);
       const bootstrapChatId = String(url.searchParams.get('chatId') || '');
+      const locale = getRequestLocale(req, url, session);
 
       if (session && bootstrapChatId) {
         await refreshTelegramChatAdminStatus(bootstrapChatId, store.getPlayerById(session.playerId));
@@ -312,7 +338,8 @@ const server = http.createServer(async (req, res) => {
       });
       sendJson(res, 200, {
         snapshot,
-        allowDevLogin: config.allowDevLogin
+        allowDevLogin: config.allowDevLogin,
+        ...getLocalePayload(locale)
       });
       return;
     }
@@ -348,22 +375,25 @@ const server = http.createServer(async (req, res) => {
       }
 
       const token = await store.createSession(player.id, GLOBAL_SNAPSHOT_CHAT_ID);
+      const locale = store.getPlayerLocale(player.id);
       const snapshot = getGlobalSnapshot(player.id, {
         selectedGameId: body.gameId || ''
       });
 
       sendJson(res, 200, {
         token,
-        snapshot
+        snapshot,
+        ...getLocalePayload(locale)
       });
       return;
     }
 
     if (req.method === 'POST' && url.pathname === '/api/share/profile') {
       const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Unauthorized' });
+        sendJson(res, 401, { error: t(locale, 'errors.unauthorized') });
         return;
       }
 
@@ -371,7 +401,7 @@ const server = http.createServer(async (req, res) => {
       const playerCard = getPlayerCard(session.playerId);
 
       if (!player || !playerCard) {
-        sendJson(res, 404, { error: 'Игрок не найден' });
+        sendJson(res, 404, { error: t(locale, 'errors.player_not_found') });
         return;
       }
 
@@ -383,8 +413,8 @@ const server = http.createServer(async (req, res) => {
         initialView: 'players',
         playerId: player.id
       }) || appUrl;
-      const imageUrl = buildAbsoluteUrl(req, `/api/share-images/players/${encodeURIComponent(player.id)}.png`);
-      const shareText = `${playerCard.displayName} в игре`;
+      const imageUrl = buildAbsoluteUrl(req, `/api/share-images/players/${encodeURIComponent(player.id)}.png`, { locale });
+      const shareText = t(locale, 'common.share.profile_text', { name: playerCard.displayName });
       let preparedMessageId = '';
 
       if (player.telegramUserId && bot.enabled) {
@@ -397,7 +427,7 @@ const server = http.createServer(async (req, res) => {
             thumbnail_url: imageUrl,
             caption: shareText,
             reply_markup: {
-              inline_keyboard: [[{ text: 'Посмотреть', url: miniAppUrl }]]
+              inline_keyboard: [[{ text: t(locale, 'common.buttons.view'), url: miniAppUrl }]]
             }
           });
           preparedMessageId = prepared?.id || '';
@@ -419,9 +449,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/share/game') {
       const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Unauthorized' });
+        sendJson(res, 401, { error: t(locale, 'errors.unauthorized') });
         return;
       }
 
@@ -431,7 +462,7 @@ const server = http.createServer(async (req, res) => {
       const game = getGameView(gameId);
 
       if (!player || !game) {
-        sendJson(res, 404, { error: 'Игра не найдена' });
+        sendJson(res, 404, { error: t(locale, 'errors.game_not_found') });
         return;
       }
 
@@ -444,7 +475,11 @@ const server = http.createServer(async (req, res) => {
         gameId: game.id
       }) || appUrl;
       const imageUrl = buildAbsoluteUrl(req, `/api/share-images/games/${encodeURIComponent(game.id)}.png`);
-      const shareText = `Игра ${game.dateLabel} в ${game.time}${game.location ? `, ${game.location}` : ''}`;
+      const shareText = t(locale, 'common.share.game_text', {
+        date: game.dateLabel,
+        time: game.time,
+        location: game.location ? `, ${game.location}` : ''
+      });
       let preparedMessageId = '';
 
       if (player.telegramUserId && bot.enabled) {
@@ -457,7 +492,7 @@ const server = http.createServer(async (req, res) => {
             thumbnail_url: imageUrl,
             caption: shareText,
             reply_markup: {
-              inline_keyboard: [[{ text: 'Посмотреть', url: miniAppUrl }]]
+              inline_keyboard: [[{ text: t(locale, 'common.buttons.view'), url: miniAppUrl }]]
             }
           });
           preparedMessageId = prepared?.id || '';
@@ -492,11 +527,42 @@ const server = http.createServer(async (req, res) => {
       }
 
       const result = await store.loginDevUser(chatId, body.username, body.displayName || '');
+
+      if (body.locale) {
+        await store.setPlayerLocale(result.player.id, body.locale, 'manual');
+      }
+
+      const locale = store.getPlayerLocale(result.player.id);
       const snapshot = getGlobalSnapshot(result.player.id);
 
       sendJson(res, 200, {
         token: result.token,
-        snapshot
+        snapshot,
+        ...getLocalePayload(locale)
+      });
+      return;
+    }
+
+    if (req.method === 'PATCH' && url.pathname === '/api/locale') {
+      const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
+
+      if (!session) {
+        sendJson(res, 401, {
+          errorKey: 'errors.unauthorized',
+          error: t(locale, 'errors.unauthorized')
+        });
+        return;
+      }
+
+      const body = await readJsonBody(req);
+      const player = await store.setPlayerLocale(session.playerId, body.locale, 'manual');
+      const updatedLocale = store.getPlayerLocale(player.id);
+      const snapshot = getGlobalSnapshot(session.playerId);
+
+      sendJson(res, 200, {
+        snapshot,
+        ...getLocalePayload(updatedLocale)
       });
       return;
     }
@@ -629,16 +695,17 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/games') {
       const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Unauthorized' });
+        sendJson(res, 401, { error: t(locale, 'errors.unauthorized') });
         return;
       }
 
       const organizer = store.getPlayerById(session.playerId);
 
       if (!organizer) {
-        sendJson(res, 403, { error: 'Игрок не найден' });
+        sendJson(res, 403, { error: t(locale, 'errors.player_not_found') });
         return;
       }
 
@@ -671,9 +738,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'PUT' && /^\/api\/games\/[^/]+$/.test(url.pathname)) {
       const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Unauthorized' });
+        sendJson(res, 401, { error: t(locale, 'errors.unauthorized') });
         return;
       }
 
@@ -704,9 +772,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'PATCH' && /^\/api\/games\/[^/]+\/roster-lock$/.test(url.pathname)) {
       const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Unauthorized' });
+        sendJson(res, 401, { error: t(locale, 'errors.unauthorized') });
         return;
       }
 
@@ -724,9 +793,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'DELETE' && /^\/api\/games\/[^/]+$/.test(url.pathname)) {
       const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Unauthorized' });
+        sendJson(res, 401, { error: t(locale, 'errors.unauthorized') });
         return;
       }
 
@@ -745,9 +815,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && /^\/api\/games\/[^/]+\/join-request$/.test(url.pathname)) {
       const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Unauthorized' });
+        sendJson(res, 401, { error: t(locale, 'errors.unauthorized') });
         return;
       }
 
@@ -768,9 +839,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'DELETE' && /^\/api\/games\/[^/]+\/join-request$/.test(url.pathname)) {
       const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Unauthorized' });
+        sendJson(res, 401, { error: t(locale, 'errors.unauthorized') });
         return;
       }
 
@@ -790,9 +862,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && /^\/api\/games\/[^/]+\/invite\/accept$/.test(url.pathname)) {
       const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Unauthorized' });
+        sendJson(res, 401, { error: t(locale, 'errors.unauthorized') });
         return;
       }
 
@@ -811,9 +884,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'DELETE' && /^\/api\/games\/[^/]+\/invite$/.test(url.pathname)) {
       const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Unauthorized' });
+        sendJson(res, 401, { error: t(locale, 'errors.unauthorized') });
         return;
       }
 
@@ -834,9 +908,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && /^\/api\/games\/[^/]+\/join-requests\/[^/]+\/approve$/.test(url.pathname)) {
       const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Unauthorized' });
+        sendJson(res, 401, { error: t(locale, 'errors.unauthorized') });
         return;
       }
 
@@ -859,9 +934,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && /^\/api\/games\/[^/]+\/ratings$/.test(url.pathname)) {
       const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Unauthorized' });
+        sendJson(res, 401, { error: t(locale, 'errors.unauthorized') });
         return;
       }
 
@@ -882,9 +958,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && /^\/api\/games\/[^/]+\/quick-rating$/.test(url.pathname)) {
       const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Unauthorized' });
+        sendJson(res, 401, { error: t(locale, 'errors.unauthorized') });
         return;
       }
 
@@ -903,9 +980,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/profile') {
       const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Unauthorized' });
+        sendJson(res, 401, { error: t(locale, 'errors.unauthorized') });
         return;
       }
 

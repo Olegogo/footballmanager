@@ -1,5 +1,6 @@
 import { parseAnnouncementText } from '../lib/parser.js';
 import { renderLineupPng } from '../lib/lineup-image.js';
+import { LOCALE_LABELS, SUPPORTED_LOCALES, createTranslator, normalizeLocale } from '../../packages/i18n/index.js';
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -66,6 +67,40 @@ export class TelegramBot {
 
   get enabled() {
     return Boolean(this.config.telegramBotToken);
+  }
+
+  getMessageLocale(message) {
+    if (message?.chat?.type === 'private') {
+      const player = message?.from?.id
+        ? this.store.getPlayerByTelegramUserId?.(message.from.id)
+        : null;
+      return normalizeLocale(player?.locale || message?.from?.language_code);
+    }
+
+    return this.store.getChatLocale?.(message?.chat?.id) || 'ru';
+  }
+
+  getPlayerLocale(player) {
+    return normalizeLocale(player?.locale || 'ru');
+  }
+
+  getGameLocale(game) {
+    return this.store.getChatLocale?.(game?.chatId) || 'ru';
+  }
+
+  t(locale, key, params = {}) {
+    return createTranslator(locale)(key, params);
+  }
+
+  buildLanguageKeyboard(scope = 'user') {
+    return {
+      inline_keyboard: [
+        SUPPORTED_LOCALES.map((locale) => ({
+          text: LOCALE_LABELS[locale],
+          callback_data: `set_locale:${scope}:${locale}`
+        }))
+      ]
+    };
   }
 
   buildMiniAppUrl(chatId = '', options = {}) {
@@ -242,6 +277,7 @@ export class TelegramBot {
   }
 
   async sendMiniAppEntry(chatId, chatType, targetChatId, options = {}) {
+    const locale = options.locale || 'ru';
     const primaryText = options.primaryText ?? BUTTON_ONLY_TEXT;
     const buttonText = options.buttonText ?? '⚽';
     const linkOptions = {
@@ -258,7 +294,7 @@ export class TelegramBot {
 
     if (!replyMarkup) {
       if (!fallbackUrl) {
-        await this.sendText(chatId, 'Сначала укажите PUBLIC_BASE_URL, чтобы ⚽ можно было открыть из Telegram.');
+        await this.sendText(chatId, this.t(locale, 'bot.config_missing'));
         return;
       }
 
@@ -420,14 +456,17 @@ export class TelegramBot {
   }
 
   async sendGameDetailsEntry(chatId, chatType, targetChatId, game) {
-    const replyMarkup = this.buildMiniAppKeyboard(chatType, targetChatId, 'Детали игры', {
+    const locale = this.getGameLocale(game);
+    const detailsLabel = this.t(locale, 'common.buttons.details');
+    const replyMarkup = this.buildMiniAppKeyboard(chatType, targetChatId, detailsLabel, {
       initialView: 'game',
       gameId: game?.id || ''
     });
     const sendDetailsButton = () => this.sendMiniAppEntry(chatId, chatType, targetChatId, {
       primaryText: BUTTON_ONLY_TEXT,
-      buttonText: 'Детали игры',
+      buttonText: detailsLabel,
       buttonOnly: true,
+      locale,
       initialView: 'game',
       gameId: game?.id || ''
     });
@@ -463,8 +502,10 @@ export class TelegramBot {
     return sendDetailsButton();
   }
 
-  buildManualInviteKeyboard(chatId, gameId) {
-    const miniAppButton = this.buildMiniAppButton('private', chatId, 'К игре', {
+  buildManualInviteKeyboard(chatId, gameId, locale = '') {
+    const game = this.store.getGameById?.(gameId);
+    const effectiveLocale = locale || this.getGameLocale(game);
+    const miniAppButton = this.buildMiniAppButton('private', chatId, this.t(effectiveLocale, 'common.buttons.open_game'), {
       initialView: 'game',
       gameId
     });
@@ -476,7 +517,7 @@ export class TelegramBot {
 
     inlineKeyboard.push([
       {
-        text: 'Не смогу',
+        text: this.t(effectiveLocale, 'bot.invite_decline'),
         callback_data: `decline_game:${gameId}`
       }
     ]);
@@ -484,15 +525,14 @@ export class TelegramBot {
     return { inline_keyboard: inlineKeyboard };
   }
 
-  formatGameInvite(game) {
-    return [
-      'Тебя пригласили на игру',
-      '',
-      `${game.dateLabel} в ${game.time}`,
-      game.location ? `Место: ${game.location}` : '',
-      '',
-      'Открой ⚽, чтобы посмотреть состав и расстановку.'
-    ].filter(Boolean).join('\n');
+  formatGameInvite(game, locale = this.getGameLocale(game)) {
+    const locationLine = game.location ? `${this.t(locale, 'common.labels.location')}: ${game.location}` : '';
+
+    return this.t(locale, 'bot.invite_text', {
+      date: game.dateLabel,
+      time: game.time,
+      locationLine
+    });
   }
 
   getPrivateParticipants(game) {
@@ -513,15 +553,15 @@ export class TelegramBot {
     return participants;
   }
 
-  formatCardsText(cards) {
+  formatCardsText(cards, locale = 'ru') {
     const parts = [];
 
     if (cards?.yellow > 0) {
-      parts.push(`желтых — ${cards.yellow}`);
+      parts.push(`${this.t(locale, 'common.labels.yellow_cards')} — ${cards.yellow}`);
     }
 
     if (cards?.red > 0) {
-      parts.push(`красных — ${cards.red}`);
+      parts.push(`${this.t(locale, 'common.labels.red_card')} — ${cards.red}`);
     }
 
     return parts.join(', ');
@@ -532,14 +572,18 @@ export class TelegramBot {
     return snapshot?.games?.find((game) => game.id === gameId) ?? null;
   }
 
-  formatGameLevel(averageOverall) {
+  formatGameLevel(averageOverall, locale = 'ru') {
     const rating = Number(averageOverall);
 
     if (!Number.isFinite(rating)) {
       return '';
     }
 
-    const label = rating < 55 ? 'Низкий' : rating < 70 ? 'Средний' : 'Высокий';
+    const label = rating < 55
+      ? this.t(locale, 'match.level_low')
+      : rating < 70
+        ? this.t(locale, 'match.level_mid')
+        : this.t(locale, 'match.level_high');
     return `${label} (${Math.round(rating)})`;
   }
 
@@ -558,21 +602,24 @@ export class TelegramBot {
     return `${mvp.displayName}${suffix ? ` (${suffix})` : ''}`;
   }
 
-  formatGameSummary(game) {
+  formatGameSummary(game, locale = this.getGameLocale(game)) {
     const summary = this.getGameSummaryView(game.id);
     const mvpLabel = this.formatMvpSummaryLabel(summary?.mvp);
-    const levelLabel = this.formatGameLevel(summary?.averageOverall);
-    const cardsText = this.formatCardsText(summary?.cards);
+    const levelLabel = this.formatGameLevel(summary?.averageOverall, locale);
+    const cardsText = this.formatCardsText(summary?.cards, locale);
 
     return [
-      '<b>Итоги игры</b>',
+      `<b>${escapeTelegramHtml(this.t(locale, 'match.summary_title'))}</b>`,
       '',
-      `${escapeTelegramHtml(summary?.dateLabel || game.dateLabel)} в ${escapeTelegramHtml(summary?.time || game.time)}`,
-      summary?.location || game.location ? `Место: ${escapeTelegramHtml(summary?.location || game.location)}` : '',
+      escapeTelegramHtml(this.t(locale, 'bot.summary_datetime', {
+        date: summary?.dateLabel || game.dateLabel,
+        time: summary?.time || game.time
+      })),
+      summary?.location || game.location ? `${escapeTelegramHtml(this.t(locale, 'common.labels.location'))}: ${escapeTelegramHtml(summary?.location || game.location)}` : '',
       '',
-      levelLabel ? `Уровень игры: ${escapeTelegramHtml(levelLabel)}` : '',
-      mvpLabel ? `MVP: ${escapeTelegramHtml(mvpLabel)}` : '',
-      cardsText ? `Карточки: ${escapeTelegramHtml(cardsText)}` : ''
+      levelLabel ? `${escapeTelegramHtml(this.t(locale, 'common.labels.rating'))}: ${escapeTelegramHtml(levelLabel)}` : '',
+      mvpLabel ? `${escapeTelegramHtml(this.t(locale, 'mvp.label'))}: ${escapeTelegramHtml(mvpLabel)}` : '',
+      cardsText ? `${escapeTelegramHtml(this.t(locale, 'common.labels.cards'))}: ${escapeTelegramHtml(cardsText)}` : ''
     ].filter(Boolean).join('\n');
   }
 
@@ -599,8 +646,8 @@ export class TelegramBot {
       }
 
       try {
-        await this.sendText(player.privateChatId, this.formatGameInvite(game), {
-          replyMarkup: this.buildManualInviteKeyboard(game.chatId, game.id)
+        await this.sendText(player.privateChatId, this.formatGameInvite(game, this.getPlayerLocale(player)), {
+          replyMarkup: this.buildManualInviteKeyboard(game.chatId, game.id, this.getPlayerLocale(player))
         });
       } catch (error) {
         console.error(`Unable to send manual game invite to ${player.id}:`, error.message);
@@ -609,15 +656,17 @@ export class TelegramBot {
   }
 
   formatJoinRequestText(game, player) {
-    const username = player?.username ? `@${player.username}` : 'без ника';
+    const locale = this.getGameLocale(game);
+    const username = player?.username ? `@${player.username}` : this.t(locale, 'bot.no_username');
+    const locationLine = game.location ? `${this.t(locale, 'common.labels.location')}: ${game.location}` : '';
 
-    return [
-      'Игрок хочет присоединиться к игре',
-      '',
-      `${player?.displayName || username} (${username})`,
-      `${game.dateLabel} в ${game.time}`,
-      game.location ? `Место: ${game.location}` : ''
-    ].filter(Boolean).join('\n');
+    return this.t(locale, 'bot.join_request', {
+      name: player?.displayName || username,
+      username,
+      date: game.dateLabel,
+      time: game.time,
+      locationLine
+    });
   }
 
   async notifyOrganizerAboutJoinRequest(gameId, playerId) {
@@ -632,7 +681,8 @@ export class TelegramBot {
     try {
       await this.sendMiniAppEntry(organizer.privateChatId, 'private', game.chatId, {
         primaryText: this.formatJoinRequestText(game, player),
-        buttonText: 'Подробнее',
+        buttonText: this.t(this.getPlayerLocale(organizer), 'common.buttons.details'),
+        locale: this.getPlayerLocale(organizer),
         initialView: 'game',
         gameId: game.id
       });
@@ -651,8 +701,12 @@ export class TelegramBot {
 
     try {
       await this.sendMiniAppEntry(player.privateChatId, 'private', game.chatId, {
-        primaryText: `Тебя добавили в игру ${game.dateLabel} в ${game.time}.`,
-        buttonText: 'Детали игры',
+        primaryText: this.t(this.getPlayerLocale(player), 'bot.invite_added', {
+          date: game.dateLabel,
+          time: game.time
+        }),
+        buttonText: this.t(this.getPlayerLocale(player), 'common.buttons.details'),
+        locale: this.getPlayerLocale(player),
         initialView: 'game',
         gameId: game.id
       });
@@ -673,7 +727,11 @@ export class TelegramBot {
     try {
       await this.sendText(
         organizer.privateChatId,
-        `${player.displayName || `@${player.username}`} не сможет сыграть ${game.dateLabel} в ${game.time}. Нужно искать замену.`
+        this.t(this.getPlayerLocale(organizer), 'bot.declined_notify', {
+          name: player.displayName || `@${player.username}`,
+          date: game.dateLabel,
+          time: game.time
+        })
       );
     } catch (error) {
       console.error(`Unable to notify organizer about decline for ${game.id}:`, error.message);
@@ -810,12 +868,13 @@ export class TelegramBot {
     const chatId = message.chat.id;
     const targetChatId =
       message.chat.type === 'private' ? this.config.defaultChatId || chatId : chatId;
+    const locale = this.getMessageLocale(message);
 
     if (command === '/start' || command === '/help') {
       const lines = [
-        '⚽ Создавай игры, собирай команды и находи новых игроков рядом с собой.',
-        '🎯 Мы уже создали тебе карточку игрока. Заполни её и получай оценки после матчей.',
-        '🤖 Добавь бота в чат с игроками. Он поможет собирать составы, балансировать команды и вести статистику.'
+        this.t(locale, 'onboarding.message_1'),
+        this.t(locale, 'onboarding.message_2'),
+        this.t(locale, 'onboarding.message_3')
       ];
 
       for (const line of lines.slice(0, -1)) {
@@ -824,7 +883,8 @@ export class TelegramBot {
 
       await this.sendMiniAppEntry(chatId, message.chat.type, '', {
         primaryText: lines.at(-1),
-        buttonText: 'Открыть приложение'
+        buttonText: this.t(locale, 'common.buttons.open_app'),
+        locale
       });
       return;
     }
@@ -832,8 +892,25 @@ export class TelegramBot {
     if (command === '/open') {
       await this.sendMiniAppEntry(chatId, message.chat.type, '', {
         primaryText: BUTTON_ONLY_TEXT,
-        buttonText: 'Открыть футбольчик',
+        buttonText: this.t(locale, 'common.buttons.open_football'),
+        locale,
         buttonOnly: true
+      });
+      return;
+    }
+
+    if (command === '/language') {
+      if (message.chat.type !== 'private') {
+        const isAdmin = await this.isUserAdminOfChat(message.chat.id, message.from?.id);
+
+        if (!isAdmin) {
+          await this.sendText(chatId, this.t(locale, 'settings.language.only_admin'));
+          return;
+        }
+      }
+
+      await this.sendText(chatId, this.t(locale, 'settings.language.choose'), {
+        replyMarkup: this.buildLanguageKeyboard(message.chat.type === 'private' ? 'user' : 'chat')
       });
       return;
     }
@@ -846,7 +923,7 @@ export class TelegramBot {
     if (command === '/chatid') {
       await this.sendText(
         chatId,
-        `ID этого чата: ${chatId}\nИспользуйте его в DEFAULT_CHAT_ID и в скрипте импорта истории.`,
+        this.t(locale, 'bot.chat_id', { chatId }),
         {}
       );
     }
@@ -886,7 +963,7 @@ export class TelegramBot {
 
       await this.sendText(
         message.chat.id,
-        'Я вижу команду /game, но Telegram не передал мне текст анонса. Скопируй анонс после /game в одном сообщении или отключи Privacy Mode у бота через BotFather.'
+        this.t(this.getMessageLocale(message), 'match.parse_missing_text')
       );
       return;
     }
@@ -899,7 +976,7 @@ export class TelegramBot {
     if (!announcement) {
       await this.sendText(
         message.chat.id,
-        'Не смог распознать игру. Проверь, что в анонсе есть дата, время, место и список игроков.'
+        this.t(this.getMessageLocale(message), 'match.parse_failed')
       );
       return;
     }
@@ -930,7 +1007,7 @@ export class TelegramBot {
       return;
     }
 
-    await this.sendText(message.chat.id, 'Такая игра уже есть или её уже нельзя обновить после старта.');
+    await this.sendText(message.chat.id, this.t(this.getMessageLocale(message), 'match.already_exists'));
   }
 
   async handleAnnouncement(message, options = {}) {
@@ -1041,9 +1118,10 @@ export class TelegramBot {
         type: chat.type,
         username: chat.username ?? ''
       });
+      const locale = this.store.getChatLocale?.(chat.id) || 'ru';
       await this.sendText(
         chat.id,
-        'Я подключился к чату. Следующие анонсы игр буду ловить автоматически. Для полной истории потом запустите импорт JSON-экспорта из Telegram Desktop.'
+        this.t(locale, 'bot.chat_connected')
       );
     }
   }
@@ -1051,15 +1129,42 @@ export class TelegramBot {
   async handleCallbackQuery(callbackQuery) {
     const data = String(callbackQuery?.data ?? '');
 
+    if (data.startsWith('set_locale:')) {
+      const [, scope, rawLocale] = data.split(':');
+      const locale = normalizeLocale(rawLocale);
+      const messageChat = callbackQuery.message?.chat;
+
+      if (scope === 'chat') {
+        const isAdmin = await this.isUserAdminOfChat(messageChat?.id, callbackQuery.from?.id);
+
+        if (!isAdmin) {
+          const currentLocale = this.store.getChatLocale?.(messageChat?.id) || locale;
+          await this.answerCallbackQuery(callbackQuery.id, this.t(currentLocale, 'settings.language.only_admin'));
+          return;
+        }
+
+        await this.store.setChatLocale(messageChat.id, locale, 'manual');
+        await this.answerCallbackQuery(callbackQuery.id, this.t(locale, 'settings.language.chat_updated'));
+        await this.sendText(messageChat.id, this.t(locale, 'settings.language.chat_updated'));
+        return;
+      }
+
+      await this.store.setPlayerLocaleByTelegramUserId(callbackQuery.from?.id, locale, 'manual');
+      await this.answerCallbackQuery(callbackQuery.id, this.t(locale, 'settings.language.updated'));
+      await this.sendText(callbackQuery.from.id, this.t(locale, 'settings.language.updated'));
+      return;
+    }
+
     if (!data.startsWith('decline_game:')) {
       return;
     }
 
     const gameId = data.split(':')[1];
     const player = this.store.getPlayerByTelegramUserId?.(callbackQuery.from?.id);
+    const locale = this.getPlayerLocale(player);
 
     if (!player) {
-      await this.answerCallbackQuery(callbackQuery.id, 'Не нашел твою карточку игрока');
+      await this.answerCallbackQuery(callbackQuery.id, this.t(locale, 'bot.decline_missing_player'));
       return;
     }
 
@@ -1071,14 +1176,14 @@ export class TelegramBot {
 
       await this.answerCallbackQuery(
         callbackQuery.id,
-        result.removed ? 'Ок, убрал тебя из игры' : 'Ты уже не в списке игроков'
+        result.removed ? this.t(locale, 'bot.decline_removed') : this.t(locale, 'bot.decline_unchanged')
       );
 
       if (result.removed) {
         await this.notifyOrganizerAboutDeclinedGame(result.game.id, result.player.id, result);
       }
     } catch (error) {
-      await this.answerCallbackQuery(callbackQuery.id, error.message || 'Не получилось обновить игру');
+      await this.answerCallbackQuery(callbackQuery.id, error.message || this.t(locale, 'bot.update_game_failed'));
     }
   }
 
@@ -1145,38 +1250,49 @@ export class TelegramBot {
     }
 
     const games = this.store.listGamesRequiringPrompt(new Date());
-    const promptText = 'Оценка стартовала!\nНе забудьте раздать баллы самым заметным игрокам и выбрать MVP...';
-    const privatePromptText = 'Оценка стартовала. Ты участвуешь в этой игре — не забудь оценить тиммейтов.';
 
     for (const game of games) {
       try {
         const chat = this.store.state?.chats?.[String(game.chatId)];
+        const chatLocale = this.getGameLocale(game);
         let promptMessageId = null;
+        let sentAnyPrompt = false;
 
         if (chat?.type !== 'global') {
-          const message = await this.sendMiniAppEntry(game.chatId, chat?.type || 'supergroup', game.chatId, {
-            primaryText: promptText,
-            buttonText: 'Оценить',
-            initialView: 'game',
-            gameId: game.id
-          });
-          promptMessageId = message?.message_id ?? null;
-        }
-
-        await this.store.markRatingsPromptSent(game.id, promptMessageId);
-        this.clearPromptTimer(game.id);
-
-        for (const player of this.getPrivateParticipants(game)) {
           try {
-            await this.sendMiniAppEntry(player.privateChatId, 'private', game.chatId, {
-              primaryText: privatePromptText,
-              buttonText: 'Оценить',
+            const message = await this.sendMiniAppEntry(game.chatId, chat?.type || 'supergroup', game.chatId, {
+              primaryText: this.t(chatLocale, 'rating.started_chat'),
+              buttonText: this.t(chatLocale, 'common.buttons.rate'),
+              locale: chatLocale,
               initialView: 'game',
               gameId: game.id
             });
+            promptMessageId = message?.message_id ?? null;
+            sentAnyPrompt = true;
+          } catch (error) {
+            console.error(`Unable to send chat rating prompt for ${game.id}:`, error.message);
+          }
+        }
+
+        for (const player of this.getPrivateParticipants(game)) {
+          try {
+            const playerLocale = this.getPlayerLocale(player);
+            await this.sendMiniAppEntry(player.privateChatId, 'private', game.chatId, {
+              primaryText: `${this.t(playerLocale, 'rating.started')} ${this.t(playerLocale, 'rating.give_points')}.`,
+              buttonText: this.t(playerLocale, 'common.buttons.rate'),
+              locale: playerLocale,
+              initialView: 'game',
+              gameId: game.id
+            });
+            sentAnyPrompt = true;
           } catch (error) {
             console.error(`Unable to send private rating prompt to ${player.id}:`, error.message);
           }
+        }
+
+        if (sentAnyPrompt || chat?.type === 'global') {
+          await this.store.markRatingsPromptSent(game.id, promptMessageId);
+          this.clearPromptTimer(game.id);
         }
       } catch (error) {
         console.error(`Unable to send rating prompt for ${game.id}:`, error.message);
@@ -1192,7 +1308,8 @@ export class TelegramBot {
     const games = this.store.listGamesRequiringSummary(new Date());
 
     for (const game of games) {
-      const summaryText = this.formatGameSummary(game);
+      const chatLocale = this.getGameLocale(game);
+      const summaryText = this.formatGameSummary(game, chatLocale);
       const chat = this.store.state?.chats?.[String(game.chatId)];
       let chatMessageId = null;
       const privatePlayerIds = [];
@@ -1202,7 +1319,8 @@ export class TelegramBot {
         try {
           const message = await this.sendMiniAppEntry(game.chatId, chat.type || 'supergroup', game.chatId, {
             primaryText: summaryText,
-            buttonText: 'Детали игры',
+            buttonText: this.t(chatLocale, 'common.buttons.details'),
+            locale: chatLocale,
             initialView: 'game',
             gameId: game.id,
             parseMode: 'HTML'
@@ -1216,9 +1334,11 @@ export class TelegramBot {
 
       for (const player of this.getPrivateParticipants(game)) {
         try {
+          const playerLocale = this.getPlayerLocale(player);
           await this.sendMiniAppEntry(player.privateChatId, 'private', game.chatId, {
-            primaryText: summaryText,
-            buttonText: 'Детали игры',
+            primaryText: this.formatGameSummary(game, playerLocale),
+            buttonText: this.t(playerLocale, 'common.buttons.details'),
+            locale: playerLocale,
             initialView: 'game',
             gameId: game.id,
             parseMode: 'HTML'
