@@ -340,10 +340,14 @@ p {
   margin-bottom: -2px;
 }
 
-.game-facts .game-stat-field--badges,
-.game-card-stats .game-stat-field--badges {
+.game-facts .game-stat-field--badges {
   min-height: 0;
   padding-bottom: 4px;
+}
+
+.game-card-stats .game-stat-field--badges {
+  min-height: 0;
+  padding-bottom: 8px;
 }
 
 .game-facts .game-level-badge {
