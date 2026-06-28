@@ -64,14 +64,26 @@ const QUICK_SELECTABLE_ACHIEVEMENTS = QUICK_ACHIEVEMENTS.filter((achievement) =>
 const VENUE_DIRECTORY = [
   {
     match: /сокольник/i,
-    venue: 'CityFootball',
-    address: 'ул. Короленко, 1А, Москва',
+    venue: {
+      ru: 'CityFootball',
+      en: 'CityFootball'
+    },
+    address: {
+      ru: 'ул. Короленко, 1А, Москва',
+      en: 'Korolenko St., 1A, Moscow'
+    },
     mapUrl: 'https://yandex.ru/maps/org/cityfootball/1809670236?si=yb6d72pvrvgnt63tbw8y23w900'
   },
   {
     match: /полежаевск/i,
-    venue: 'Академия Будущего',
-    address: 'Москва, Северный административный округ, Хорошёвский район',
+    venue: {
+      ru: 'Академия Будущего',
+      en: 'Academy of the Future'
+    },
+    address: {
+      ru: 'Москва, Северный административный округ, Хорошёвский район',
+      en: 'Khoroshyovsky District, Northern Administrative Okrug, Moscow'
+    },
     mapUrl: 'https://yandex.ru/maps/org/akademiya_budushchego/85913064858?si=yb6d72pvrvgnt63tbw8y23w900'
   }
 ];
@@ -85,6 +97,7 @@ const GAME_FILTERS = [
   { key: 'finished', labelKey: 'match.filters.finished' }
 ];
 const MONTH_NAME_PATTERN = 'января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря';
+const MONTH_INDEX_BY_RU_LABEL = new Map(MONTH_NAME_PATTERN.split('|').map((month, index) => [month, index + 1]));
 const GAME_DATE_REGEX = new RegExp(`(\\d{1,2})\\s+(${MONTH_NAME_PATTERN})`, 'i');
 function readLaunchContext() {
   const searchParams = new URLSearchParams(window.location.search);
@@ -400,8 +413,26 @@ function getStatMetaForPosition(position) {
   return meta.map(([key]) => [key, getStatLabel(key, position)]);
 }
 
+function getLocalizedValue(value) {
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  return value[state.locale] || value.ru || Object.values(value)[0] || '';
+}
+
 function getVenueInfo(location = '') {
-  return VENUE_DIRECTORY.find((entry) => entry.match.test(String(location))) || null;
+  const entry = VENUE_DIRECTORY.find((venue) => venue.match.test(String(location)));
+
+  if (!entry) {
+    return null;
+  }
+
+  return {
+    ...entry,
+    venue: getLocalizedValue(entry.venue),
+    address: getLocalizedValue(entry.address)
+  };
 }
 
 function showToast(message) {
@@ -999,11 +1030,23 @@ function renderEditorStateBadge(player, gamePlayer, game) {
   return `<span class="editor-status">${escapeHtml(getEmptyPlayerStatusLabel(gamePlayer, game))}</span>`;
 }
 
-function getGameDateShort(dateLabel = '') {
+function getMonthLabel(monthNumber) {
+  const months = getTranslatedObject('common.months');
+  return months?.[String(monthNumber)] || '';
+}
+
+function getGameDateShort(dateLabel = '', scheduledAt = '') {
+  const scheduledDate = scheduledAt ? new Date(scheduledAt) : null;
+
+  if (scheduledDate && !Number.isNaN(scheduledDate.getTime())) {
+    return `${scheduledDate.getDate()} ${getMonthLabel(scheduledDate.getMonth() + 1)}`.trim();
+  }
+
   const match = String(dateLabel || '').replaceAll(',', ' ').match(GAME_DATE_REGEX);
 
   if (match) {
-    return `${Number(match[1])} ${match[2].toLowerCase()}`;
+    const monthNumber = MONTH_INDEX_BY_RU_LABEL.get(match[2].toLowerCase());
+    return `${Number(match[1])} ${getMonthLabel(monthNumber) || match[2].toLowerCase()}`;
   }
 
   return String(dateLabel || '');
@@ -1469,7 +1512,7 @@ function renderGameHeader(game) {
     <section class="panel game-info-panel ${game.ratingWindowOpen ? 'game-info-panel--rating' : ''}">
       <div class="game-summary">
         <div>
-          <h2>${escapeHtml(getGameDateShort(game.dateLabel))}</h2>
+          <h2>${escapeHtml(getGameDateShort(game.dateLabel, game.scheduledAt))}</h2>
           <p class="game-location">${escapeHtml(game.location || t('common.misc.not_specified'))}</p>
         </div>
         <span class="status-pill ${escapeHtml(game.status)}">${escapeHtml(statusText)}</span>
@@ -1479,7 +1522,7 @@ function renderGameHeader(game) {
           <span>${escapeHtml(t('common.labels.time'))}</span>
           <strong>${escapeHtml(game.time)}</strong>
         </div>
-        <div>
+        <div class="game-stat-field game-stat-field--badges">
           <span>${escapeHtml(t('common.labels.players'))}</span>
           <strong class="game-card-badges-value">${playerCountBadges}</strong>
         </div>
@@ -2365,7 +2408,7 @@ function renderGameCard(game) {
     <article class="game-card ${isOpenable ? 'game-card--openable' : ''}"${openAttribute}>
       <div class="game-card-head">
         <div>
-          <h2>${escapeHtml(getGameDateShort(game.dateLabel))}</h2>
+          <h2>${escapeHtml(getGameDateShort(game.dateLabel, game.scheduledAt))}</h2>
           <p>${escapeHtml(game.time)}</p>
         </div>
         <span class="status-pill ${escapeHtml(game.status)}">${escapeHtml(getGameStatusLabel(game.status))}</span>
@@ -2375,7 +2418,7 @@ function renderGameCard(game) {
         ${
           game.status !== 'upcoming' && mvpBadges
             ? `
-              <div>
+              <div class="game-stat-field game-stat-field--badges">
                 <span>MVP</span>
                 <strong class="game-card-badges-value">${mvpBadges}</strong>
               </div>
@@ -2385,7 +2428,7 @@ function renderGameCard(game) {
         ${
           gameLevelBadges
             ? `
-              <div>
+              <div class="game-stat-field game-stat-field--badges">
                 <span>${escapeHtml(t('match.level'))}</span>
                 <strong class="game-card-badges-value">${gameLevelBadges}</strong>
               </div>
@@ -2395,14 +2438,14 @@ function renderGameCard(game) {
         ${
           hasDisciplineCards(game.cards)
             ? `
-              <div>
+              <div class="game-stat-field game-stat-field--badges">
                 <span>${escapeHtml(t('common.labels.cards'))}</span>
                 <strong class="game-card-cards">${renderDisciplineCards(game.cards, 'game-summary-cards')}</strong>
               </div>
             `
             : ''
         }
-        <div>
+        <div class="game-stat-field game-stat-field--badges">
           <span>${escapeHtml(t('common.labels.players'))}</span>
           <strong class="game-card-badges-value">${renderPlayerCountBadges(game.playersCount, game)}</strong>
         </div>
@@ -2682,14 +2725,12 @@ function renderProfileActionsModal() {
     <div class="modal-backdrop modal-backdrop--compact" data-profile-actions-backdrop="true">
       <section class="modal-card profile-actions-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('players.settings'))}">
         <h2>${escapeHtml(t('players.settings'))}</h2>
-        <div class="language-actions" role="group" aria-label="${escapeHtml(t('settings.language.choose'))}">
-          <button type="button" class="game-action-button ${state.locale === 'ru' ? 'is-active' : ''}" data-set-locale="ru">
-            ${escapeHtml(t('settings.language.ru'))}
-          </button>
-          <button type="button" class="game-action-button ${state.locale === 'en' ? 'is-active' : ''}" data-set-locale="en">
-            ${escapeHtml(t('settings.language.en'))}
-          </button>
-        </div>
+        <label class="language-select-field">
+          <select data-locale-select aria-label="${escapeHtml(t('settings.language.choose'))}">
+            <option value="ru" ${state.locale === 'ru' ? 'selected' : ''}>${escapeHtml(t('settings.language.label'))}: ${escapeHtml(t('settings.language.ru_short'))}</option>
+            <option value="en" ${state.locale === 'en' ? 'selected' : ''}>${escapeHtml(t('settings.language.label'))}: ${escapeHtml(t('settings.language.en_short'))}</option>
+          </select>
+        </label>
         <button type="button" class="game-action-button" data-share-profile="true">${escapeHtml(t('common.buttons.share_card'))}</button>
         <button type="button" class="game-action-button" data-edit-self-profile="true">${escapeHtml(t('common.buttons.edit'))}</button>
       </section>
@@ -4515,6 +4556,14 @@ document.addEventListener('click', async (event) => {
 });
 
 document.addEventListener('change', (event) => {
+  if (event.target.matches('[data-locale-select]')) {
+    state.profileActionsOpen = false;
+    updateLocale(event.target.value).catch((error) => {
+      showToast(error.message);
+    });
+    return;
+  }
+
   if (event.target.matches('[data-manual-player-search]')) {
     state.manualPlayerSearch = event.target.value;
     state.manualPlayerPickerOpen = true;

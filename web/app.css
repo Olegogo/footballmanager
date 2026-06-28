@@ -329,6 +329,17 @@ p {
   margin-top: 2px;
 }
 
+.game-facts .game-card-badges-value,
+.game-card-stats .game-card-badges-value {
+  margin-bottom: -2px;
+}
+
+.game-facts .game-stat-field--badges,
+.game-card-stats .game-stat-field--badges {
+  min-height: 0;
+  padding-bottom: 12px;
+}
+
 .game-facts .game-level-badge {
   display: inline-flex;
   margin-bottom: 0;
@@ -3014,6 +3025,41 @@ input[type="range"] {
   font-weight: 900;
   text-align: center;
   cursor: pointer;
+}
+
+.language-select-field {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.language-select-field::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 24px;
+  width: 18px;
+  height: 18px;
+  border-right: 5px solid var(--text);
+  border-bottom: 5px solid var(--text);
+  pointer-events: none;
+  transform: translateY(-65%) rotate(45deg);
+}
+
+.language-select-field select {
+  width: 100%;
+  min-height: 72px;
+  appearance: none;
+  border: 0;
+  border-radius: 22px;
+  padding: 0 64px 0 24px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 30px;
+  font-weight: 900;
+  text-align: center;
+  text-align-last: center;
+  outline: none;
 }
 
 .game-action-button--primary {

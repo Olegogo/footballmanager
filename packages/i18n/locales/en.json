@@ -61,6 +61,20 @@
       "unknown": "unknown",
       "updated": "Updated"
     },
+    "months": {
+      "1": "January",
+      "2": "February",
+      "3": "March",
+      "4": "April",
+      "5": "May",
+      "6": "June",
+      "7": "July",
+      "8": "August",
+      "9": "September",
+      "10": "October",
+      "11": "November",
+      "12": "December"
+    },
     "share": {
       "game_text": "Game {{date}} at {{time}}{{location}}",
       "profile_text": "{{name}} in the game"
@@ -282,8 +296,11 @@
       "choose": "Choose language",
       "chat_updated": "Chat language changed to English.",
       "en": "English",
+      "en_short": "EN",
+      "label": "Language",
       "only_admin": "Only an admin can change chat language.",
       "ru": "Русский",
+      "ru_short": "RU",
       "updated": "Language changed to English."
     }
   },

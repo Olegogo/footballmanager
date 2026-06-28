@@ -361,13 +361,17 @@ const server = http.createServer(async (req, res) => {
 
       const privateChatId = String(auth.user.id);
       const chatId = requestedChatId || privateChatId;
-      let player = await store.rememberTelegramUser(privateChatId, auth.user, {
+      const telegramUser = {
+        ...auth.user,
+        language_code: auth.user.language_code || body.locale
+      };
+      let player = await store.rememberTelegramUser(privateChatId, telegramUser, {
         photoUrl: auth.user.photo_url ?? '',
         chatType: 'private'
       });
 
       if (requestedChatId && requestedChatId !== privateChatId) {
-        player = await store.rememberTelegramUser(requestedChatId, auth.user, {
+        player = await store.rememberTelegramUser(requestedChatId, telegramUser, {
           photoUrl: auth.user.photo_url ?? '',
           chatType: 'supergroup'
         });
