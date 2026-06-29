@@ -477,6 +477,7 @@ p {
   overflow: hidden;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 237, 186, 0.22);
 }
 
 .game-organizer-avatar img {
@@ -486,7 +487,8 @@ p {
 }
 
 .game-organizer-avatar span {
-  font-size: 16px;
+  color: #ffe7af;
+  font-size: 15px;
   font-weight: 900;
 }
 
@@ -504,16 +506,16 @@ p {
 }
 
 .game-organizer-copy strong {
-  color: var(--field-value);
-  font-size: 18px;
+  color: var(--text);
+  font-size: 17px;
   font-weight: 900;
-  line-height: 1.08;
+  line-height: 1.1;
 }
 
 .game-organizer-copy small {
-  color: var(--field-label);
+  color: rgba(255, 240, 209, 0.66);
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .game-organizer-write {
@@ -694,7 +696,7 @@ p {
 
 .game-card-stats {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 12px;
 }
@@ -703,7 +705,18 @@ p {
   grid-column: 1 / -1;
 }
 
-.game-card-stats div {
+.game-card-stats-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.game-card-stats-row > :only-child {
+  grid-column: 1 / -1;
+}
+
+.game-card-stats > .game-stat-field,
+.game-card-stats-row > .game-stat-field {
   min-width: 0;
   min-height: 64px;
   padding: 12px 14px;
@@ -712,7 +725,7 @@ p {
   border: 1px solid transparent;
 }
 
-.game-card-stats span {
+.game-card-stats .game-stat-field > span {
   display: block;
   margin-bottom: 8px;
   color: var(--field-label);
@@ -722,7 +735,7 @@ p {
   letter-spacing: 0;
 }
 
-.game-card-stats strong {
+.game-card-stats .game-stat-field > strong {
   display: block;
   overflow: hidden;
   color: var(--field-value);
@@ -737,6 +750,10 @@ p {
   overflow: visible;
   white-space: normal;
   text-overflow: clip;
+}
+
+.game-stat-field--mvp .game-card-badges-value {
+  margin-top: 2px;
 }
 
 .game-level-badges {

@@ -1613,9 +1613,13 @@ function renderGameHeader(game) {
         <span class="status-pill ${escapeHtml(game.status)}">${escapeHtml(statusText)}</span>
       </div>
       <div class="game-facts">
-        <div>
+        <div class="game-stat-field game-stat-field--badges">
           <span>${escapeHtml(t('common.labels.time'))}</span>
-          <strong>${escapeHtml(game.time)}</strong>
+          <strong class="game-card-badges-value">
+            <span class="game-level-badges">
+              <span class="game-level-badge game-level-rating game-time-badge">${escapeHtml(game.time)}</span>
+            </span>
+          </strong>
         </div>
         <div class="game-stat-field game-stat-field--badges">
           <span>${escapeHtml(t('common.labels.players'))}</span>
@@ -1692,7 +1696,7 @@ function renderOrganizerPanel(game) {
         additionalInfo
           ? `
             <div class="game-stat-field game-organizer-additional">
-              <span>${escapeHtml(t('common.labels.additional'))}</span>
+              <span>${escapeHtml(t('common.labels.details'))}</span>
               <strong>${escapeHtml(additionalInfo).replace(/\n/g, '<br>')}</strong>
             </div>
           `
@@ -2584,23 +2588,29 @@ function renderGameCard(game) {
         ${
           game.status !== 'upcoming' && mvpBadges
             ? `
-              <div class="game-stat-field game-stat-field--badges">
+              <div class="game-stat-field game-stat-field--badges game-stat-field--full game-stat-field--mvp">
                 <span>MVP</span>
                 <strong class="game-card-badges-value">${mvpBadges}</strong>
               </div>
             `
             : ''
         }
-        ${
-          gameLevelBadges
-            ? `
-              <div class="game-stat-field game-stat-field--badges">
-                <span>${escapeHtml(t('match.level'))}</span>
-                <strong class="game-card-badges-value">${gameLevelBadges}</strong>
-              </div>
-            `
-            : ''
-        }
+        <div class="game-card-stats-row">
+          <div class="game-stat-field game-stat-field--badges">
+            <span>${escapeHtml(t('common.labels.players'))}</span>
+            <strong class="game-card-badges-value">${renderPlayerCountBadges(game.playersCount, game)}</strong>
+          </div>
+          ${
+            gameLevelBadges
+              ? `
+                <div class="game-stat-field game-stat-field--badges">
+                  <span>${escapeHtml(t('match.level'))}</span>
+                  <strong class="game-card-badges-value">${gameLevelBadges}</strong>
+                </div>
+              `
+              : ''
+          }
+        </div>
         ${
           hasDisciplineCards(game.cards)
             ? `
@@ -2611,10 +2621,6 @@ function renderGameCard(game) {
             `
             : ''
         }
-        <div class="game-stat-field game-stat-field--badges">
-          <span>${escapeHtml(t('common.labels.players'))}</span>
-          <strong class="game-card-badges-value">${renderPlayerCountBadges(game.playersCount, game)}</strong>
-        </div>
       </div>
     </article>
   `;
