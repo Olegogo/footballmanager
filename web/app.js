@@ -3706,6 +3706,7 @@ function syncStaticLabels() {
 function render() {
   syncAchievementAwards();
   syncStaticLabels();
+  appShellNode?.classList.remove('app-shell--loading');
 
   const screenTitle = getScreenTitle();
   chatTitleNode.textContent = screenTitle;

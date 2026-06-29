@@ -53,6 +53,28 @@ p {
   padding: 18px var(--page-gutter) calc(110px + env(safe-area-inset-bottom));
 }
 
+.app-shell--loading {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.app-shell--loading .topbar {
+  margin: 0;
+  justify-content: center;
+}
+
+.app-shell--loading .topbar h1 {
+  font-size: 44px;
+  line-height: 1;
+}
+
+.app-shell--loading .content,
+.app-shell--loading .tabbar {
+  display: none;
+}
+
 .app-shell--profile {
   width: 100%;
   max-width: none;
@@ -376,9 +398,9 @@ p {
 .game-venue {
   margin-top: 12px;
   position: relative;
-  min-height: 86px;
+  min-height: 88px;
   display: block;
-  padding: 12px 58px 6px 14px;
+  padding: 12px 58px 8px 14px;
   border-radius: 20px;
   background: var(--field-surface);
 }
