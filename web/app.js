@@ -2845,7 +2845,7 @@ function renderCreateGameScreen() {
               <textarea name="location" rows="1" data-manual-autosize="true" placeholder="${escapeHtml(t('match.location_placeholder'))}" required>${escapeHtml(state.manualGameDraft.location)}</textarea>
             </label>
             <label class="manual-field-wide">
-              <span>${escapeHtml(t('common.labels.additional'))}</span>
+              <span>${escapeHtml(t('common.labels.details'))}</span>
               <textarea name="additionalInfo" rows="1" data-manual-autosize="true" placeholder="${escapeHtml(t('match.additional_placeholder'))}">${escapeHtml(state.manualGameDraft.additionalInfo)}</textarea>
             </label>
           </div>
