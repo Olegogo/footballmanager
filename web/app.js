@@ -3218,6 +3218,7 @@ function renderAchievementIcon(type) {
     playmaker: '/assets/achievements/playmaker.svg',
     unselfish: '/assets/achievements/unselfish.svg',
     wall: '/assets/achievements/wall.svg',
+    pickpocket: '/assets/achievements/pickpocket.svg',
     no_toxic: '/assets/achievements/no-toxic.svg',
     maguire_day: '/assets/achievements/maguire-day.svg',
     woodworker: '/assets/achievements/woodworker.svg',
