@@ -272,7 +272,7 @@ p {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .game-summary h2 {
@@ -464,14 +464,14 @@ p {
 
 .game-organizer-row {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) auto;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .game-organizer-avatar {
-  width: 52px;
-  height: 52px;
+  width: 46px;
+  height: 46px;
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -493,7 +493,7 @@ p {
 .game-organizer-copy {
   min-width: 0;
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .game-organizer-copy strong,
@@ -505,14 +505,14 @@ p {
 
 .game-organizer-copy strong {
   color: var(--field-value);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 900;
-  line-height: 1.05;
+  line-height: 1.08;
 }
 
 .game-organizer-copy small {
   color: var(--field-label);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 900;
 }
 
@@ -694,9 +694,13 @@ p {
 
 .game-card-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: 12px;
+}
+
+.game-card-stats > :only-child {
+  grid-column: 1 / -1;
 }
 
 .game-card-stats div {
@@ -2980,7 +2984,7 @@ input[type="range"] {
 
 .manual-section-title h3 {
   margin: 0;
-  font-size: 22px;
+  font-size: 25px;
 }
 
 .manual-section-title span {
@@ -4088,8 +4092,6 @@ input[type="range"] {
     padding-inline: 0;
   }
 
-  .game-facts,
-  .game-card-stats,
   .two-columns {
     grid-template-columns: 1fr;
   }
@@ -4099,7 +4101,7 @@ input[type="range"] {
   }
 
   .game-organizer-row {
-    grid-template-columns: 52px minmax(0, 1fr);
+    grid-template-columns: 46px minmax(0, 1fr);
   }
 
   .game-organizer-write {

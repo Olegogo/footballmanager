@@ -1609,7 +1609,6 @@ function renderGameHeader(game) {
       <div class="game-summary">
         <div>
           <h2>${escapeHtml(getGameDateShort(game.dateLabel, game.scheduledAt))}</h2>
-          <p class="game-location">${escapeHtml(game.location || t('common.misc.not_specified'))}</p>
         </div>
         <span class="status-pill ${escapeHtml(game.status)}">${escapeHtml(statusText)}</span>
       </div>
@@ -2847,7 +2846,7 @@ function renderCreateGameScreen() {
         </section>
         <section class="panel manual-player-panel">
           <div class="manual-section-title">
-            <h3>${escapeHtml(t('common.labels.players'))}</h3>
+            <h3>${escapeHtml(t('match.players_title'))}</h3>
             <span>${escapeHtml(t('match.players_selected', { count: state.manualGameDraft.playerIds.length }))}</span>
           </div>
           <div class="manual-player-search-wrap">
