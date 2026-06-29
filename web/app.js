@@ -3222,6 +3222,7 @@ function renderAchievementIcon(type) {
     maguire_day: '/assets/achievements/maguire-day.svg',
     woodworker: '/assets/achievements/woodworker.svg',
     debutant: '/assets/achievements/debutant.svg',
+    stable_guy: '/assets/achievements/stable-guy.svg',
     support: '/assets/achievements/support.svg',
     last_line: '/assets/achievements/last-line.svg',
     dark_horse: '/assets/achievements/dark-horse.svg',
