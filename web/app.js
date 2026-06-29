@@ -1631,7 +1631,13 @@ function renderGameHeader(game) {
         </div>
         ${
           mapOptions.length
-            ? `<button type="button" class="primary-button map-button" data-open-map-choice="true">${escapeHtml(t('common.buttons.open_map'))}</button>`
+            ? `
+              <button type="button" class="map-icon-button" data-open-map-choice="true" aria-label="${escapeHtml(t('common.buttons.open_map'))}">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2.75a7.15 7.15 0 0 0-7.15 7.15c0 4.95 5.33 9.98 6.72 11.2a.66.66 0 0 0 .86 0c1.39-1.22 6.72-6.25 6.72-11.2A7.15 7.15 0 0 0 12 2.75Zm0 9.85a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Z"></path>
+                </svg>
+              </button>
+            `
             : ''
         }
       </div>
