@@ -87,9 +87,7 @@ const VENUE_DIRECTORY = [
     mapUrl: 'https://yandex.ru/maps/org/akademiya_budushchego/85913064858?si=yb6d72pvrvgnt63tbw8y23w900'
   }
 ];
-const FILTER_CHIPS = [
-  { key: 'overall', labelKey: 'players.filters.overall' }
-];
+const FILTER_CHIPS = [];
 const GAME_FILTERS = [
   { key: 'all', labelKey: 'match.filters.all' },
   { key: 'mine', labelKey: 'match.filters.mine' },
@@ -169,6 +167,7 @@ const state = {
   selfProfilePromptDismissedFor: '',
   profileActionsOpen: false,
   gameActionsOpen: false,
+  mapChoice: null,
   achievementDetailKey: '',
   achievementAwardQueue: [],
   achievementAwardIndex: 0,
@@ -435,6 +434,50 @@ function getVenueInfo(location = '') {
   };
 }
 
+function getMapQuery(game, venue) {
+  return [venue?.venue, venue?.address].filter(Boolean).join(', ') || game?.location || '';
+}
+
+function getMapChoiceOptions(game, venue) {
+  const query = getMapQuery(game, venue);
+  const encodedQuery = encodeURIComponent(query);
+
+  if (!query) {
+    return [];
+  }
+
+  return [
+    {
+      key: 'yandex',
+      label: t('maps.yandex'),
+      url: venue?.mapUrl || `https://yandex.ru/maps/?text=${encodedQuery}`
+    },
+    {
+      key: 'google',
+      label: t('maps.google'),
+      url: `https://www.google.com/maps/search/?api=1&query=${encodedQuery}`
+    },
+    {
+      key: 'apple',
+      label: t('maps.apple'),
+      url: `https://maps.apple.com/?q=${encodedQuery}`
+    }
+  ];
+}
+
+function openExternalLink(url) {
+  if (!url) {
+    return;
+  }
+
+  if (tg?.openLink) {
+    tg.openLink(url);
+    return;
+  }
+
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 function showToast(message) {
   toastNode.textContent = message;
   toastNode.classList.remove('hidden');
@@ -609,6 +652,10 @@ function getPlayer(playerId) {
     null;
 }
 
+function getViewerPlayerId() {
+  return state.snapshot?.viewerPlayerId || getViewerPlayer()?.id || '';
+}
+
 function getViewerPlayer() {
   const sessionPlayer = getPlayer(state.snapshot?.viewerPlayerId);
 
@@ -673,9 +720,24 @@ function resetManualGameState() {
   };
 }
 
+function ensureManualGameDraftCreator() {
+  if (state.manualGameMode !== 'create') {
+    return;
+  }
+
+  const viewerPlayerId = getViewerPlayerId();
+
+  if (!viewerPlayerId || state.manualGameDraft.playerIds.includes(viewerPlayerId)) {
+    return;
+  }
+
+  state.manualGameDraft.playerIds = [viewerPlayerId, ...state.manualGameDraft.playerIds];
+}
+
 function openManualGameCreate() {
   resetManualGameState();
   state.manualGameOpen = true;
+  ensureManualGameDraftCreator();
   hideCreateGameTooltip();
   render();
 }
@@ -1540,6 +1602,7 @@ function renderGameHeader(game) {
   const statusText = game.status === 'upcoming' ? t('match.forward') : game.status === 'live' ? t('match.live') : t('match.finished');
   const venue = getVenueInfo(game.location);
   const playerCountBadges = renderPlayerCountBadges(game.playersCount ?? game.participants.length, game);
+  const mapOptions = getMapChoiceOptions(game, venue);
 
   return `
     <section class="panel game-info-panel ${game.ratingWindowOpen ? 'game-info-panel--rating' : ''}">
@@ -1567,11 +1630,69 @@ function renderGameHeader(game) {
           <p>${escapeHtml(venue?.address || game.location || t('common.misc.not_specified'))}</p>
         </div>
         ${
-          venue?.mapUrl
-            ? `<button type="button" class="primary-button map-button" data-map-link="${escapeHtml(venue.mapUrl)}">${escapeHtml(t('common.buttons.open_map'))}</button>`
+          mapOptions.length
+            ? `<button type="button" class="primary-button map-button" data-open-map-choice="true">${escapeHtml(t('common.buttons.open_map'))}</button>`
             : ''
         }
       </div>
+    </section>
+  `;
+}
+
+function getGameAdditionalInfo(game) {
+  return [...(game.priceLine ? [game.priceLine] : []), ...(game.paymentLines ?? [])]
+    .map((line) => String(line || '').trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
+function getTelegramProfileUrl(player) {
+  const username = normalizeUsername(player?.username);
+
+  return username ? `https://t.me/${encodeURIComponent(username)}` : '';
+}
+
+function renderOrganizerPanel(game) {
+  const organizer = getPlayer(game.organizerPlayerId);
+  const additionalInfo = getGameAdditionalInfo(game);
+
+  if (!organizer && !additionalInfo) {
+    return '';
+  }
+
+  const telegramUrl = getTelegramProfileUrl(organizer);
+
+  return `
+    <section class="panel game-organizer-panel">
+      <h2>${escapeHtml(t('match.organizer'))}</h2>
+      ${
+        organizer
+          ? `
+            <div class="game-organizer-row">
+              <span class="game-organizer-avatar">${renderMiniAvatar(organizer)}</span>
+              <span class="game-organizer-copy">
+                <strong>${escapeHtml(organizer.displayName)}</strong>
+                <small>@${escapeHtml(organizer.username || 'unknown')}</small>
+              </span>
+              ${
+                telegramUrl
+                  ? `<button type="button" class="game-action-button game-organizer-write" data-open-external-link="${escapeHtml(telegramUrl)}">${escapeHtml(t('common.buttons.write'))}</button>`
+                  : ''
+              }
+            </div>
+          `
+          : ''
+      }
+      ${
+        additionalInfo
+          ? `
+            <div class="game-stat-field game-organizer-additional">
+              <span>${escapeHtml(t('common.labels.additional'))}</span>
+              <strong>${escapeHtml(additionalInfo).replace(/\n/g, '<br>')}</strong>
+            </div>
+          `
+          : ''
+      }
     </section>
   `;
 }
@@ -2329,6 +2450,7 @@ function renderGameTab() {
 
   return `
     ${renderGameHeader(game)}
+    ${game.ratingWindowOpen ? '' : renderOrganizerPanel(game)}
     ${renderRatingBanner(game)}
     ${isRatingMode ? renderQuickRatingPanel(game) : ''}
     ${isRatingMode ? '' : renderJoinControls(game)}
@@ -2508,6 +2630,8 @@ function ensureManualGameDraftDefaults() {
   if (!state.manualGameDraft.time) {
     state.manualGameDraft.time = '19:30';
   }
+
+  ensureManualGameDraftCreator();
 }
 
 function getManualSelectedPlayers() {
@@ -2786,6 +2910,27 @@ function renderProfileActionsModal() {
         </label>
         <button type="button" class="game-action-button" data-share-profile="true">${escapeHtml(t('common.buttons.share_card'))}</button>
         <button type="button" class="game-action-button" data-edit-self-profile="true">${escapeHtml(t('common.buttons.edit'))}</button>
+      </section>
+    </div>
+  `;
+}
+
+function renderMapChoiceModal() {
+  if (!state.mapChoice?.options?.length) {
+    return '';
+  }
+
+  return `
+    <div class="modal-backdrop modal-backdrop--compact" data-map-choice-backdrop="true">
+      <section class="modal-card game-actions-card map-choice-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('maps.title'))}">
+        <h2>${escapeHtml(t('maps.title'))}</h2>
+        ${state.mapChoice.options
+          .map((option) => `
+            <button type="button" class="game-action-button" data-open-map-option="${escapeHtml(option.key)}">
+              ${escapeHtml(option.label)}
+            </button>
+          `)
+          .join('')}
       </section>
     </div>
   `;
@@ -3457,6 +3602,7 @@ function renderModal() {
   const createGameModal = renderCreateGameModal();
   const gameActionsModal = renderGameActionsModal();
   const profileActionsModal = renderProfileActionsModal();
+  const mapChoiceModal = renderMapChoiceModal();
   const achievementAwardModal = renderAchievementAwardModal();
   const achievementDetailModal = achievementAwardModal ? '' : renderAchievementDetailModal();
   const selfProfilePromptModal = achievementAwardModal ? '' : renderSelfProfilePromptModal();
@@ -3466,6 +3612,7 @@ function renderModal() {
       createGameModal,
       gameActionsModal,
       profileActionsModal,
+      mapChoiceModal,
       achievementDetailModal,
       achievementAwardModal,
       selfProfilePromptModal
@@ -3496,6 +3643,7 @@ function renderModal() {
     createGameModal,
     gameActionsModal,
     profileActionsModal,
+    mapChoiceModal,
     achievementDetailModal,
     achievementAwardModal,
     selfProfilePromptModal
@@ -4249,6 +4397,22 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
+  if (event.target.matches('[data-map-choice-backdrop]')) {
+    state.mapChoice = null;
+    renderModal();
+    return;
+  }
+
+  const mapOptionButton = event.target.closest('[data-open-map-option]');
+
+  if (mapOptionButton) {
+    const option = state.mapChoice?.options?.find((item) => item.key === mapOptionButton.dataset.openMapOption);
+    state.mapChoice = null;
+    renderModal();
+    openExternalLink(option?.url);
+    return;
+  }
+
   if (event.target.matches('[data-self-profile-prompt-backdrop]') || event.target.closest('[data-dismiss-self-profile-prompt]')) {
     const player = getViewerPlayer();
     state.selfProfilePromptDismissedFor = player?.id || 'dismissed';
@@ -4570,18 +4734,22 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
-  const mapButton = event.target.closest('[data-map-link]');
+  const externalLinkButton = event.target.closest('[data-open-external-link]');
+
+  if (externalLinkButton) {
+    openExternalLink(externalLinkButton.dataset.openExternalLink || '');
+    return;
+  }
+
+  const mapButton = event.target.closest('[data-open-map-choice]');
 
   if (mapButton) {
-    const url = mapButton.dataset.mapLink;
+    const game = getCurrentGame();
+    const venue = getVenueInfo(game?.location);
+    const options = getMapChoiceOptions(game, venue);
 
-    if (url) {
-      if (tg?.openLink) {
-        tg.openLink(url);
-      } else {
-        window.open(url, '_blank', 'noopener,noreferrer');
-      }
-    }
+    state.mapChoice = options.length ? { options } : null;
+    renderModal();
     return;
   }
 

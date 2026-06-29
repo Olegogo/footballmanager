@@ -26,6 +26,7 @@
       "share_game": "Share game",
       "skip": "Skip",
       "view": "View",
+      "write": "Message",
       "yes": "Yes"
     },
     "labels": {
@@ -89,6 +90,12 @@
     "start_private_first": "Start the bot in a private chat with /start first",
     "telegram_failed": "Telegram auth failed: {{reason}}"
   },
+  "maps": {
+    "title": "Open in maps",
+    "yandex": "Yandex Maps",
+    "google": "Google Maps",
+    "apple": "Apple Maps"
+  },
   "onboarding": {
     "message_1": "⚽ Create games, build teams and find new players nearby.",
     "message_2": "🎯 We’ve already created your player card. Fill it in and get ratings after matches.",
@@ -128,6 +135,7 @@
     "no_games": "No games",
     "no_current_game": "No games yet",
     "no_current_game_description": "When the bot sees a message with a date, place, time and tagged players, the current match will appear here.",
+    "organizer": "Organizer",
     "parse_failed": "Couldn’t recognize the game. Make sure the announcement has a date, time, place and player list.",
     "parse_missing_text": "I see /game, but Telegram did not pass the announcement text. Copy the announcement after /game in one message or disable Privacy Mode in BotFather.",
     "player_added": "Player added",

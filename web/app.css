@@ -213,6 +213,11 @@ p {
   gap: 14px;
 }
 
+.app-shell--game .content > *,
+.app-shell--manual .content > * {
+  width: 100%;
+}
+
 .panel,
 .empty-state,
 .subtle-panel {
@@ -347,7 +352,7 @@ p {
 
 .game-card-stats .game-stat-field--badges {
   min-height: 0;
-  padding-bottom: 8px;
+  padding-bottom: 12px;
 }
 
 .game-facts .game-level-badge {
@@ -412,6 +417,102 @@ p {
   font-size: 17px;
   font-weight: 900;
   white-space: nowrap;
+}
+
+.game-organizer-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.game-organizer-panel h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 25px;
+  line-height: 1;
+}
+
+.game-organizer-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.game-organizer-avatar {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.game-organizer-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.game-organizer-avatar span {
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.game-organizer-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.game-organizer-copy strong,
+.game-organizer-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-organizer-copy strong {
+  color: var(--field-value);
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.game-organizer-copy small {
+  color: var(--field-label);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.game-organizer-write {
+  min-width: 116px;
+  min-height: 52px;
+  padding: 0 20px;
+}
+
+.game-organizer-additional {
+  min-height: 63px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--field-surface);
+  border: 1px solid transparent;
+}
+
+.game-organizer-additional span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--field-label);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.game-organizer-additional strong {
+  display: block;
+  color: var(--field-value);
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.25;
 }
 
 .ended-banner {
@@ -3964,6 +4065,15 @@ input[type="range"] {
 
   .game-venue {
     display: grid;
+  }
+
+  .game-organizer-row {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .game-organizer-write {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 
   .create-game-modal {
