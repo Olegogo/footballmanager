@@ -1685,7 +1685,7 @@ function renderOrganizerPanel(game) {
               </span>
               ${
                 telegramUrl
-                  ? `<button type="button" class="game-action-button game-organizer-write" data-open-external-link="${escapeHtml(telegramUrl)}">${escapeHtml(t('common.buttons.write'))}</button>`
+                  ? `<button type="button" class="game-action-button game-organizer-write" data-open-external-link="${escapeHtml(telegramUrl)}" aria-label="${escapeHtml(t('common.buttons.write'))}">${escapeHtml(t('common.buttons.write'))}</button>`
                   : ''
               }
             </div>
@@ -2516,7 +2516,7 @@ function renderGameLevelBadges(averageOverall) {
 function renderPlayerCountBadges(count, game) {
   const shouldShowRosterStatus = game.status === 'upcoming';
   const rosterLabel = game.rosterLocked ? t('match.lineup_closed') : t('match.lineup_open');
-  const rosterTone = game.rosterLocked ? 'mid' : 'high';
+  const rosterTone = game.rosterLocked ? 'roster-closed' : 'roster-open';
 
   return `
     <span class="game-level-badges game-roster-badges">
