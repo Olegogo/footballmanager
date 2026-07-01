@@ -1685,7 +1685,13 @@ function renderOrganizerPanel(game) {
               </span>
               ${
                 telegramUrl
-                  ? `<button type="button" class="game-action-button game-organizer-write" data-open-external-link="${escapeHtml(telegramUrl)}" aria-label="${escapeHtml(t('common.buttons.write'))}">${escapeHtml(t('common.buttons.write'))}</button>`
+                  ? `
+                    <button type="button" class="game-action-button game-organizer-write" data-open-external-link="${escapeHtml(telegramUrl)}" aria-label="${escapeHtml(t('common.buttons.write'))}">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M6.55 17.28h-.98a2.8 2.8 0 0 1-2.8-2.8V6.55a2.8 2.8 0 0 1 2.8-2.8h12.86a2.8 2.8 0 0 1 2.8 2.8v7.93a2.8 2.8 0 0 1-2.8 2.8h-5.5l-4.46 3.35a1.2 1.2 0 0 1-1.92-.96v-2.39Zm.2-7.75a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4Zm5.25 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4Zm5.25 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4Z"></path>
+                      </svg>
+                    </button>
+                  `
                   : ''
               }
             </div>
