@@ -158,6 +158,22 @@ p {
   justify-content: flex-end;
 }
 
+.app-shell--game .topbar {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 50%;
+  z-index: 80;
+  width: min(100%, 880px);
+  margin: 0;
+  padding: 0 var(--page-gutter);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.app-shell--game .game-top-actions {
+  pointer-events: auto;
+}
+
 .game-top-actions {
   display: flex;
   align-items: center;
@@ -2107,70 +2123,67 @@ p {
 }
 
 .field-panel {
-  overflow: hidden;
+  overflow: visible;
   padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .field {
+  --field-progress: var(--field-scroll-progress, 0);
   position: relative;
   width: 100%;
-  height: clamp(420px, 122vw, 520px);
+  height: clamp(210px, calc(58vw - var(--field-height-offset, 0px)), 338px);
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 0;
-  background:
-    radial-gradient(circle at center, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 100%),
-    linear-gradient(180deg, rgba(40, 116, 63, 0.95), rgba(12, 54, 28, 0.98));
-  background-size: 18px 18px, auto;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  isolation: isolate;
+  transition: height 0.14s ease-out;
 }
 
-.field::before {
-  content: "";
+.field-image {
   position: absolute;
-  inset: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.55);
-  border-radius: 0;
+  inset: 0;
+  z-index: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  pointer-events: none;
+  transition:
+    opacity 0.14s ease-out,
+    transform 0.14s ease-out;
 }
 
-.field-line.mid {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  top: 50%;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.55);
-  transform: translateY(-50%);
+.field-image--top {
+  opacity: var(--field-top-opacity, 1);
+  background-image: url("/assets/field/field-pull-down-topview-1200.webp");
+  transform: translateY(var(--field-top-y, 0px)) scale(var(--field-top-scale, 1));
 }
 
-.field-circle {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 120px;
-  height: 120px;
-  border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.55);
-  transform: translate(-50%, -50%);
+.field-image--side {
+  opacity: var(--field-side-opacity, 0);
+  background-image: url("/assets/field/field-scroll-up-sideview-1200.webp");
+  transform: translateY(var(--field-side-y, 0px)) scale(var(--field-side-scale, 0.96));
 }
 
-.field-box {
-  position: absolute;
-  left: 50%;
-  width: 190px;
-  height: 88px;
-  border: 2px solid rgba(255, 255, 255, 0.55);
-  transform: translateX(-50%);
+.field-panel--static .field {
+  --field-progress: 0;
+  --field-height-offset: 0px;
+  --field-top-opacity: 1;
+  --field-side-opacity: 0;
+  --field-top-y: 0px;
+  --field-top-scale: 1;
+  --field-side-y: 0px;
+  --field-side-scale: 0.96;
+  --field-layer-y: 0px;
+  --field-layer-scale-y: 1;
+  --field-card-scale: 1;
+  height: clamp(210px, 52vw, 330px);
 }
 
-.field-box.top {
-  top: 16px;
-  border-top: 0;
-}
-
-.field-box.bottom {
-  bottom: 16px;
-  border-bottom: 0;
+.field-panel--static .field-image--side {
+  display: none;
 }
 
 .field-empty {
@@ -2190,6 +2203,17 @@ p {
   text-align: center;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
   backdrop-filter: blur(12px);
+}
+
+.field-player-layer {
+  position: absolute;
+  inset: 8% 5% 13%;
+  z-index: 2;
+  transform-origin: 50% 48%;
+  transform:
+    translateY(var(--field-layer-y, 0px))
+    scaleY(var(--field-layer-scale-y, 1));
+  transition: transform 0.14s ease-out;
 }
 
 .field-team {
@@ -2237,14 +2261,16 @@ p {
 .field-player,
 .field-player-card {
   position: absolute;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(var(--field-card-scale, 1));
+  transform-origin: 50% 100%;
+  transition: transform 0.14s ease-out;
 }
 
 .field-player-card {
-  width: min(14vw, 60px);
-  min-width: 40px;
+  width: min(15vw, 66px);
+  min-width: 44px;
   display: grid;
-  gap: 3px;
+  gap: 2px;
   justify-items: center;
   padding: 0;
   border: 0;
@@ -2261,63 +2287,61 @@ p {
 .field-player-photo {
   position: relative;
   z-index: 1;
-  width: 34px;
-  height: 34px;
+  width: clamp(26px, 8.6vw, 42px);
+  height: clamp(26px, 8.6vw, 42px);
   border-radius: 999px;
-  overflow: hidden;
+  overflow: visible;
   display: grid;
   place-items: center;
   background: rgba(3, 10, 7, 0.86);
-  border: 2px solid rgba(255, 237, 186, 0.7);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
+  border: 2px solid rgba(255, 237, 186, 0.74);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.32);
 }
 
 .field-player-photo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: inherit;
 }
 
-.field-player-photo span {
+.field-player-photo > span:not(.field-player-rating-badge) {
   font-size: 11px;
   font-weight: 900;
   color: #ffe7af;
 }
 
-.field-player-info {
+.field-player-rating-badge {
+  position: absolute;
+  right: -8px;
+  top: -8px;
+  display: grid;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #1d160a;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.24);
+}
+
+.field-player-name {
   position: relative;
   z-index: 1;
-  display: grid;
-  gap: 1px;
   width: 100%;
-  text-align: center;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.82);
-}
-
-.field-player-info strong {
-  font-size: 12px;
-  line-height: 1;
-  color: #fffaf0;
-}
-
-.field-player-info span {
-  font-size: 9px;
+  color: rgba(255, 247, 220, 0.92);
+  font-size: clamp(8px, 2.3vw, 11px);
   font-weight: 900;
+  line-height: 1.05;
+  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.field-player-info .field-player-unrated {
-  justify-self: center;
-  max-width: 100%;
-  padding: 3px 5px;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.94);
-  color: #1d160a;
-  font-size: 8px;
-  line-height: 1;
-  text-shadow: none;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.82);
 }
 
 .field-player-cards {
@@ -4252,12 +4276,8 @@ input[type="range"] {
   }
 
   .field-player-card {
-    width: min(14vw, 58px);
+    width: min(15vw, 58px);
     min-width: 40px;
-  }
-
-  .field-player-info strong {
-    font-size: 12px;
   }
 
   .editor-body {

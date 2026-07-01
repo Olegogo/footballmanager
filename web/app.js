@@ -208,6 +208,7 @@ const toastNode = document.getElementById('toast');
 let refreshTimer = null;
 let countdownTimer = null;
 let lastAuthError = '';
+let fieldScrollFrame = 0;
 
 function getTelegramLocale() {
   return String(tg?.initDataUnsafe?.user?.language_code || navigator.language || 'ru')
@@ -2247,49 +2248,63 @@ function renderQuickRatingPanel(game) {
   return renderQuickAchievementFields(game, draft);
 }
 
+function projectFieldSlot(slot, zone) {
+  const longitudinal = clamp(slot.y, 8, 92);
+  const depth = 50 - (slot.x - 50) * 0.58;
+  const goalPressure = Math.abs(longitudinal - 50) / 50;
+  const teamOffset = zone === 'top' ? -2.2 : 2.2;
+
+  return {
+    x: clamp(longitudinal, 8, 92),
+    y: clamp(depth + teamOffset * goalPressure, 18, 82)
+  };
+}
+
 function renderField(game, options = {}) {
   const participants = game.participants ?? [];
   const teams = splitBalancedTeams(participants);
   const emptyMessage = !participants.length ? options.emptyMessage : '';
+  const panelModeClass = options.static ? 'field-panel--static' : 'field-panel--scroll';
 
   return `
-    <section class="panel field-panel ${options.className ? escapeHtml(options.className) : ''}">
+    <section class="panel field-panel ${panelModeClass} ${options.className ? escapeHtml(options.className) : ''}">
       <div class="field">
-        <div class="field-line mid"></div>
-        <div class="field-circle"></div>
-        <div class="field-box top"></div>
-        <div class="field-box bottom"></div>
+        <div class="field-image field-image--top" aria-hidden="true"></div>
+        <div class="field-image field-image--side" aria-hidden="true"></div>
         ${emptyMessage ? `<div class="field-empty">${escapeHtml(emptyMessage)}</div>` : ''}
-        ${teams
-          .map((team) => {
-            const assignments = buildTeamFieldAssignments(team.players, team.key);
-            return `
-              <div class="field-team field-team--${escapeHtml(team.key)}">
-                ${assignments
-                  .map(({ player, slot }) => {
-                    const isInteractive = Boolean(player.canRateTarget);
-                    const openAttribute = isInteractive ? `data-open-player="${escapeHtml(player.id)}"` : '';
-                    const ratingLabel = getGameMiniCardRatingLabel(player, game);
-                    return `
-                      <button
-                        type="button"
-                        class="field-player-card ${isInteractive ? '' : 'field-player-card--static'}"
-                        ${openAttribute}
-                        style="left:${slot.x}%; top:${slot.y}%"
-                      >
-                        <div class="field-player-photo">${renderMiniAvatar(player)}</div>
-                        <div class="field-player-info">
-                          ${ratingLabel ? `<strong>${escapeHtml(ratingLabel)}</strong>` : ''}
-                          <span>${escapeHtml(player.displayName.split(' ')[0])}</span>
-                        </div>
-                      </button>
-                    `;
-                  })
-                  .join('')}
-              </div>
-            `;
-          })
-          .join('')}
+        <div class="field-player-layer">
+          ${teams
+            .map((team) => {
+              const assignments = buildTeamFieldAssignments(team.players, team.key);
+              return `
+                <div class="field-team field-team--${escapeHtml(team.key)}">
+                  ${assignments
+                    .map(({ player, slot }) => {
+                      const projectedSlot = projectFieldSlot(slot, team.key);
+                      const isInteractive = Boolean(player.canRateTarget);
+                      const openAttribute = isInteractive ? `data-open-player="${escapeHtml(player.id)}"` : '';
+                      const ratingLabel = getGameMiniCardRatingLabel(player, game);
+                      return `
+                        <button
+                          type="button"
+                          class="field-player-card ${isInteractive ? '' : 'field-player-card--static'}"
+                          ${openAttribute}
+                          style="left:${projectedSlot.x}%; top:${projectedSlot.y}%"
+                        >
+                          <div class="field-player-photo">
+                            ${renderMiniAvatar(player)}
+                            ${ratingLabel ? `<span class="field-player-rating-badge">${escapeHtml(ratingLabel)}</span>` : ''}
+                          </div>
+                          <span class="field-player-name">${escapeHtml(player.displayName.split(' ')[0])}</span>
+                        </button>
+                      `;
+                    })
+                    .join('')}
+                </div>
+              `;
+            })
+            .join('')}
+        </div>
       </div>
     </section>
   `;
@@ -2464,12 +2479,12 @@ function renderGameTab() {
   const isRatingMode = Boolean(game.ratingWindowOpen && game.canViewerRate);
 
   return `
+    ${renderField(game)}
     ${renderGameHeader(game)}
     ${game.ratingWindowOpen ? '' : renderOrganizerPanel(game)}
     ${renderRatingBanner(game)}
     ${isRatingMode ? renderQuickRatingPanel(game) : ''}
     ${isRatingMode ? '' : renderJoinControls(game)}
-    ${isRatingMode ? '' : renderField(game)}
     ${renderGamePlayersList(game)}
     ${isRatingMode ? '' : renderRosterLockControls(game)}
     ${isRatingMode ? '' : renderWaitingPlayersSection(game)}
@@ -2769,6 +2784,7 @@ function renderManualFieldPreview() {
     }))
   }, {
     className: 'manual-field-panel',
+    static: true,
     emptyMessage: t('match.field_empty')
   });
 }
@@ -3718,6 +3734,49 @@ function syncStaticLabels() {
   document.getElementById('tab-profile')?.setAttribute('aria-label', t('common.labels.profile'));
 }
 
+function syncFieldScrollProgress() {
+  const field = document.querySelector('.field-panel--scroll .field');
+
+  if (!field) {
+    setFieldScrollProgress(0);
+    return;
+  }
+
+  const rect = field.getBoundingClientRect();
+  const scrollRange = Math.max(150, field.offsetHeight * 0.72);
+  const progress = clamp(-rect.top / scrollRange, 0, 1);
+
+  setFieldScrollProgress(progress);
+}
+
+function setFieldScrollProgress(progress) {
+  const rootStyle = document.documentElement.style;
+  const value = Number(progress) || 0;
+
+  rootStyle.setProperty('--field-scroll-progress', value.toFixed(3));
+  rootStyle.setProperty('--field-top-opacity', (1 - value).toFixed(3));
+  rootStyle.setProperty('--field-side-opacity', value.toFixed(3));
+  rootStyle.setProperty('--field-height-offset', `${Math.round(value * 92)}px`);
+  rootStyle.setProperty('--field-top-y', `${Math.round(value * -10)}px`);
+  rootStyle.setProperty('--field-top-scale', (1 - value * 0.02).toFixed(3));
+  rootStyle.setProperty('--field-side-y', `${Math.round(value * -16)}px`);
+  rootStyle.setProperty('--field-side-scale', (0.96 + value * 0.04).toFixed(3));
+  rootStyle.setProperty('--field-layer-y', `${Math.round(value * -18)}px`);
+  rootStyle.setProperty('--field-layer-scale-y', (1 - value * 0.38).toFixed(3));
+  rootStyle.setProperty('--field-card-scale', (1 - value * 0.1).toFixed(3));
+}
+
+function requestFieldScrollSync() {
+  if (fieldScrollFrame) {
+    return;
+  }
+
+  fieldScrollFrame = requestAnimationFrame(() => {
+    fieldScrollFrame = 0;
+    syncFieldScrollProgress();
+  });
+}
+
 function render() {
   syncAchievementAwards();
   syncStaticLabels();
@@ -3760,6 +3819,7 @@ function render() {
       </section>
     `;
     renderModal();
+    requestFieldScrollSync();
     return;
   }
 
@@ -3771,6 +3831,7 @@ function render() {
   renderModal();
   resizeManualTextareas(contentNode);
   scrollToTargetPlayerCard();
+  requestFieldScrollSync();
 }
 
 async function submitRating(form) {
@@ -4958,6 +5019,9 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('focus', () => {
   void refreshSnapshot({ silent: true });
 });
+
+window.addEventListener('scroll', requestFieldScrollSync, { passive: true });
+window.addEventListener('resize', requestFieldScrollSync);
 
 document.addEventListener('submit', async (event) => {
   if (event.target.id === 'manualGameForm') {
