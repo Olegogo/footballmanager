@@ -631,6 +631,16 @@ function getCurrentGame() {
   return state.snapshot?.currentGame ?? null;
 }
 
+function getGameById(gameId) {
+  const targetId = String(gameId || '');
+
+  if (!targetId) {
+    return null;
+  }
+
+  return getGameDays().find((game) => game.id === targetId) || getGames().find((game) => game.id === targetId) || null;
+}
+
 function getGames() {
   return state.snapshot?.games ?? [];
 }
@@ -761,6 +771,30 @@ function openManualGameEdit(game) {
       ...(game.invitedPlayers ?? []).map((player) => player.id)
     ]
   };
+  render();
+}
+
+function openManualGameCopy(game) {
+  state.gameActionsOpen = false;
+  state.manualGameOpen = true;
+  state.manualGameMode = 'create';
+  state.manualGameGameId = '';
+  state.manualGameConfirm = null;
+  state.manualPlayerPickerOpen = false;
+  state.manualPlayerSearch = '';
+  state.manualGameDraft = {
+    date: new Date(game.scheduledAt).toISOString().slice(0, 10),
+    time: game.time || '19:30',
+    location: game.location || '',
+    additionalInfo: getGameAdditionalInfo(game),
+    playerIds: [
+      ...new Set([
+        ...game.participants.map((player) => player.id),
+        ...(game.invitedPlayers ?? []).map((player) => player.id)
+      ])
+    ]
+  };
+  hideCreateGameTooltip();
   render();
 }
 
@@ -2269,8 +2303,12 @@ function renderField(game, options = {}) {
   return `
     <section class="panel field-panel ${panelModeClass} ${options.className ? escapeHtml(options.className) : ''}">
       <div class="field">
-        <div class="field-image field-image--top" aria-hidden="true"></div>
-        <div class="field-image field-image--side" aria-hidden="true"></div>
+        <div class="field-image field-image--top" aria-hidden="true">
+          <img src="/assets/field/field-pull-down-topview-1200.webp" alt="">
+        </div>
+        <div class="field-image field-image--side" aria-hidden="true">
+          <img src="/assets/field/field-scroll-up-sideview-1200.webp" alt="">
+        </div>
         ${emptyMessage ? `<div class="field-empty">${escapeHtml(emptyMessage)}</div>` : ''}
         <div class="field-player-layer">
           ${teams
@@ -2910,6 +2948,7 @@ function renderGameActionsModal() {
       <section class="modal-card game-actions-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('match.actions'))}">
         <h2>${escapeHtml(t('match.actions'))}</h2>
         <button type="button" class="game-action-button" data-share-game="true">${escapeHtml(t('common.buttons.share_game'))}</button>
+        <button type="button" class="game-action-button" data-copy-game="${escapeHtml(game.id)}">${escapeHtml(t('common.buttons.copy_game'))}</button>
         ${
           game.canViewerManage
             ? `
@@ -4471,6 +4510,26 @@ document.addEventListener('click', async (event) => {
   if (gameActionsBackdrop) {
     state.gameActionsOpen = false;
     renderModal();
+    return;
+  }
+
+  const copyGameButton = event.target.closest('[data-copy-game]');
+
+  if (copyGameButton) {
+    if (!(await ensureAuthorizedForAction())) {
+      return;
+    }
+
+    if (!state.snapshot?.viewerCanCreateGames && !state.allowDevLogin) {
+      showToast(t('auth.start_private_first'));
+      return;
+    }
+
+    const game = getGameById(copyGameButton.dataset.copyGame) || getCurrentGame();
+
+    if (game) {
+      openManualGameCopy(game);
+    }
     return;
   }
 
