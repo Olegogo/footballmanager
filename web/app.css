@@ -11,6 +11,7 @@
   --field-surface: rgba(255, 255, 255, 0.1);
   --field-label: rgba(255, 255, 255, 0.5);
   --field-value: #f3eed6;
+  --field-icon-color: rgba(255, 255, 255, 0.76);
   --rating-card-surface: rgba(171, 157, 111, 0.1);
   --rating-card-border: rgba(171, 157, 111, 0.2);
   --rating-gold: #e6c36f;
@@ -374,7 +375,7 @@ p {
 
 .game-card-stats .game-stat-field--badges {
   min-height: 0;
-  padding-bottom: 8px;
+  padding-bottom: 10px;
 }
 
 .game-facts .game-level-badge {
@@ -448,7 +449,7 @@ p {
   border: 0;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.76);
+  color: var(--field-icon-color);
   cursor: pointer;
 }
 
@@ -535,7 +536,7 @@ p {
   display: grid;
   place-items: center;
   border-radius: 12px;
-  color: rgba(255, 255, 255, 0.76);
+  color: var(--field-icon-color);
   font-size: 0;
 }
 
@@ -819,6 +820,18 @@ p {
   color: #bff3ce;
 }
 
+.game-card-stats .game-level-badge--roster-open,
+.game-facts .game-level-badge--roster-open {
+  background: rgba(241, 207, 114, 0.18);
+  color: #ffe28b;
+}
+
+.game-card-stats .game-level-badge--roster-closed,
+.game-facts .game-level-badge--roster-closed {
+  background: rgba(112, 220, 150, 0.18);
+  color: #bff3ce;
+}
+
 .game-level-badge--low {
   background: rgba(245, 122, 85, 0.18);
   color: #ffc8b5;
@@ -935,6 +948,12 @@ p {
   line-height: 1;
   box-shadow: 0 22px 52px rgba(0, 0, 0, 0.36);
   cursor: pointer;
+}
+
+.floating-create-button span {
+  display: block;
+  line-height: 1;
+  transform: translateY(-1px);
 }
 
 .game-player-list {

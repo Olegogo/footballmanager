@@ -1628,7 +1628,7 @@ function renderGameHeader(game) {
       </div>
       <div class="game-venue">
         <div class="game-venue-copy">
-          <span>${escapeHtml(t('common.labels.address'))}</span>
+          <span>${escapeHtml(t('common.labels.location'))}</span>
           <strong>${escapeHtml(venue?.venue || game.location || t('common.misc.not_specified'))}</strong>
           <p>${escapeHtml(venue?.address || game.location || t('common.misc.not_specified'))}</p>
         </div>
@@ -3061,7 +3061,9 @@ function renderGamesTab() {
           ? `<div class="floating-create-tooltip" role="status">${escapeHtml(t('match.create_tooltip'))}</div>`
           : ''
       }
-      <button type="button" class="floating-create-button" data-open-create-game="true" aria-label="${escapeHtml(t('match.create_tooltip'))}">+</button>
+      <button type="button" class="floating-create-button" data-open-create-game="true" aria-label="${escapeHtml(t('match.create_tooltip'))}">
+        <span aria-hidden="true">+</span>
+      </button>
     </div>
   `;
 }
