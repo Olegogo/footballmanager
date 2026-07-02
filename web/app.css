@@ -180,10 +180,10 @@ p {
 .game-top-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 8px;
   height: 44px;
   margin-left: auto;
-  padding: 0 6px;
+  padding: 0 4px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.12);
 }
@@ -220,8 +220,8 @@ p {
 
 #gameMenuButton {
   font-size: 18px;
-  letter-spacing: 3px;
-  transform: translateX(1px);
+  letter-spacing: 0;
+  transform: none;
 }
 
 .ghost-button,
@@ -1958,8 +1958,8 @@ p {
   position: fixed;
   left: 50%;
   right: auto;
-  width: min(calc(100vw - 48px), 832px);
-  bottom: max(24px, env(safe-area-inset-bottom));
+  width: min(calc(100vw - 24px), 856px);
+  bottom: max(20px, env(safe-area-inset-bottom));
   transform: translateX(-50%);
   z-index: 58;
   pointer-events: none;
@@ -2175,7 +2175,7 @@ p {
 .field {
   position: relative;
   width: 100%;
-  height: clamp(224px, 61vw, 372px);
+  height: clamp(269px, 73vw, 446px);
   min-height: 0;
   overflow: visible;
   border-radius: 0;
@@ -2206,7 +2206,7 @@ p {
 }
 
 .field-panel--static .field {
-  height: clamp(224px, 61vw, 372px);
+  height: clamp(269px, 73vw, 446px);
 }
 
 .field-panel--static .field-image--side {
@@ -4000,7 +4000,7 @@ input[type="range"] {
   position: fixed;
   left: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
   right: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
-  bottom: max(24px, env(safe-area-inset-bottom));
+  bottom: max(20px, env(safe-area-inset-bottom));
   z-index: 82;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

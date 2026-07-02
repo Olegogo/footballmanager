@@ -2313,7 +2313,11 @@ function renderField(game, options = {}) {
   const fieldPlayers = options.singleField || !options.showTeamControl
     ? participants
     : selectedTeam.players;
-  const assignments = buildFullFieldAssignments(fieldPlayers);
+  const shouldMirrorTeam = Boolean(options.showTeamControl && !options.singleField && selectedTeam?.key === 'bottom');
+  const assignments = buildFullFieldAssignments(fieldPlayers).map(({ player, slot }) => ({
+    player,
+    slot: shouldMirrorTeam ? { ...slot, x: 100 - slot.x } : slot
+  }));
   const emptyMessage = !participants.length ? options.emptyMessage : '';
 
   return `
