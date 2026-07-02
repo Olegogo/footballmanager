@@ -112,6 +112,7 @@ p {
 }
 
 .app-shell--game {
+  padding-top: 12px;
   padding-bottom: 18px;
 }
 
@@ -159,7 +160,7 @@ p {
 }
 
 .app-shell--game .topbar {
-  margin-bottom: -4px;
+  margin-bottom: 12px;
 }
 
 .app-shell--game .game-top-actions {
@@ -169,6 +170,7 @@ p {
 .game-team-controls {
   display: flex;
   align-items: center;
+  min-height: 44px;
 }
 
 .game-team-controls[hidden] {
@@ -178,8 +180,12 @@ p {
 .game-top-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 2px;
+  height: 44px;
   margin-left: auto;
+  padding: 0 6px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .game-top-actions[hidden] {
@@ -187,15 +193,15 @@ p {
 }
 
 .game-top-button {
-  width: 46px;
-  height: 46px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: transparent;
   color: var(--text);
-  font-size: 30px;
+  font-size: 31px;
   font-weight: 900;
   line-height: 1;
   cursor: pointer;
@@ -214,7 +220,8 @@ p {
 
 #gameMenuButton {
   font-size: 18px;
-  letter-spacing: 2px;
+  letter-spacing: 3px;
+  transform: translateX(1px);
 }
 
 .ghost-button,
@@ -257,6 +264,10 @@ p {
 .app-shell--game .content > *,
 .app-shell--manual .content > * {
   width: 100%;
+}
+
+.app-shell--game .content {
+  gap: 12px;
 }
 
 .panel,
@@ -1945,9 +1956,11 @@ p {
 .join-cta {
   display: grid;
   position: fixed;
-  left: max(24px, calc((100vw - 880px) / 2 + 24px));
-  right: max(24px, calc((100vw - 880px) / 2 + 24px));
+  left: 50%;
+  right: auto;
+  width: min(calc(100vw - 48px), 832px);
   bottom: max(24px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
   z-index: 58;
   pointer-events: none;
 }
@@ -2152,6 +2165,7 @@ p {
 
 .field-panel {
   overflow: visible;
+  margin-inline: calc(12px - var(--page-gutter));
   padding: 0;
   background: transparent;
   border: 0;
@@ -2161,7 +2175,7 @@ p {
 .field {
   position: relative;
   width: 100%;
-  height: clamp(206px, 56vw, 332px);
+  height: clamp(224px, 61vw, 372px);
   min-height: 0;
   overflow: visible;
   border-radius: 0;
@@ -2192,7 +2206,7 @@ p {
 }
 
 .field-panel--static .field {
-  height: clamp(206px, 56vw, 332px);
+  height: clamp(224px, 61vw, 372px);
 }
 
 .field-panel--static .field-image--side {
@@ -2202,20 +2216,21 @@ p {
 .field-team-control {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
+  height: 44px;
   padding: 4px;
-  border-radius: 14px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.08);
 }
 
 .field-team-control button {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   padding: 0;
   border: 0;
-  border-radius: 10px;
+  border-radius: 12px;
   background: transparent;
   cursor: pointer;
 }
@@ -2225,8 +2240,8 @@ p {
 }
 
 .field-team-control img {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
 }
 
