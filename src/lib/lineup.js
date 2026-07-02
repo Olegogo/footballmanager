@@ -18,6 +18,22 @@ export const POSITION_META = {
 
 export const POSITION_CHOICES = ['N/A', 'GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST'];
 
+const FIELD_POSITION_LAYOUT_FULL = {
+  GK: { x: 12, y: 50 },
+  CB: { x: 28, y: 50 },
+  LB: { x: 28, y: 25 },
+  RB: { x: 28, y: 75 },
+  CDM: { x: 43, y: 50 },
+  CM: { x: 51, y: 50 },
+  CAM: { x: 61, y: 50 },
+  LM: { x: 51, y: 25 },
+  RM: { x: 51, y: 75 },
+  LW: { x: 72, y: 22 },
+  RW: { x: 72, y: 78 },
+  ST: { x: 79, y: 50 },
+  'N/A': { x: 50, y: 50 }
+};
+
 const FIELD_POSITION_LAYOUT_TOP = {
   GK: { x: 50, y: 12 },
   CB: { x: 50, y: 23 },
@@ -141,6 +157,45 @@ export function buildTeamFieldAssignments(players, zone) {
 
   return [...groups.entries()].flatMap(([position, groupedPlayers]) => {
     const base = getFieldBaseSlot(position, zone);
+    const offsets = buildClusterOffsets(groupedPlayers.length, position);
+
+    return groupedPlayers.map((player, index) => ({
+      player,
+      position,
+      slot: {
+        x: clamp(base.x + offsets[index].x, bounds.xMin, bounds.xMax),
+        y: clamp(base.y + offsets[index].y, bounds.yMin, bounds.yMax)
+      }
+    }));
+  });
+}
+
+export function buildFullFieldAssignments(players) {
+  const groups = new Map();
+  const bounds = { xMin: 10, xMax: 90, yMin: 16, yMax: 84 };
+
+  for (const player of [...players].sort((left, right) => {
+    const leftPosition = getSortPosition(getEffectivePosition(left));
+    const rightPosition = getSortPosition(getEffectivePosition(right));
+
+    if (leftPosition !== rightPosition) {
+      return leftPosition - rightPosition;
+    }
+
+    if (getEffectiveOverall(right) !== getEffectiveOverall(left)) {
+      return getEffectiveOverall(right) - getEffectiveOverall(left);
+    }
+
+    return left.displayName.localeCompare(right.displayName, 'ru');
+  })) {
+    const position = getEffectivePosition(player);
+    const list = groups.get(position) || [];
+    list.push(player);
+    groups.set(position, list);
+  }
+
+  return [...groups.entries()].flatMap(([position, groupedPlayers]) => {
+    const base = FIELD_POSITION_LAYOUT_FULL[position] || FIELD_POSITION_LAYOUT_FULL['N/A'];
     const offsets = buildClusterOffsets(groupedPlayers.length, position);
 
     return groupedPlayers.map((player, index) => ({

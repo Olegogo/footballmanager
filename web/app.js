@@ -1,7 +1,7 @@
 import {
   POSITION_CHOICES,
   POSITION_META,
-  buildTeamFieldAssignments,
+  buildFullFieldAssignments,
   clamp,
   getEffectiveOverall,
   getEffectivePosition,
@@ -157,6 +157,7 @@ const state = {
   positionFilter: '',
   achievementFilter: '',
   skillFilter: '',
+  fieldTeamFilter: 'top',
   playerSearch: '',
   showCreateGameTooltip: false,
   selectedPlayerId: null,
@@ -208,7 +209,6 @@ const toastNode = document.getElementById('toast');
 let refreshTimer = null;
 let countdownTimer = null;
 let lastAuthError = '';
-let fieldScrollFrame = 0;
 
 function getTelegramLocale() {
   return String(tg?.initDataUnsafe?.user?.language_code || navigator.language || 'ru')
@@ -2282,63 +2282,66 @@ function renderQuickRatingPanel(game) {
   return renderQuickAchievementFields(game, draft);
 }
 
-function projectFieldSlot(slot, zone) {
-  const longitudinal = clamp(slot.y, 8, 92);
-  const depth = 50 - (slot.x - 50) * 0.58;
-  const goalPressure = Math.abs(longitudinal - 50) / 50;
-  const teamOffset = zone === 'top' ? -2.2 : 2.2;
+function getFieldTeams(game) {
+  return splitBalancedTeams(game.participants ?? []);
+}
 
-  return {
-    x: clamp(longitudinal, 8, 92),
-    y: clamp(depth + teamOffset * goalPressure, 18, 82)
-  };
+function getSelectedFieldTeam(game) {
+  const teams = getFieldTeams(game);
+  const requestedTeam = teams.find((team) => team.key === state.fieldTeamFilter && team.players.length);
+
+  return requestedTeam || teams.find((team) => team.players.length) || teams[0] || { key: 'top', players: [] };
+}
+
+function renderFieldTeamControl(activeTeamKey) {
+  return `
+    <div class="field-team-control" aria-label="${escapeHtml(t('match.teams'))}">
+      <button type="button" class="${activeTeamKey === 'top' ? 'active' : ''}" data-field-team-filter="top" aria-label="${escapeHtml(t('match.team_white'))}">
+        <img src="/assets/field/shirt-white-44.png" alt="">
+      </button>
+      <button type="button" class="${activeTeamKey === 'bottom' ? 'active' : ''}" data-field-team-filter="bottom" aria-label="${escapeHtml(t('match.team_red'))}">
+        <img src="/assets/field/shirt-red-44.png" alt="">
+      </button>
+    </div>
+  `;
 }
 
 function renderField(game, options = {}) {
   const participants = game.participants ?? [];
-  const teams = splitBalancedTeams(participants);
+  const selectedTeam = options.showTeamControl ? getSelectedFieldTeam(game) : null;
+  const fieldPlayers = options.singleField || !options.showTeamControl
+    ? participants
+    : selectedTeam.players;
+  const assignments = buildFullFieldAssignments(fieldPlayers);
   const emptyMessage = !participants.length ? options.emptyMessage : '';
-  const panelModeClass = options.static ? 'field-panel--static' : 'field-panel--scroll';
 
   return `
-    <section class="panel field-panel ${panelModeClass} ${options.className ? escapeHtml(options.className) : ''}">
+    <section class="panel field-panel field-panel--static ${options.className ? escapeHtml(options.className) : ''}">
       <div class="field">
+        ${options.showTeamControl && participants.length ? renderFieldTeamControl(selectedTeam.key) : ''}
         <div class="field-image field-image--top" aria-hidden="true">
           <img src="/assets/field/field-pull-down-topview-1200.webp" alt="">
         </div>
-        <div class="field-image field-image--side" aria-hidden="true">
-          <img src="/assets/field/field-scroll-up-sideview-1200.webp" alt="">
-        </div>
         ${emptyMessage ? `<div class="field-empty">${escapeHtml(emptyMessage)}</div>` : ''}
         <div class="field-player-layer">
-          ${teams
-            .map((team) => {
-              const assignments = buildTeamFieldAssignments(team.players, team.key);
+          ${assignments
+            .map(({ player, slot }) => {
+              const isInteractive = Boolean(player.canRateTarget);
+              const openAttribute = isInteractive ? `data-open-player="${escapeHtml(player.id)}"` : '';
+              const ratingLabel = getGameMiniCardRatingLabel(player, game);
               return `
-                <div class="field-team field-team--${escapeHtml(team.key)}">
-                  ${assignments
-                    .map(({ player, slot }) => {
-                      const projectedSlot = projectFieldSlot(slot, team.key);
-                      const isInteractive = Boolean(player.canRateTarget);
-                      const openAttribute = isInteractive ? `data-open-player="${escapeHtml(player.id)}"` : '';
-                      const ratingLabel = getGameMiniCardRatingLabel(player, game);
-                      return `
-                        <button
-                          type="button"
-                          class="field-player-card ${isInteractive ? '' : 'field-player-card--static'}"
-                          ${openAttribute}
-                          style="left:${projectedSlot.x}%; top:${projectedSlot.y}%"
-                        >
-                          <div class="field-player-photo">
-                            ${renderMiniAvatar(player)}
-                            ${ratingLabel ? `<span class="field-player-rating-badge">${escapeHtml(ratingLabel)}</span>` : ''}
-                          </div>
-                          <span class="field-player-name">${escapeHtml(player.displayName.split(' ')[0])}</span>
-                        </button>
-                      `;
-                    })
-                    .join('')}
-                </div>
+                <button
+                  type="button"
+                  class="field-player-card ${isInteractive ? '' : 'field-player-card--static'}"
+                  ${openAttribute}
+                  style="left:${slot.x}%; top:${slot.y}%"
+                >
+                  <div class="field-player-photo">
+                    ${renderMiniAvatar(player)}
+                    ${ratingLabel ? `<span class="field-player-rating-badge">${escapeHtml(ratingLabel)}</span>` : ''}
+                  </div>
+                  <span class="field-player-name">${escapeHtml(player.displayName.split(' ')[0])}</span>
+                </button>
               `;
             })
             .join('')}
@@ -2454,8 +2457,11 @@ function renderGamePlayersList(game) {
   }
 
   return `
-    <section class="game-player-list">
-      ${players.map((player) => renderGamePlayerRow(player)).join('')}
+    <section class="panel game-roster-panel">
+      <h2>${escapeHtml(t('match.squad'))}</h2>
+      <div class="game-player-list">
+        ${players.map((player) => renderGamePlayerRow(player)).join('')}
+      </div>
     </section>
   `;
 }
@@ -2491,10 +2497,8 @@ function renderWaitingPlayersSection(game) {
   }
 
   return `
-    <section class="join-requests-panel">
-      <div class="join-requests-head">
-        <h3>${escapeHtml(t('match.waiting'))}</h3>
-      </div>
+    <section class="panel game-roster-panel join-requests-panel">
+      <h2>${escapeHtml(t('match.waiting'))}</h2>
       <div class="join-requests-list">
         ${waitingPlayers.map((player) => renderJoinRequestCard(player, game)).join('')}
       </div>
@@ -2517,7 +2521,7 @@ function renderGameTab() {
   const isRatingMode = Boolean(game.ratingWindowOpen && game.canViewerRate);
 
   return `
-    ${renderField(game)}
+    ${renderField(game, { showTeamControl: true })}
     ${renderGameHeader(game)}
     ${game.ratingWindowOpen ? '' : renderOrganizerPanel(game)}
     ${renderRatingBanner(game)}
@@ -3773,49 +3777,6 @@ function syncStaticLabels() {
   document.getElementById('tab-profile')?.setAttribute('aria-label', t('common.labels.profile'));
 }
 
-function syncFieldScrollProgress() {
-  const field = document.querySelector('.field-panel--scroll .field');
-
-  if (!field) {
-    setFieldScrollProgress(0);
-    return;
-  }
-
-  const rect = field.getBoundingClientRect();
-  const scrollRange = Math.max(150, field.offsetHeight * 0.72);
-  const progress = clamp(-rect.top / scrollRange, 0, 1);
-
-  setFieldScrollProgress(progress);
-}
-
-function setFieldScrollProgress(progress) {
-  const rootStyle = document.documentElement.style;
-  const value = Number(progress) || 0;
-
-  rootStyle.setProperty('--field-scroll-progress', value.toFixed(3));
-  rootStyle.setProperty('--field-top-opacity', (1 - value).toFixed(3));
-  rootStyle.setProperty('--field-side-opacity', value.toFixed(3));
-  rootStyle.setProperty('--field-height-offset', `${Math.round(value * 92)}px`);
-  rootStyle.setProperty('--field-top-y', `${Math.round(value * -10)}px`);
-  rootStyle.setProperty('--field-top-scale', (1 - value * 0.02).toFixed(3));
-  rootStyle.setProperty('--field-side-y', `${Math.round(value * -16)}px`);
-  rootStyle.setProperty('--field-side-scale', (0.96 + value * 0.04).toFixed(3));
-  rootStyle.setProperty('--field-layer-y', `${Math.round(value * -18)}px`);
-  rootStyle.setProperty('--field-layer-scale-y', (1 - value * 0.38).toFixed(3));
-  rootStyle.setProperty('--field-card-scale', (1 - value * 0.1).toFixed(3));
-}
-
-function requestFieldScrollSync() {
-  if (fieldScrollFrame) {
-    return;
-  }
-
-  fieldScrollFrame = requestAnimationFrame(() => {
-    fieldScrollFrame = 0;
-    syncFieldScrollProgress();
-  });
-}
-
 function render() {
   syncAchievementAwards();
   syncStaticLabels();
@@ -3858,7 +3819,6 @@ function render() {
       </section>
     `;
     renderModal();
-    requestFieldScrollSync();
     return;
   }
 
@@ -3870,7 +3830,6 @@ function render() {
   renderModal();
   resizeManualTextareas(contentNode);
   scrollToTargetPlayerCard();
-  requestFieldScrollSync();
 }
 
 async function submitRating(form) {
@@ -4404,6 +4363,14 @@ document.addEventListener('click', async (event) => {
   if (profileActionsButton) {
     state.profileActionsOpen = true;
     renderModal();
+    return;
+  }
+
+  const fieldTeamButton = event.target.closest('[data-field-team-filter]');
+
+  if (fieldTeamButton) {
+    state.fieldTeamFilter = fieldTeamButton.dataset.fieldTeamFilter === 'bottom' ? 'bottom' : 'top';
+    render();
     return;
   }
 
@@ -5078,9 +5045,6 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('focus', () => {
   void refreshSnapshot({ silent: true });
 });
-
-window.addEventListener('scroll', requestFieldScrollSync, { passive: true });
-window.addEventListener('resize', requestFieldScrollSync);
 
 document.addEventListener('submit', async (event) => {
   if (event.target.id === 'manualGameForm') {

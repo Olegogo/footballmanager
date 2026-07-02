@@ -159,15 +159,7 @@ p {
 }
 
 .app-shell--game .topbar {
-  position: fixed;
-  top: calc(12px + env(safe-area-inset-top));
-  left: 50%;
-  z-index: 80;
-  width: min(100%, 880px);
-  margin: 0;
-  padding: 0 var(--page-gutter);
-  transform: translateX(-50%);
-  pointer-events: none;
+  margin-bottom: -4px;
 }
 
 .app-shell--game .game-top-actions {
@@ -198,9 +190,7 @@ p {
   font-weight: 900;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
-  -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px);
+  box-shadow: none;
 }
 
 .game-top-button[hidden] {
@@ -974,6 +964,18 @@ p {
 .game-player-list {
   display: grid;
   gap: 10px;
+}
+
+.game-roster-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.game-roster-panel h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 25px;
+  line-height: 1;
 }
 
 .game-player-row {
@@ -1976,10 +1978,6 @@ p {
 .join-requests-panel {
   display: grid;
   gap: 16px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
 }
 
 .join-requests-head {
@@ -2134,15 +2132,13 @@ p {
 }
 
 .field {
-  --field-progress: var(--field-scroll-progress, 0);
   position: relative;
   width: 100%;
-  height: clamp(210px, calc(58vw - var(--field-height-offset, 0px)), 338px);
+  height: clamp(206px, 56vw, 332px);
   min-height: 0;
   overflow: visible;
   border-radius: 0;
   isolation: isolate;
-  transition: height 0.14s ease-out;
 }
 
 .field-image {
@@ -2150,9 +2146,6 @@ p {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  transition:
-    opacity 0.14s ease-out,
-    transform 0.14s ease-out;
 }
 
 .field-image img {
@@ -2163,32 +2156,55 @@ p {
 }
 
 .field-image--top {
-  opacity: var(--field-top-opacity, 1);
-  transform: translateY(var(--field-top-y, 0px)) scale(var(--field-top-scale, 1));
+  opacity: 1;
+  transform: none;
 }
 
 .field-image--side {
-  opacity: var(--field-side-opacity, 0);
-  transform: translateY(var(--field-side-y, 0px)) scale(var(--field-side-scale, 0.96));
+  display: none;
 }
 
 .field-panel--static .field {
-  --field-progress: 0;
-  --field-height-offset: 0px;
-  --field-top-opacity: 1;
-  --field-side-opacity: 0;
-  --field-top-y: 0px;
-  --field-top-scale: 1;
-  --field-side-y: 0px;
-  --field-side-scale: 0.96;
-  --field-layer-y: 0px;
-  --field-layer-scale-y: 1;
-  --field-card-scale: 1;
-  height: clamp(210px, 52vw, 330px);
+  height: clamp(206px, 56vw, 332px);
 }
 
 .field-panel--static .field-image--side {
   display: none;
+}
+
+.field-team-control {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.field-team-control button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.field-team-control button.active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.field-team-control img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
 }
 
 .field-empty {
@@ -2212,13 +2228,8 @@ p {
 
 .field-player-layer {
   position: absolute;
-  inset: 8% 5% 13%;
+  inset: 9% 6% 15%;
   z-index: 2;
-  transform-origin: 50% 48%;
-  transform:
-    translateY(var(--field-layer-y, 0px))
-    scaleY(var(--field-layer-scale-y, 1));
-  transition: transform 0.14s ease-out;
 }
 
 .field-team {
@@ -2266,9 +2277,8 @@ p {
 .field-player,
 .field-player-card {
   position: absolute;
-  transform: translate(-50%, -50%) scale(var(--field-card-scale, 1));
+  transform: translate(-50%, -50%);
   transform-origin: 50% 100%;
-  transition: transform 0.14s ease-out;
 }
 
 .field-player-card {
