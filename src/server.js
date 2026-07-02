@@ -314,7 +314,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === 'GET' && /^\/assets\/achievements\/[a-z0-9-]+\.svg$/.test(url.pathname)) {
+    if (
+      req.method === 'GET' &&
+      /^\/assets\/(?:achievements|field|icons)\/[a-z0-9_.-]+\.(?:svg|png|webp)$/i.test(url.pathname)
+    ) {
       serveStaticFile(res, path.join(config.webDir, url.pathname.slice(1)));
       return;
     }
