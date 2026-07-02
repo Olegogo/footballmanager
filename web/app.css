@@ -160,7 +160,7 @@ p {
 }
 
 .app-shell--game .topbar {
-  margin-bottom: 12px;
+  margin-bottom: 20px;
 }
 
 .app-shell--game .game-top-actions {
@@ -1956,11 +1956,11 @@ p {
 .join-cta {
   display: grid;
   position: fixed;
-  left: 50%;
-  right: auto;
-  width: min(calc(100vw - 24px), 856px);
+  left: max(12px, calc((100vw - 880px) / 2 + 12px));
+  right: max(12px, calc((100vw - 880px) / 2 + 12px));
+  width: auto;
   bottom: max(20px, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
+  transform: none;
   z-index: 58;
   pointer-events: none;
 }
@@ -2175,7 +2175,8 @@ p {
 .field {
   position: relative;
   width: 100%;
-  height: clamp(269px, 73vw, 446px);
+  height: auto;
+  aspect-ratio: 1093 / 585;
   min-height: 0;
   overflow: visible;
   border-radius: 0;
@@ -2206,7 +2207,7 @@ p {
 }
 
 .field-panel--static .field {
-  height: clamp(269px, 73vw, 446px);
+  height: auto;
 }
 
 .field-panel--static .field-image--side {
@@ -2347,7 +2348,7 @@ p {
   display: grid;
   place-items: center;
   background: rgba(3, 10, 7, 0.86);
-  border: 2px solid rgba(255, 237, 186, 0.74);
+  border: 0;
   box-shadow: 0 10px 18px rgba(0, 0, 0, 0.32);
 }
 

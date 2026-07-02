@@ -2324,7 +2324,7 @@ function renderField(game, options = {}) {
     <section class="panel field-panel field-panel--static ${options.className ? escapeHtml(options.className) : ''}">
       <div class="field">
         <div class="field-image field-image--top" aria-hidden="true">
-          <img src="/assets/field/field-pull-down-topview-1200.webp" alt="">
+          <img src="/assets/field/field-pull-down-topview-cropped-clean.webp" alt="">
         </div>
         ${emptyMessage ? `<div class="field-empty">${escapeHtml(emptyMessage)}</div>` : ''}
         <div class="field-player-layer">
