@@ -2555,8 +2555,8 @@ function renderGameTab() {
     ${isRatingMode ? renderQuickRatingPanel(game) : ''}
     ${isRatingMode ? '' : renderJoinControls(game)}
     ${renderGamePlayersList(game)}
-    ${isRatingMode ? '' : renderRosterLockControls(game)}
     ${isRatingMode ? '' : renderWaitingPlayersSection(game)}
+    ${isRatingMode ? '' : renderRosterLockControls(game)}
     ${isRatingMode ? '' : renderQuickRatingPanel(game)}
     ${isRatingMode ? renderQuickFloatingSave(game) : ''}
   `;
@@ -3818,7 +3818,7 @@ function render() {
     const canShowTeamControls = Boolean(
       !state.manualGameOpen &&
       state.activeTab === 'game' &&
-      currentGame?.participants?.length
+      (currentGame?.participants?.length ?? 0) >= 2
     );
     gameTeamControlsNode.hidden = !canShowTeamControls;
     gameTeamControlsNode.innerHTML = canShowTeamControls

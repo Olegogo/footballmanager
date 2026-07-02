@@ -210,6 +210,10 @@ p {
   box-shadow: none;
 }
 
+#closeGameButton {
+  padding-bottom: 2px;
+}
+
 .game-top-button[hidden] {
   display: none;
 }
@@ -3537,6 +3541,7 @@ input[type="range"] {
   line-height: 1;
   box-shadow: none;
   backdrop-filter: blur(12px);
+  padding-bottom: 2px;
 }
 
 .editor-body {
