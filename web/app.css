@@ -155,7 +155,7 @@ p {
 }
 
 .topbar--game {
-  justify-content: flex-end;
+  justify-content: space-between;
 }
 
 .app-shell--game .topbar {
@@ -164,6 +164,15 @@ p {
 
 .app-shell--game .game-top-actions {
   pointer-events: auto;
+}
+
+.game-team-controls {
+  display: flex;
+  align-items: center;
+}
+
+.game-team-controls[hidden] {
+  display: none;
 }
 
 .game-top-actions {
@@ -991,6 +1000,26 @@ p {
 
 .game-player-row.is-clickable {
   cursor: pointer;
+}
+
+.game-roster-panel .game-player-list,
+.game-roster-panel .join-requests-list {
+  gap: 14px;
+}
+
+.game-roster-panel .game-player-row {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.game-roster-panel .join-request-card--with-actions {
+  grid-template-areas:
+    "avatar main meta"
+    "actions actions actions";
+  padding: 0;
+  border-radius: 0;
 }
 
 .game-player-avatar {
@@ -1916,8 +1945,8 @@ p {
 .join-cta {
   display: grid;
   position: fixed;
-  left: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
-  right: max(var(--page-gutter), calc((100vw - 880px) / 2 + var(--page-gutter)));
+  left: max(24px, calc((100vw - 880px) / 2 + 24px));
+  right: max(24px, calc((100vw - 880px) / 2 + 24px));
   bottom: max(24px, env(safe-area-inset-bottom));
   z-index: 58;
   pointer-events: none;
@@ -2047,8 +2076,6 @@ p {
   grid-template-areas:
     "avatar main meta"
     "actions actions actions";
-  padding: 12px;
-  border-radius: 22px;
 }
 
 .join-request-card--with-actions .game-player-avatar {
@@ -2173,10 +2200,6 @@ p {
 }
 
 .field-team-control {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 5;
   display: flex;
   align-items: center;
   gap: 3px;

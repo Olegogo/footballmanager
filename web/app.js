@@ -200,6 +200,7 @@ const appShellNode = document.querySelector('.app-shell');
 const contentNode = document.getElementById('content');
 const chatTitleNode = document.getElementById('chatTitle');
 const topbarNode = document.querySelector('.topbar');
+const gameTeamControlsNode = document.getElementById('gameTeamControls');
 const gameTopActionsNode = document.getElementById('gameTopActions');
 const gameMenuButtonNode = document.getElementById('gameMenuButton');
 const gameShareButtonNode = document.getElementById('gameShareButton');
@@ -2297,10 +2298,10 @@ function renderFieldTeamControl(activeTeamKey) {
   return `
     <div class="field-team-control" aria-label="${escapeHtml(t('match.teams'))}">
       <button type="button" class="${activeTeamKey === 'top' ? 'active' : ''}" data-field-team-filter="top" aria-label="${escapeHtml(t('match.team_white'))}">
-        <img src="/assets/field/shirt-white-44.png" alt="">
+        <img src="/assets/field/shirt-white-44.svg" alt="">
       </button>
       <button type="button" class="${activeTeamKey === 'bottom' ? 'active' : ''}" data-field-team-filter="bottom" aria-label="${escapeHtml(t('match.team_red'))}">
-        <img src="/assets/field/shirt-red-44.png" alt="">
+        <img src="/assets/field/shirt-red-44.svg" alt="">
       </button>
     </div>
   `;
@@ -2318,9 +2319,8 @@ function renderField(game, options = {}) {
   return `
     <section class="panel field-panel field-panel--static ${options.className ? escapeHtml(options.className) : ''}">
       <div class="field">
-        ${options.showTeamControl && participants.length ? renderFieldTeamControl(selectedTeam.key) : ''}
         <div class="field-image field-image--top" aria-hidden="true">
-          <img src="/assets/field/field-pull-down-topview-1200.webp" alt="">
+          <img src="/assets/field/field-pull-down-topview.png" alt="">
         </div>
         ${emptyMessage ? `<div class="field-empty">${escapeHtml(emptyMessage)}</div>` : ''}
         <div class="field-player-layer">
@@ -3786,17 +3786,27 @@ function render() {
   chatTitleNode.textContent = screenTitle;
   topbarNode?.classList.toggle('topbar--titleless', !screenTitle);
   topbarNode?.classList.toggle('topbar--game', state.activeTab === 'game');
+  const currentGame = getCurrentGame();
+  if (gameTeamControlsNode) {
+    const canShowTeamControls = Boolean(
+      !state.manualGameOpen &&
+      state.activeTab === 'game' &&
+      currentGame?.participants?.length
+    );
+    gameTeamControlsNode.hidden = !canShowTeamControls;
+    gameTeamControlsNode.innerHTML = canShowTeamControls
+      ? renderFieldTeamControl(getSelectedFieldTeam(currentGame).key)
+      : '';
+  }
   if (gameTopActionsNode) {
     gameTopActionsNode.hidden = state.manualGameOpen || state.activeTab !== 'game';
   }
   if (gameMenuButtonNode) {
-    const game = getCurrentGame();
-    gameMenuButtonNode.hidden = state.manualGameOpen || !(state.activeTab === 'game' && game);
+    gameMenuButtonNode.hidden = state.manualGameOpen || !(state.activeTab === 'game' && currentGame);
   }
   if (gameShareButtonNode) {
     gameShareButtonNode.hidden = true;
   }
-  const currentGame = getCurrentGame();
   const canShowFloatingJoin = Boolean(
     !state.manualGameOpen &&
     state.activeTab === 'game' &&
