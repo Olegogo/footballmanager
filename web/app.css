@@ -17,6 +17,8 @@
   --rating-gold: #e6c36f;
   --shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
   --page-gutter: 14px;
+  --app-shell-left: 0px;
+  --app-shell-width: min(100vw, 880px);
 }
 
 * {
@@ -1956,9 +1958,10 @@ p {
 .join-cta {
   display: grid;
   position: fixed;
-  left: max(12px, calc((100vw - 880px) / 2 + 12px));
-  right: max(12px, calc((100vw - 880px) / 2 + 12px));
-  width: auto;
+  left: calc(var(--app-shell-left) + 12px);
+  right: auto;
+  width: calc(var(--app-shell-width) - 24px);
+  max-width: calc(100vw - 24px);
   bottom: max(20px, env(safe-area-inset-bottom));
   transform: none;
   z-index: 58;

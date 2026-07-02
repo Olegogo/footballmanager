@@ -211,6 +211,29 @@ let refreshTimer = null;
 let countdownTimer = null;
 let lastAuthError = '';
 
+function syncAppShellBounds() {
+  if (!appShellNode) {
+    return;
+  }
+
+  const rect = appShellNode.getBoundingClientRect();
+  if (!rect.width) {
+    return;
+  }
+
+  document.documentElement.style.setProperty('--app-shell-left', `${Math.max(0, rect.left)}px`);
+  document.documentElement.style.setProperty('--app-shell-width', `${rect.width}px`);
+}
+
+window.addEventListener('resize', syncAppShellBounds);
+window.addEventListener('orientationchange', syncAppShellBounds);
+
+if (window.ResizeObserver && appShellNode) {
+  new ResizeObserver(syncAppShellBounds).observe(appShellNode);
+}
+
+requestAnimationFrame(syncAppShellBounds);
+
 function getTelegramLocale() {
   return String(tg?.initDataUnsafe?.user?.language_code || navigator.language || 'ru')
     .trim()
@@ -3843,6 +3866,7 @@ function render() {
 
   renderModal();
   resizeManualTextareas(contentNode);
+  requestAnimationFrame(syncAppShellBounds);
   scrollToTargetPlayerCard();
 }
 
