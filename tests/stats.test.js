@@ -537,7 +537,7 @@ test('buildChatSnapshot softly lowers quiet participants after quick ratings', (
   assert.equal(restedPlayer.overall, 72);
 });
 
-test('buildChatSnapshot keeps rating window open for 24 hours after kickoff', () => {
+test('buildChatSnapshot keeps rating window open for 16 hours after last rating activity', () => {
   const state = {
     version: 1,
     meta: {},
@@ -588,7 +588,18 @@ test('buildChatSnapshot keeps rating window open for 24 hours after kickoff', ()
         priceLine: ''
       }
     },
-    ratings: {}
+    ratings: {},
+    mvpVotes: {
+      mvp_vote_1: {
+        id: 'mvp_vote_1',
+        chatId: '-1001',
+        gameId: 'game_1',
+        raterPlayerId: 'player_1',
+        targetPlayerId: 'player_2',
+        createdAt: '2026-05-11T03:00:00.000Z',
+        updatedAt: '2026-05-11T03:00:00.000Z'
+      }
+    }
   };
 
   const openSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T18:59:00.000Z'));

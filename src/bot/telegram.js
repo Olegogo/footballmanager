@@ -61,7 +61,7 @@ export class TelegramBot {
     this.store = store;
     this.offset = 0;
     this.running = false;
-    this.botUsername = '';
+    this.botUsername = String(this.config.telegramBotUsername || '').replace(/^@/, '');
     this.promptTimers = new Map();
   }
 
@@ -183,6 +183,19 @@ export class TelegramBot {
     const directMiniAppLink = this.buildMainMiniAppLink(chatId, options);
     const loginUrl = this.buildTelegramLoginUrl(chatId, options);
 
+    if (directMiniAppLink) {
+      return {
+        inline_keyboard: [
+          [
+            {
+              text: buttonText,
+              url: directMiniAppLink
+            }
+          ]
+        ]
+      };
+    }
+
     if (chatType === 'private' && publicUrl) {
       return {
         inline_keyboard: [
@@ -192,32 +205,6 @@ export class TelegramBot {
               web_app: {
                 url: publicUrl
               }
-            }
-          ]
-        ]
-      };
-    }
-
-    if (chatType !== 'private' && directMiniAppLink) {
-      return {
-        inline_keyboard: [
-          [
-            {
-              text: buttonText,
-              url: directMiniAppLink
-            }
-          ]
-        ]
-      };
-    }
-
-    if (directMiniAppLink) {
-      return {
-        inline_keyboard: [
-          [
-            {
-              text: buttonText,
-              url: directMiniAppLink
             }
           ]
         ]
@@ -249,11 +236,6 @@ export class TelegramBot {
 
   getMiniAppFallbackUrl(chatId = '', chatType = 'private', options = {}) {
     const publicUrl = this.buildMiniAppUrl(chatId, options);
-
-    if (chatType === 'private') {
-      return publicUrl || this.buildMainMiniAppLink(chatId, options) || '';
-    }
-
     return this.buildMainMiniAppLink(chatId, options) || publicUrl || '';
   }
 
@@ -621,6 +603,84 @@ export class TelegramBot {
       mvpLabel ? `${escapeTelegramHtml(this.t(locale, 'mvp.label'))}: ${escapeTelegramHtml(mvpLabel)}` : '',
       cardsText ? `${escapeTelegramHtml(this.t(locale, 'common.labels.cards'))}: ${escapeTelegramHtml(cardsText)}` : ''
     ].filter(Boolean).join('\n');
+  }
+
+  formatQuickRatingProgress(game, progress, locale = this.getGameLocale(game)) {
+    const summary = this.getGameSummaryView(game.id);
+    const levelLabel = this.formatGameLevel(summary?.averageOverall, locale);
+    const leaderText = progress.stage === 'majority'
+      ? this.t(locale, 'bot.mvp_progress_majority', { name: progress.playerName })
+      : this.t(locale, 'bot.mvp_progress_leader', {
+          votes: progress.votes,
+          total: progress.total,
+          name: progress.playerName
+        });
+
+    return [
+      escapeTelegramHtml(leaderText),
+      levelLabel ? `${escapeTelegramHtml(this.t(locale, 'common.labels.rating'))}: ${escapeTelegramHtml(levelLabel)}` : '',
+      escapeTelegramHtml(this.t(locale, 'bot.mvp_progress_achievements', { count: progress.achievementCount ?? 0 }))
+    ].filter(Boolean).join('\n');
+  }
+
+  async processQuickRatingProgressForGame(gameId) {
+    if (!this.enabled || typeof this.store.getQuickRatingMvpProgress !== 'function') {
+      return;
+    }
+
+    for (let attempts = 0; attempts < 2; attempts += 1) {
+      const progress = this.store.getQuickRatingMvpProgress(gameId);
+
+      if (!progress?.game) {
+        return;
+      }
+
+      const game = progress.game;
+      const chat = this.store.state?.chats?.[String(game.chatId)];
+      const chatLocale = this.getGameLocale(game);
+      let chatMessageId = null;
+      let sentAnything = false;
+
+      if (chat && chat.type !== 'private' && chat.type !== 'global') {
+        try {
+          const message = await this.sendMiniAppEntry(game.chatId, chat.type || 'supergroup', game.chatId, {
+            primaryText: this.formatQuickRatingProgress(game, progress, chatLocale),
+            buttonText: this.t(chatLocale, 'common.buttons.details'),
+            locale: chatLocale,
+            initialView: 'game',
+            gameId: game.id,
+            parseMode: 'HTML'
+          });
+          chatMessageId = message?.message_id ?? null;
+          sentAnything = true;
+        } catch (error) {
+          console.error(`Unable to send quick rating progress to chat for ${game.id}:`, error.message);
+        }
+      }
+
+      for (const player of this.getPrivateParticipants(game)) {
+        try {
+          const playerLocale = this.getPlayerLocale(player);
+          await this.sendMiniAppEntry(player.privateChatId, 'private', game.chatId, {
+            primaryText: this.formatQuickRatingProgress(game, progress, playerLocale),
+            buttonText: this.t(playerLocale, 'common.buttons.details'),
+            locale: playerLocale,
+            initialView: 'game',
+            gameId: game.id,
+            parseMode: 'HTML'
+          });
+          sentAnything = true;
+        } catch (error) {
+          console.error(`Unable to send quick rating progress to ${player.id}:`, error.message);
+        }
+      }
+
+      if (!sentAnything || typeof this.store.markQuickRatingMvpProgressSent !== 'function') {
+        return;
+      }
+
+      await this.store.markQuickRatingMvpProgressSent(game.id, progress.stage, chatMessageId);
+    }
   }
 
   async notifyPlayersAboutManualGame(gameId) {

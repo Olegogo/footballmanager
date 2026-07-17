@@ -137,7 +137,7 @@ function readInitialTabFromLaunch() {
 }
 
 function getSafeActiveTab(tab) {
-  if (['game', 'games', 'players', 'profile'].includes(tab)) {
+  if (['game', 'games', 'players', 'teams', 'profile'].includes(tab)) {
     return tab;
   }
 
@@ -163,6 +163,7 @@ const state = {
   selectedPlayerId: null,
   playerScrollTargetId: launchContext.playerId || '',
   selectedGameId: launchContext.gameId,
+  profileReturnTab: 'games',
   selfProfileDraft: null,
   selfProfileEditing: false,
   selfProfilePromptDismissedFor: '',
@@ -201,6 +202,7 @@ const contentNode = document.getElementById('content');
 const chatTitleNode = document.getElementById('chatTitle');
 const topbarNode = document.querySelector('.topbar');
 const gameTeamControlsNode = document.getElementById('gameTeamControls');
+const profileEntrySlotNode = document.getElementById('profileEntrySlot');
 const gameTopActionsNode = document.getElementById('gameTopActions');
 const gameMenuButtonNode = document.getElementById('gameMenuButton');
 const gameShareButtonNode = document.getElementById('gameShareButton');
@@ -423,6 +425,10 @@ function getScreenTitle() {
 
   if (state.activeTab === 'players') {
     return t('common.labels.players');
+  }
+
+  if (state.activeTab === 'teams') {
+    return t('common.labels.teams');
   }
 
   return '';
@@ -777,6 +783,11 @@ function openManualGameCreate() {
   render();
 }
 
+function getTimeInputStartValue(time) {
+  const match = String(time ?? '').match(/([01]\d|2[0-3]):([0-5]\d)/);
+  return match ? `${match[1]}:${match[2]}` : '19:30';
+}
+
 function openManualGameEdit(game) {
   state.gameActionsOpen = false;
   state.manualGameOpen = true;
@@ -787,7 +798,7 @@ function openManualGameEdit(game) {
   state.manualPlayerSearch = '';
   state.manualGameDraft = {
     date: new Date(game.scheduledAt).toISOString().slice(0, 10),
-    time: game.time || '19:30',
+    time: getTimeInputStartValue(game.time),
     location: game.location || '',
     additionalInfo: [...(game.priceLine ? [game.priceLine] : []), ...(game.paymentLines ?? [])].join('\n'),
     playerIds: [
@@ -808,7 +819,7 @@ function openManualGameCopy(game) {
   state.manualPlayerSearch = '';
   state.manualGameDraft = {
     date: new Date(game.scheduledAt).toISOString().slice(0, 10),
-    time: game.time || '19:30',
+    time: getTimeInputStartValue(game.time),
     location: game.location || '',
     additionalInfo: getGameAdditionalInfo(game),
     playerIds: [
@@ -1318,6 +1329,25 @@ function renderMiniAvatar(player) {
   return `<span>${escapeHtml(getInitials(player))}</span>`;
 }
 
+function renderProfileEntryButton() {
+  const player = getViewerPlayer();
+
+  if (!player) {
+    return '';
+  }
+
+  const rating = hasVisibleRating(player) ? getPlayerOverallLabel(player) : '';
+  const shouldFillProfile = !rating && isPlayerCardUnfilled(player);
+
+  return `
+    <button type="button" class="profile-entry-button" data-open-profile-entry aria-label="${escapeHtml(t('common.labels.profile'))}">
+      <span class="profile-entry-avatar">${renderMiniAvatar(player)}</span>
+      ${rating ? `<span class="profile-entry-rating">${escapeHtml(rating)}</span>` : ''}
+      ${shouldFillProfile ? '<span class="profile-entry-dot" aria-hidden="true"></span>' : ''}
+    </button>
+  `;
+}
+
 function renderShareIcon() {
   return `
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1773,17 +1803,11 @@ function renderOrganizerPanel(game) {
 
 function renderRatingBanner(game) {
   if (game.ratingWindowOpen) {
-    const countdownLabel = getRatingCountdownLabel(game.ratingWindowEndsAt);
-    const timer = countdownLabel
-      ? `<strong data-rating-countdown="${escapeHtml(game.ratingWindowEndsAt)}">${escapeHtml(countdownLabel)}</strong>`
-      : '';
-
     if (!game.viewerIsParticipant) {
       return `
         <section class="notice-banner notice-banner--rating-live notice-banner--rating-viewer">
           <div class="rating-live-main">
             <p>${escapeHtml(t('rating.for_participants_started'))}</p>
-            ${timer}
           </div>
         </section>
       `;
@@ -1797,7 +1821,6 @@ function renderRatingBanner(game) {
       <section class="notice-banner notice-banner--rating-live">
         <div class="rating-live-main">
           <p>${escapeHtml(t('rating.give_points'))}</p>
-          ${timer}
         </div>
         <div class="rating-live-chips">
           <span>${escapeHtml(t('rating.points_left', {
@@ -1856,7 +1879,7 @@ function renderQuickPlayerSelect(game, selectedPlayerId, attributes = '') {
 
   return `
     <select ${attributes}>
-      <option value="">${escapeHtml(t('common.misc.not_selected').toLowerCase())}</option>
+      <option value="">${escapeHtml(t('rating.not_selected'))}</option>
       ${targets
         .map((player) => `
           <option value="${escapeHtml(player.id)}" ${selectedPlayerId === player.id ? 'selected' : ''}>
@@ -2271,7 +2294,7 @@ function renderQuickGamePlayerCard(player, game, draft) {
 
   return `
     <article class="quick-game-card ${ratingState.phase === 'live-empty' ? 'is-unrated' : ''}">
-      <div class="quick-game-card-head is-clickable" data-scroll-player="${escapeHtml(player.id)}">
+      <div class="quick-game-card-head is-clickable" data-open-player="${escapeHtml(player.id)}">
         <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
         <div class="quick-game-card-title">
           <strong>${escapeHtml(player.displayName)}</strong>
@@ -2353,7 +2376,7 @@ function renderField(game, options = {}) {
         <div class="field-player-layer">
           ${assignments
             .map(({ player, slot }) => {
-              const isInteractive = Boolean(player.canRateTarget);
+              const isInteractive = options.interactive !== false && Boolean(player.id);
               const openAttribute = isInteractive ? `data-open-player="${escapeHtml(player.id)}"` : '';
               const ratingLabel = getGameMiniCardRatingLabel(player, game);
               return `
@@ -2383,7 +2406,7 @@ function renderGamePlayerRow(player) {
   const positionLabel = getGamePlayerPositionLabel(player);
 
   return `
-    <article class="game-player-row is-clickable" data-scroll-player="${escapeHtml(player.id)}">
+    <article class="game-player-row is-clickable" data-open-player="${escapeHtml(player.id)}">
       <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
       <div class="game-player-main">
         <strong>${escapeHtml(player.displayName)}</strong>
@@ -2412,15 +2435,12 @@ function renderJoinRequestCard(player, game) {
       : '',
     player.canViewerApproveJoin
       ? `<button type="button" class="primary-button join-request-action" data-approve-join-player="${escapeHtml(player.id)}" data-game-id="${escapeHtml(game.id)}">${escapeHtml(t('common.buttons.add'))}</button>`
-      : '',
-    player.canViewerCancelJoin
-      ? `<button type="button" class="ghost-action join-request-action" data-cancel-join-request="${escapeHtml(game.id)}" data-cancel-join-player="${escapeHtml(player.id)}">${escapeHtml(t('common.buttons.cancel'))}</button>`
       : ''
   ].filter(Boolean);
   const actionClass = actions.length === 1 ? 'join-request-actions join-request-actions--single' : 'join-request-actions';
 
   return `
-    <article class="game-player-row join-request-card ${actions.length ? 'join-request-card--with-actions' : ''} is-clickable" data-scroll-player="${escapeHtml(player.id)}">
+    <article class="game-player-row join-request-card ${actions.length ? 'join-request-card--with-actions' : ''} is-clickable" data-open-player="${escapeHtml(player.id)}">
       <div class="game-player-avatar">${renderMiniAvatar(player)}</div>
       <div class="game-player-main">
         <strong>${escapeHtml(player.displayName)}</strong>
@@ -2494,7 +2514,7 @@ function renderGamePlayersList(game) {
 }
 
 function renderRosterLockControls(game) {
-  if (!game.canViewerManage || game.status !== 'upcoming' || game.ratingWindowOpen) {
+  if (!game.canViewerToggleRosterLock || game.status !== 'upcoming' || game.ratingWindowOpen) {
     return '';
   }
 
@@ -2557,7 +2577,6 @@ function renderGameTab() {
     ${renderGamePlayersList(game)}
     ${isRatingMode ? '' : renderWaitingPlayersSection(game)}
     ${isRatingMode ? '' : renderRosterLockControls(game)}
-    ${isRatingMode ? '' : renderQuickRatingPanel(game)}
     ${isRatingMode ? renderQuickFloatingSave(game) : ''}
   `;
 }
@@ -2853,6 +2872,7 @@ function renderManualFieldPreview() {
     }))
   }, {
     className: 'manual-field-panel',
+    interactive: false,
     static: true,
     emptyMessage: t('match.field_empty')
   });
@@ -3312,12 +3332,15 @@ function renderAchievementIcon(type) {
     goleador: '/assets/achievements/goleador.svg',
     hat_trick: '/assets/achievements/hat-trick.svg',
     pokerface: '/assets/achievements/pokerface.svg',
+    comeback_maker: '/assets/achievements/comeback-maker.svg',
     long_shot: '/assets/achievements/long-shot.svg',
     assistant: '/assets/achievements/assistant.svg',
     playmaker: '/assets/achievements/playmaker.svg',
     unselfish: '/assets/achievements/unselfish.svg',
+    conductor: '/assets/achievements/conductor.svg',
     wall: '/assets/achievements/wall.svg',
     pickpocket: '/assets/achievements/pickpocket.svg',
+    cat: '/assets/achievements/cat.svg',
     no_toxic: '/assets/achievements/no-toxic.svg',
     maguire_day: '/assets/achievements/maguire-day.svg',
     woodworker: '/assets/achievements/woodworker.svg',
@@ -3539,6 +3562,7 @@ function renderProfileTab() {
     <section class="editor-screen profile-screen" aria-label="${escapeHtml(t('players.card_title'))}">
       <div class="editor-hero profile-hero">
         ${renderCardHero(player)}
+        <button type="button" class="profile-back-button" data-close-profile aria-label="${escapeHtml(t('common.buttons.back'))}">‹</button>
         ${
           canEditOwnProfile
             ? `
@@ -3617,6 +3641,20 @@ function renderProfileTab() {
   `;
 }
 
+function renderTeamsTab() {
+  const title = t('common.labels.teams');
+  const description = state.locale === 'en'
+    ? 'Teams are coming soon. For now we are finishing the match screen, profile and rating flow.'
+    : 'Команды скоро появятся. Сейчас доделываем экран игры, профиль и процесс оценки.';
+
+  return `
+    <section class="empty-state teams-empty">
+      <h2>${escapeHtml(title)}</h2>
+      <p>${escapeHtml(description)}</p>
+    </section>
+  `;
+}
+
 function renderActiveTab() {
   if (state.activeTab === 'game') {
     return renderGameTab();
@@ -3628,6 +3666,10 @@ function renderActiveTab() {
 
   if (state.activeTab === 'profile') {
     return renderProfileTab();
+  }
+
+  if (state.activeTab === 'teams') {
+    return renderTeamsTab();
   }
 
   return renderPlayersTab();
@@ -3788,7 +3830,7 @@ function scrollToTargetPlayerCard() {
 
 function syncTabbar() {
   document.querySelectorAll('.tab-button').forEach((button) => {
-    const activeTab = state.manualGameOpen || state.activeTab === 'game' ? '' : state.activeTab;
+    const activeTab = state.manualGameOpen || state.activeTab === 'game' || state.activeTab === 'profile' ? '' : state.activeTab;
     button.classList.toggle('active', button.dataset.tab === activeTab);
   });
 }
@@ -3801,7 +3843,7 @@ function syncStaticLabels() {
   document.querySelector('.tabbar')?.setAttribute('aria-label', t('common.labels.navigation'));
   document.getElementById('tab-games')?.setAttribute('aria-label', t('common.labels.games'));
   document.getElementById('tab-players')?.setAttribute('aria-label', t('common.labels.players_list'));
-  document.getElementById('tab-profile')?.setAttribute('aria-label', t('common.labels.profile'));
+  document.getElementById('tab-teams')?.setAttribute('aria-label', t('common.labels.teams'));
 }
 
 function render() {
@@ -3813,6 +3855,15 @@ function render() {
   chatTitleNode.textContent = screenTitle;
   topbarNode?.classList.toggle('topbar--titleless', !screenTitle);
   topbarNode?.classList.toggle('topbar--game', state.activeTab === 'game');
+  if (profileEntrySlotNode) {
+    const canShowProfileEntry = Boolean(
+      !state.manualGameOpen &&
+      !['game', 'profile'].includes(state.activeTab) &&
+      getViewerPlayer()
+    );
+    profileEntrySlotNode.hidden = !canShowProfileEntry;
+    profileEntrySlotNode.innerHTML = canShowProfileEntry ? renderProfileEntryButton() : '';
+  }
   const currentGame = getCurrentGame();
   if (gameTeamControlsNode) {
     const canShowTeamControls = Boolean(
@@ -4387,6 +4438,29 @@ document.querySelector('.tabbar').addEventListener('click', (event) => {
 });
 
 document.addEventListener('click', async (event) => {
+  const openProfileEntryButton = event.target.closest('[data-open-profile-entry]');
+
+  if (openProfileEntryButton) {
+    state.profileReturnTab = ['games', 'players', 'teams'].includes(state.activeTab) ? state.activeTab : 'games';
+    state.activeTab = 'profile';
+    state.selectedGameId = '';
+    state.manualGameOpen = false;
+    state.profileActionsOpen = false;
+    render();
+    return;
+  }
+
+  const closeProfileButton = event.target.closest('[data-close-profile]');
+
+  if (closeProfileButton) {
+    state.activeTab = state.profileReturnTab || 'games';
+    state.selfProfileEditing = false;
+    state.selfProfileDraft = null;
+    state.profileActionsOpen = false;
+    render();
+    return;
+  }
+
   const editSelfProfileButton = event.target.closest('[data-edit-self-profile]');
 
   if (editSelfProfileButton) {
@@ -4573,6 +4647,7 @@ document.addEventListener('click', async (event) => {
     const player = getViewerPlayer();
     state.selfProfilePromptDismissedFor = player?.id || 'started';
     state.profileActionsOpen = false;
+    state.profileReturnTab = ['games', 'players', 'teams'].includes(state.activeTab) ? state.activeTab : 'games';
     state.activeTab = 'profile';
     state.selfProfileEditing = true;
     state.selectedPlayerId = null;

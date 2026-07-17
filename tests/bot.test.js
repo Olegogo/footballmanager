@@ -228,8 +228,8 @@ test('/open in private chats opens the games list by default', async () => {
 
   assert.equal(sent.length, 1);
   assert.equal(
-    sent[0].options.replyMarkup.inline_keyboard[0][0].web_app.url,
-    'https://app.example/'
+    sent[0].options.replyMarkup.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=app'
   );
 });
 
@@ -261,7 +261,7 @@ test('/start sends onboarding copy with app button', async () => {
   assert.equal(sent[2].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть приложение');
 });
 
-test('/start uses direct web_app url in private chats', async () => {
+test('/start uses Telegram miniapp deep link in private chats', async () => {
   const { store } = createBotStore([]);
   const bot = new TelegramBot({
     telegramBotToken: 'token',
@@ -285,10 +285,9 @@ test('/start uses direct web_app url in private chats', async () => {
   });
 
   assert.equal(sent.length, 3);
-  assert.equal(sent[2].options.replyMarkup.inline_keyboard[0][0].url, undefined);
   assert.equal(
-    sent[2].options.replyMarkup.inline_keyboard[0][0].web_app.url,
-    'https://app.example/'
+    sent[2].options.replyMarkup.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=app'
   );
 });
 
@@ -303,8 +302,10 @@ test('buildManualInviteKeyboard uses the same main miniapp entry when possible',
   const keyboard = bot.buildManualInviteKeyboard('-1009', 'game_9');
 
   assert.equal(keyboard.inline_keyboard[0][0].text, 'К игре');
-  assert.equal(keyboard.inline_keyboard[0][0].url, undefined);
-  assert.equal(keyboard.inline_keyboard[0][0].web_app.url, 'https://app.example/?chatId=-1009&view=game&gameId=game_9');
+  assert.equal(
+    keyboard.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=gameid_game_9'
+  );
   assert.equal(keyboard.inline_keyboard[1][0].callback_data, 'decline_game:game_9');
 });
 
@@ -320,6 +321,20 @@ test('buildMainMiniAppLink can deep link to a shared player card', () => {
   assert.equal(
     bot.buildMainMiniAppLink('', { initialView: 'players', playerId: 'player_42' }),
     'https://t.me/football_test_bot?startapp=playerid_player_42'
+  );
+});
+
+test('buildMainMiniAppLink uses configured bot username before getMe resolves', () => {
+  const { store } = createBotStore([]);
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    telegramBotUsername: '@football_test_bot',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+
+  assert.equal(
+    bot.buildMainMiniAppLink('', { gameId: 'game_42' }),
+    'https://t.me/football_test_bot?startapp=gameid_game_42'
   );
 });
 

@@ -980,6 +980,13 @@ const server = http.createServer(async (req, res) => {
         raterPlayerId: session.playerId,
         payload: body
       });
+
+      try {
+        await bot.processQuickRatingProgressForGame?.(gameId);
+      } catch (error) {
+        console.error(`Unable to process quick rating progress for ${gameId}:`, error.message);
+      }
+
       const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
       sendJson(res, 200, { snapshot });
       return;

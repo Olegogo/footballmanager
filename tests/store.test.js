@@ -554,7 +554,7 @@ test('recordGameFromAnnouncement lets announcement author edit the created game'
     });
 
     assert.equal(updated.updated, true);
-    assert.equal(updated.game.time, '17:00');
+    assert.equal(updated.game.time, '17:00–18:30');
     assert.equal(updated.game.location, 'Поле 11');
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
@@ -615,8 +615,18 @@ test('chat admin can manage announcement games in their chat', async () => {
     });
 
     assert.equal(updated.updated, true);
-    assert.equal(updated.game.time, '17:30');
+    assert.equal(updated.game.time, '17:30–19:00');
     assert.equal(updated.game.location, 'Поле 12');
+
+    await assert.rejects(
+      () => store.setGameRosterLocked({
+        chatId: '-1001',
+        gameId: result.game.id,
+        requesterPlayerId: admin.id,
+        rosterLocked: true
+      }),
+      /Закрывать набор может только организатор/
+    );
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }
@@ -715,7 +725,7 @@ test('submitRating stores goalkeeper goals and assists as zero', async () => {
   }
 });
 
-test('submitRating rejects ratings after the 24 hour window', async () => {
+test('submitRating rejects ratings after 16 hours without rating activity', async () => {
   const { directory, store } = await createStore();
 
   try {
@@ -796,6 +806,94 @@ test('submitRating rejects ratings after the 24 hour window', async () => {
         physical: 80
       }
     }), /Окно оценки уже закрыто/);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('listGamesRequiringSummary waits for 16 hours of rating inactivity', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    await store.mutate((state) => {
+      state.chats['-1001'] = {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        username: '',
+        currentGameId: 'game_1',
+        playerIds: ['player_1', 'player_2'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      state.players.player_1 = {
+        id: 'player_1',
+        telegramUserId: 1,
+        username: 'teterko',
+        displayName: 'Teterko',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        chatIds: ['-1001'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      state.players.player_2 = {
+        id: 'player_2',
+        telegramUserId: 2,
+        username: 'dbabanin',
+        displayName: 'Babanin',
+        firstName: '',
+        lastName: '',
+        photoUrl: '',
+        chatIds: ['-1001'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      state.games.game_1 = {
+        id: 'game_1',
+        chatId: '-1001',
+        messageId: 1,
+        rawText: '',
+        key: 'game_1',
+        source: 'test',
+        sourceDate: '2026-05-10T19:00:00.000Z',
+        dateLabel: '10 мая',
+        location: 'Поле',
+        time: '19:00',
+        scheduledAt: '2026-05-10T19:00:00.000Z',
+        date: '2026-05-10',
+        priceLine: '',
+        paymentLines: [],
+        playerUsernames: ['teterko', 'dbabanin'],
+        playerIds: ['player_1', 'player_2'],
+        ratingsOpenedAt: '2026-05-10T19:00:00.000Z',
+        ratingsPromptMessageId: 10,
+        ratingsClosedByGameId: null,
+        ratingSummarySentAt: null,
+        closedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      state.mvpVotes.mvp_vote_1 = {
+        id: 'mvp_vote_1',
+        chatId: '-1001',
+        gameId: 'game_1',
+        raterPlayerId: 'player_1',
+        targetPlayerId: 'player_2',
+        createdAt: '2026-05-11T03:00:00.000Z',
+        updatedAt: '2026-05-11T03:00:00.000Z'
+      };
+    });
+
+    assert.deepEqual(
+      store.listGamesRequiringSummary(new Date('2026-05-11T18:59:00.000Z')).map((game) => game.id),
+      []
+    );
+    assert.deepEqual(
+      store.listGamesRequiringSummary(new Date('2026-05-11T19:00:00.000Z')).map((game) => game.id),
+      ['game_1']
+    );
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }
@@ -997,7 +1095,7 @@ test('createManualGame creates current game from selected players', async () => 
     assert.equal(result.created, true);
     assert.equal(result.game.source, 'manual');
     assert.equal(result.game.location, 'Сокольники, поле 10');
-    assert.equal(result.game.time, '16:00');
+    assert.equal(result.game.time, '16:00–17:30');
     assert.equal(result.game.scheduledAt, '2099-05-30T13:00:00.000Z');
     assert.deepEqual(result.game.playerIds, [organizer.id]);
     assert.deepEqual(result.game.invitedPlayerIds, [first.id, second.id]);
@@ -1344,7 +1442,7 @@ test('updateManualGame and deleteGame manage organizer games', async () => {
     });
 
     assert.equal(updated.game.dateLabel, '31 мая');
-    assert.equal(updated.game.time, '18:15');
+    assert.equal(updated.game.time, '18:15–19:45');
     assert.equal(updated.game.location, 'Полежаевская');
     assert.deepEqual(updated.game.playerIds, [organizer.id]);
     assert.deepEqual(updated.game.invitedPlayerIds, [first.id, third.id]);
@@ -1411,7 +1509,18 @@ test('super admin can update and delete any manual game', async () => {
     });
 
     assert.equal(updated.game.organizerPlayerId, organizer.id);
+    assert.equal(updated.game.time, '18:15–19:45');
     assert.equal(updated.game.location, 'Полежаевская');
+
+    const locked = await store.setGameRosterLocked({
+      chatId: '-1001',
+      gameId: created.game.id,
+      requesterPlayerId: admin.id,
+      rosterLocked: true
+    });
+
+    assert.equal(locked.updated, true);
+    assert.equal(locked.game.rosterLocked, true);
 
     const deleted = await store.deleteGame({
       chatId: '-1001',

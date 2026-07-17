@@ -4,7 +4,7 @@ import path from 'node:path';
 import { isSuperAdminPlayer } from './admins.js';
 import { createSessionToken } from './auth.js';
 import { parseAnnouncementTextLog, parseTelegramExportGames } from './parser.js';
-import { MAX_RED_CARDS, MAX_YELLOW_CARDS, POSITION_OPTIONS, QUICK_ACHIEVEMENT_DEFINITIONS, QUICK_RATING_POINTS, RATING_WINDOW_MS, STAT_KEYS, buildChatSnapshot, buildGlobalCareerIndex, isRatingWindowOpen } from './stats.js';
+import { MAX_RED_CARDS, MAX_YELLOW_CARDS, POSITION_OPTIONS, QUICK_ACHIEVEMENT_DEFINITIONS, QUICK_RATING_POINTS, STAT_KEYS, buildChatSnapshot, buildGlobalCareerIndex, getRatingWindowEnd, isRatingWindowOpen } from './stats.js';
 import { clamp, formatDisplayName, normalizeUsername, toIsoString, unique } from './utils.js';
 import { DEFAULT_LOCALE, normalizeLocale, resolveLocale } from '../../packages/i18n/index.js';
 
@@ -12,6 +12,8 @@ const DEFAULT_POSITION_BY_USERNAME = {
   dbabanin: 'GK',
   satwerz: 'GK'
 };
+
+const DEFAULT_MANUAL_GAME_DURATION_MINUTES = 90;
 
 function defaultState() {
   return {
@@ -270,20 +272,52 @@ function createDateWithOffset(year, monthIndex, day, hours, minutes, offset) {
   return new Date(utcTimestamp);
 }
 
+function padTimePart(value) {
+  return String(value).padStart(2, '0');
+}
+
+function formatTimeFromMinutes(totalMinutes) {
+  const dayMinutes = 24 * 60;
+  const normalized = ((totalMinutes % dayMinutes) + dayMinutes) % dayMinutes;
+  const hours = Math.floor(normalized / 60);
+  const minutes = normalized % 60;
+  return `${padTimePart(hours)}:${padTimePart(minutes)}`;
+}
+
+function parseManualTimeInput(time) {
+  const match = String(time ?? '').trim().match(/^([01]\d|2[0-3]):([0-5]\d)(?:\s*[–—-]\s*([01]\d|2[0-3]):([0-5]\d))?$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const startHours = Number(match[1]);
+  const startMinutes = Number(match[2]);
+  const start = `${match[1]}:${match[2]}`;
+  const explicitEnd = match[3] && match[4] ? `${match[3]}:${match[4]}` : '';
+  const end = explicitEnd || formatTimeFromMinutes(startHours * 60 + startMinutes + DEFAULT_MANUAL_GAME_DURATION_MINUTES);
+
+  return {
+    start,
+    end,
+    display: `${start}–${end}`,
+    hours: startHours,
+    minutes: startMinutes
+  };
+}
+
 function buildManualSchedule(date, time, timezoneOffset = process.env.CHAT_TIMEZONE_OFFSET || '+03:00') {
   const dateMatch = String(date ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  const timeMatch = String(time ?? '').match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  const timeInfo = parseManualTimeInput(time);
 
-  if (!dateMatch || !timeMatch) {
+  if (!dateMatch || !timeInfo) {
     throw new Error('Укажите дату и время игры');
   }
 
   const year = Number(dateMatch[1]);
   const monthIndex = Number(dateMatch[2]) - 1;
   const day = Number(dateMatch[3]);
-  const hours = Number(timeMatch[1]);
-  const minutes = Number(timeMatch[2]);
-  const scheduledAt = createDateWithOffset(year, monthIndex, day, hours, minutes, timezoneOffset);
+  const scheduledAt = createDateWithOffset(year, monthIndex, day, timeInfo.hours, timeInfo.minutes, timezoneOffset);
   const monthNames = [
     'января',
     'февраля',
@@ -303,7 +337,7 @@ function buildManualSchedule(date, time, timezoneOffset = process.env.CHAT_TIMEZ
     scheduledAt: scheduledAt.toISOString(),
     date: scheduledAt.toISOString().slice(0, 10),
     dateLabel: `${day} ${monthNames[monthIndex]}`,
-    time: `${timeMatch[1]}:${timeMatch[2]}`
+    time: timeInfo.display
   };
 }
 
@@ -422,6 +456,20 @@ function assertCanManageGame(state, game, requesterPlayerId) {
   }
 
   throw new Error('Редактировать игру может только организатор');
+}
+
+function assertCanToggleRosterLock(state, game, requesterPlayerId) {
+  const requester = findPlayerById(state, requesterPlayerId);
+
+  if (isSuperAdminPlayer(requester)) {
+    return;
+  }
+
+  if (game.organizerPlayerId && game.organizerPlayerId === requesterPlayerId) {
+    return;
+  }
+
+  throw new Error('Закрывать набор может только организатор');
 }
 
 function findLatestGameForChat(state, chatId) {
@@ -1561,7 +1609,7 @@ export class AppStore {
         throw new Error('Игра не найдена');
       }
 
-      assertCanManageGame(state, game, requesterPlayerId);
+      assertCanToggleRosterLock(state, game, requesterPlayerId);
 
       if (!isGameEditableBeforeStart(game, new Date())) {
         throw new Error('Игру уже нельзя редактировать');
@@ -1943,9 +1991,9 @@ export class AppStore {
         return false;
       }
 
-      const scheduledAt = new Date(game.scheduledAt).getTime();
+      const ratingWindowEndAt = getRatingWindowEnd(this.state, game).getTime();
 
-      if (!Number.isFinite(scheduledAt) || nowMs < scheduledAt + RATING_WINDOW_MS) {
+      if (!Number.isFinite(ratingWindowEndAt) || nowMs < ratingWindowEndAt) {
         return false;
       }
 
@@ -1959,6 +2007,83 @@ export class AppStore {
     });
   }
 
+  getQuickRatingMvpProgress(gameId) {
+    const game = this.state.games[gameId];
+
+    if (!game || game.excludeFromCareer) {
+      return null;
+    }
+
+    const participantIds = new Set(game.playerIds ?? []);
+    const total = participantIds.size;
+
+    if (total < 2) {
+      return null;
+    }
+
+    const votesByPlayerId = new Map();
+    const voterIds = new Set();
+
+    for (const vote of Object.values(this.state.mvpVotes ?? {})) {
+      if (vote.gameId !== gameId || !participantIds.has(vote.targetPlayerId)) {
+        continue;
+      }
+
+      votesByPlayerId.set(vote.targetPlayerId, (votesByPlayerId.get(vote.targetPlayerId) ?? 0) + 1);
+
+      if (vote.raterPlayerId) {
+        voterIds.add(vote.raterPlayerId);
+      }
+    }
+
+    const leaders = [...votesByPlayerId.entries()]
+      .map(([playerId, votes]) => ({ playerId, votes }))
+      .sort((left, right) => {
+        if (right.votes !== left.votes) {
+          return right.votes - left.votes;
+        }
+
+        return left.playerId.localeCompare(right.playerId);
+      });
+
+    const leader = leaders[0];
+
+    if (!leader || leader.votes <= 1 || leader.votes === leaders[1]?.votes) {
+      return null;
+    }
+
+    const player = this.state.players[leader.playerId] ?? null;
+    const achievementCount = Object.values(this.state.achievementVotes ?? {}).filter(
+      (vote) => vote.gameId === gameId && participantIds.has(vote.targetPlayerId)
+    ).length;
+    const base = {
+      game,
+      player,
+      playerId: leader.playerId,
+      playerName: player?.displayName || player?.username || 'Игрок',
+      votes: leader.votes,
+      total,
+      votersCount: voterIds.size,
+      achievementCount
+    };
+
+    if (!game.ratingMvpProgressLeaderSentAt) {
+      return {
+        ...base,
+        stage: 'leader'
+      };
+    }
+
+    if (leader.votes > total / 2 && !game.ratingMvpProgressMajoritySentAt) {
+      return {
+        ...base,
+        stage: 'majority'
+      };
+    }
+
+    return null;
+  }
+
   async markRatingsPromptSent(gameId, messageId) {
     return this.mutate((state) => {
       const game = state.games[gameId];
@@ -1970,6 +2095,29 @@ export class AppStore {
       game.ratingsOpenedAt = new Date().toISOString();
       game.ratingsPromptMessageId = messageId ?? null;
       game.updatedAt = new Date().toISOString();
+      return game;
+    });
+  }
+
+  async markQuickRatingMvpProgressSent(gameId, stage, messageId) {
+    return this.mutate((state) => {
+      const game = state.games[gameId];
+
+      if (!game) {
+        return null;
+      }
+
+      const now = new Date().toISOString();
+
+      if (stage === 'majority') {
+        game.ratingMvpProgressMajoritySentAt = now;
+        game.ratingMvpProgressMajorityMessageId = messageId ?? null;
+      } else {
+        game.ratingMvpProgressLeaderSentAt = now;
+        game.ratingMvpProgressLeaderMessageId = messageId ?? null;
+      }
+
+      game.updatedAt = now;
       return game;
     });
   }
@@ -2003,7 +2151,7 @@ export class AppStore {
         throw new Error('Игра еще не началась');
       }
 
-      if (!isRatingWindowOpen(game, new Date())) {
+      if (!isRatingWindowOpen(state, game, new Date())) {
         throw new Error('Окно оценки уже закрыто');
       }
 
@@ -2063,7 +2211,7 @@ export class AppStore {
         throw new Error('Игра еще не началась');
       }
 
-      if (!isRatingWindowOpen(game, new Date())) {
+      if (!isRatingWindowOpen(state, game, new Date())) {
         throw new Error('Окно оценки уже закрыто');
       }
 

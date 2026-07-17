@@ -43,6 +43,7 @@
       "players_list": "Список игроков",
       "position": "Позиция",
       "profile": "Профиль",
+      "teams": "Команды",
       "rating": "Рейтинг",
       "time": "Время",
       "username": "username без @",
@@ -225,6 +226,7 @@
     "give_points": "Раздай до 3 очков и выбери MVP",
     "max_points": "Можно раздать максимум {{count}} очка",
     "not_allowed": "Оценивать могут только участники текущего матча.",
+    "not_selected": "Не выбран",
     "point_forms": {
       "one": "очко",
       "few": "очка",
@@ -342,6 +344,9 @@
     "invite_added": "Тебя добавили в игру {{date}} в {{time}}.",
     "invite_text": "Тебя пригласили на игру\n\n{{date}} в {{time}}\n{{locationLine}}\n\nОткрой ⚽, чтобы посмотреть состав и расстановку.",
     "join_request": "Игрок хочет присоединиться к игре\n\n{{name}} ({{username}})\n{{date}} в {{time}}\n{{locationLine}}",
+    "mvp_progress_achievements": "Всего ачивок получено: {{count}}",
+    "mvp_progress_leader": "{{votes}} из {{total}} за MVP {{name}}, голосование продолжается",
+    "mvp_progress_majority": "Большинство проголосовало за MVP {{name}}",
     "no_username": "без ника",
     "summary_datetime": "{{date}} в {{time}}",
     "update_game_failed": "Не получилось обновить игру"

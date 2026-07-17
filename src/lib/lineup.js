@@ -21,15 +21,15 @@ export const POSITION_CHOICES = ['N/A', 'GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CA
 const FIELD_POSITION_LAYOUT_FULL = {
   GK: { x: 12, y: 50 },
   CB: { x: 28, y: 50 },
-  LB: { x: 28, y: 25 },
-  RB: { x: 28, y: 75 },
+  LB: { x: 28, y: 19 },
+  RB: { x: 28, y: 81 },
   CDM: { x: 43, y: 50 },
   CM: { x: 51, y: 50 },
   CAM: { x: 61, y: 50 },
-  LM: { x: 51, y: 25 },
-  RM: { x: 51, y: 75 },
-  LW: { x: 72, y: 22 },
-  RW: { x: 72, y: 78 },
+  LM: { x: 51, y: 17 },
+  RM: { x: 51, y: 83 },
+  LW: { x: 72, y: 15 },
+  RW: { x: 72, y: 85 },
   ST: { x: 79, y: 50 },
   'N/A': { x: 50, y: 50 }
 };
@@ -37,15 +37,15 @@ const FIELD_POSITION_LAYOUT_FULL = {
 const FIELD_POSITION_LAYOUT_TOP = {
   GK: { x: 50, y: 12 },
   CB: { x: 50, y: 23 },
-  LB: { x: 80, y: 30 },
-  RB: { x: 20, y: 30 },
+  LB: { x: 86, y: 30 },
+  RB: { x: 14, y: 30 },
   CDM: { x: 50, y: 36 },
   CM: { x: 50, y: 42 },
   CAM: { x: 50, y: 45 },
-  LM: { x: 82, y: 41 },
-  RM: { x: 18, y: 41 },
-  LW: { x: 84, y: 47 },
-  RW: { x: 16, y: 47 },
+  LM: { x: 88, y: 41 },
+  RM: { x: 12, y: 41 },
+  LW: { x: 90, y: 47 },
+  RW: { x: 10, y: 47 },
   ST: { x: 50, y: 49 },
   'N/A': { x: 50, y: 34 }
 };
@@ -53,15 +53,15 @@ const FIELD_POSITION_LAYOUT_TOP = {
 const FIELD_POSITION_LAYOUT_BOTTOM = {
   GK: { x: 50, y: 88 },
   CB: { x: 50, y: 77 },
-  LB: { x: 20, y: 70 },
-  RB: { x: 80, y: 70 },
+  LB: { x: 14, y: 70 },
+  RB: { x: 86, y: 70 },
   CDM: { x: 50, y: 64 },
   CM: { x: 50, y: 58 },
   CAM: { x: 50, y: 55 },
-  LM: { x: 18, y: 59 },
-  RM: { x: 82, y: 59 },
-  LW: { x: 16, y: 53 },
-  RW: { x: 84, y: 53 },
+  LM: { x: 12, y: 59 },
+  RM: { x: 88, y: 59 },
+  LW: { x: 10, y: 53 },
+  RW: { x: 90, y: 53 },
   ST: { x: 50, y: 51 },
   'N/A': { x: 50, y: 66 }
 };
@@ -99,8 +99,8 @@ export function getEffectivePosition(player) {
 
 function getFieldZoneBounds(zone) {
   return zone === 'top'
-    ? { xMin: 14, xMax: 86, yMin: 10, yMax: 49 }
-    : { xMin: 14, xMax: 86, yMin: 51, yMax: 90 };
+    ? { xMin: 10, xMax: 90, yMin: 10, yMax: 49 }
+    : { xMin: 10, xMax: 90, yMin: 51, yMax: 90 };
 }
 
 function getFieldBaseSlot(position, zone) {
@@ -172,7 +172,7 @@ export function buildTeamFieldAssignments(players, zone) {
 
 export function buildFullFieldAssignments(players) {
   const groups = new Map();
-  const bounds = { xMin: 10, xMax: 90, yMin: 16, yMax: 84 };
+  const bounds = { xMin: 10, xMax: 90, yMin: 12, yMax: 88 };
 
   for (const player of [...players].sort((left, right) => {
     const leftPosition = getSortPosition(getEffectivePosition(left));

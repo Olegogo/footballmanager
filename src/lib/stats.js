@@ -3,7 +3,7 @@ import { round } from './utils.js';
 
 export const STAT_KEYS = ['pace', 'dribbling', 'shooting', 'defense', 'passing', 'physical'];
 export const POSITION_OPTIONS = ['N/A', 'GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST'];
-export const RATING_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const RATING_INACTIVITY_WINDOW_MS = 16 * 60 * 60 * 1000;
 export const MAX_YELLOW_CARDS = 2;
 export const MAX_RED_CARDS = 1;
 export const QUICK_RATING_POINTS = 3;
@@ -58,20 +58,59 @@ function compareByDate(left, right) {
   return new Date(left.scheduledAt) - new Date(right.scheduledAt);
 }
 
-function getRatingWindowEnd(game) {
-  return new Date(new Date(game.scheduledAt).getTime() + RATING_WINDOW_MS);
+function getTimeOrNull(value) {
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
 }
 
-export function isRatingWindowOpen(game, now = new Date()) {
+export function getRatingActivityAt(state, game) {
+  const activityTimes = [
+    getTimeOrNull(game?.scheduledAt),
+    getTimeOrNull(game?.ratingsOpenedAt)
+  ].filter((timestamp) => timestamp !== null);
+
+  for (const collection of [
+    state?.ratings,
+    state?.statBoosts,
+    state?.mvpVotes,
+    state?.achievementVotes
+  ]) {
+    for (const item of Object.values(collection ?? {})) {
+      if (item.gameId !== game?.id) {
+        continue;
+      }
+
+      const updatedAt = getTimeOrNull(item.updatedAt) ?? getTimeOrNull(item.createdAt);
+
+      if (updatedAt !== null) {
+        activityTimes.push(updatedAt);
+      }
+    }
+  }
+
+  if (!activityTimes.length) {
+    return new Date(Number.NaN);
+  }
+
+  return new Date(Math.max(...activityTimes));
+}
+
+export function getRatingWindowEnd(state, game) {
+  const activityAt = getRatingActivityAt(state, game).getTime();
+  return new Date(activityAt + RATING_INACTIVITY_WINDOW_MS);
+}
+
+export function isRatingWindowOpen(state, game, now = new Date()) {
   if (game?.closedAt) {
     return false;
   }
 
   const scheduledAt = new Date(game.scheduledAt);
-  return now >= scheduledAt && now < getRatingWindowEnd(game);
+  const windowEnd = getRatingWindowEnd(state, game);
+  return now >= scheduledAt && now < windowEnd;
 }
 
-function isFinalizedForCareer(game, now = new Date()) {
+function isFinalizedForCareer(state, game, now = new Date()) {
   if (game?.excludeFromCareer || ['history-import', 'text-import', 'bootstrap-import'].includes(game?.source)) {
     return false;
   }
@@ -83,7 +122,7 @@ function isFinalizedForCareer(game, now = new Date()) {
     return true;
   }
 
-  return now >= getRatingWindowEnd(game);
+  return now >= getRatingWindowEnd(state, game);
 }
 
 function pickDominantPosition(positionCounts) {
@@ -667,7 +706,7 @@ function buildCareerIndexForPlayersAndGames(state, players, games, now = new Dat
     career.set(player.id, entry);
   }
 
-  for (const game of games.filter((item) => isFinalizedForCareer(item, now))) {
+  for (const game of games.filter((item) => isFinalizedForCareer(state, item, now))) {
     const aggregation = buildGameAggregation(state, game.id);
     const boostAggregation = buildGameBoostAggregation(state, game.id);
 
@@ -727,7 +766,7 @@ function buildGameMvpIndexForGames(state, games, now = new Date()) {
   }
 
   for (const game of games.sort(compareByDate)) {
-    if (!isFinalizedForCareer(game, now)) {
+    if (!isFinalizedForCareer(state, game, now)) {
       continue;
     }
 
@@ -932,7 +971,7 @@ function hasPlayerRatingActivity(state, game, playerId) {
 function buildPlayerAchievementIndex(state, games, career, now = new Date()) {
   const achievementIndex = {};
   const finalizedGames = games
-    .filter((game) => isFinalizedForCareer(game, now))
+    .filter((game) => isFinalizedForCareer(state, game, now))
     .sort(compareByDate);
   const mvpIndex = buildGameMvpIndexForGames(state, finalizedGames, now);
   const gamesByPlayerId = {};
@@ -1055,7 +1094,7 @@ function buildLatestRatingDeltaIndex(state, games, now = new Date()) {
     career.set(player.id, entry);
   }
 
-  for (const game of games.filter((item) => isFinalizedForCareer(item, now)).sort(compareByDate)) {
+  for (const game of games.filter((item) => isFinalizedForCareer(state, item, now)).sort(compareByDate)) {
     const aggregation = buildGameAggregation(state, game.id);
     const boostAggregation = buildGameBoostAggregation(state, game.id);
 
@@ -1241,7 +1280,8 @@ function buildGamesView(state, games, playerCards, now, viewerPlayerId = '') {
           return sum + (gameStats?.hasRatings ? gameStats.goals : 0);
         }, 0)
       ) || Number(game.importedSummary?.totalGoals ?? 0);
-      const topScorer = isFinalizedForCareer(game, now) ? game.playerIds
+      const isFinalized = isFinalizedForCareer(state, game, now);
+      const topScorer = isFinalized ? game.playerIds
         .map((playerId) => {
           const gameStats = aggregation?.players[playerId];
 
@@ -1268,7 +1308,7 @@ function buildGamesView(state, games, playerCards, now, viewerPlayerId = '') {
 
           return right.ratingsCount - left.ratingsCount;
         })[0] ?? null : null;
-      const goleadorWinner = isFinalizedForCareer(game, now) ? getGameAchievementWinner(state, game, 'goleador') : null;
+      const goleadorWinner = isFinalized ? getGameAchievementWinner(state, game, 'goleador') : null;
       const topScorerPlayer = topScorer ? playersById.get(topScorer.playerId) : null;
       const goleadorPlayer = goleadorWinner ? playersById.get(goleadorWinner.playerId) : null;
 
@@ -1483,7 +1523,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       now
     );
     const viewerIsParticipant = viewerPlayerId ? game.playerIds.includes(viewerPlayerId) : false;
-    const ratingWindowOpen = isRatingWindowOpen(game, now);
+    const ratingWindowOpen = isRatingWindowOpen(state, game, now);
     const invitedPlayerIds = (game.invitedPlayerIds ?? []).filter(
       (playerId) =>
         !game.playerIds.includes(playerId) &&
@@ -1507,6 +1547,13 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
         game.organizerPlayerId === viewerPlayerId ||
         isSuperAdminPlayer(viewerPlayer) ||
         state.chats[String(game.chatId)]?.adminPlayerIds?.includes(viewerPlayerId)
+      )
+    );
+    const canViewerToggleRosterLock = Boolean(
+      viewerPlayerId &&
+      (
+        (game.organizerPlayerId && game.organizerPlayerId === viewerPlayerId) ||
+        isSuperAdminPlayer(viewerPlayer)
       )
     );
     const viewerRatings = new Map(
@@ -1544,7 +1591,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       isFinished: status === 'finished',
       rosterLocked: Boolean(game.rosterLocked),
       ratingWindowOpen,
-      ratingWindowEndsAt: getRatingWindowEnd(game).toISOString(),
+      ratingWindowEndsAt: getRatingWindowEnd(state, game).toISOString(),
       viewerIsParticipant,
       canViewerRate: ratingWindowOpen && viewerIsParticipant,
       viewerJoinStatus,
@@ -1566,6 +1613,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       },
       organizerPlayerId: game.organizerPlayerId ?? null,
       canViewerManage,
+      canViewerToggleRosterLock,
       pendingJoinPlayers: pendingJoinPlayerIds
         .map((playerId) => {
           const profile = playerCards.find((player) => player.id === playerId);

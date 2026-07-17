@@ -43,6 +43,7 @@
       "players_list": "Players list",
       "position": "Position",
       "profile": "Profile",
+      "teams": "Teams",
       "rating": "Rating",
       "time": "Time",
       "username": "username without @",
@@ -225,6 +226,7 @@
     "give_points": "Give up to 3 points and choose MVP",
     "max_points": "You can give up to {{count}} points",
     "not_allowed": "Only match participants can rate.",
+    "not_selected": "Not selected",
     "point_forms": {
       "one": "point",
       "few": "points",
@@ -342,6 +344,9 @@
     "invite_added": "You’ve been added to the game on {{date}} at {{time}}.",
     "invite_text": "You’ve been invited to a game\n\n{{date}} at {{time}}\n{{locationLine}}\n\nOpen ⚽ to see the squad and formation.",
     "join_request": "A player wants to join the game\n\n{{name}} ({{username}})\n{{date}} at {{time}}\n{{locationLine}}",
+    "mvp_progress_achievements": "Total achievements unlocked: {{count}}",
+    "mvp_progress_leader": "{{votes}} of {{total}} for MVP {{name}}, voting continues",
+    "mvp_progress_majority": "Most players voted for MVP {{name}}",
     "no_username": "no username",
     "summary_datetime": "{{date}} at {{time}}",
     "update_game_failed": "Couldn’t update the game"

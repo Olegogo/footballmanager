@@ -56,6 +56,7 @@ export const config = {
     .map((item) => item.trim().replace(/\/+$/, ''))
     .filter(Boolean),
   telegramBotToken: env('TELEGRAM_BOT_TOKEN', ''),
+  telegramBotUsername: env('TELEGRAM_BOT_USERNAME', '').replace(/^@/, ''),
   defaultChatId: env('DEFAULT_CHAT_ID', ''),
   allowDevLogin: ['1', 'true', 'yes'].includes(env('ALLOW_DEV_LOGIN', 'false').toLowerCase()),
   adminImportToken: env('ADMIN_IMPORT_TOKEN', ''),
