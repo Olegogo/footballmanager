@@ -183,19 +183,8 @@ export class TelegramBot {
     const directMiniAppLink = this.buildMainMiniAppLink(chatId, options);
     const loginUrl = this.buildTelegramLoginUrl(chatId, options);
 
-    if (directMiniAppLink) {
-      return {
-        inline_keyboard: [
-          [
-            {
-              text: buttonText,
-              url: directMiniAppLink
-            }
-          ]
-        ]
-      };
-    }
-
+    // Private-chat web_app buttons use the deployed URL directly and do not
+    // depend on the Main Mini App URL cached in BotFather.
     if (chatType === 'private' && publicUrl) {
       return {
         inline_keyboard: [
@@ -205,6 +194,19 @@ export class TelegramBot {
               web_app: {
                 url: publicUrl
               }
+            }
+          ]
+        ]
+      };
+    }
+
+    if (directMiniAppLink) {
+      return {
+        inline_keyboard: [
+          [
+            {
+              text: buttonText,
+              url: directMiniAppLink
             }
           ]
         ]
@@ -236,7 +238,10 @@ export class TelegramBot {
 
   getMiniAppFallbackUrl(chatId = '', chatType = 'private', options = {}) {
     const publicUrl = this.buildMiniAppUrl(chatId, options);
-    return this.buildMainMiniAppLink(chatId, options) || publicUrl || '';
+    const directMiniAppLink = this.buildMainMiniAppLink(chatId, options);
+    return chatType === 'private'
+      ? publicUrl || directMiniAppLink || ''
+      : directMiniAppLink || publicUrl || '';
   }
 
   buildFallbackUrlKeyboard(chatId = '', chatType = 'private', buttonText = '⚽', options = {}) {
