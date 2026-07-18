@@ -51,8 +51,8 @@ test('processPendingRatingPrompts sends a rating prompt with miniapp link', asyn
   assert.equal(sent[0].text, RATING_PROMPT_TEXT);
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Оценить');
   assert.equal(
-    sent[0].options.replyMarkup.inline_keyboard[0][0].url,
-    'https://t.me/football_test_bot?startapp=gameid_game_1'
+    sent[0].options.replyMarkup.inline_keyboard[0][0].login_url.url,
+    'https://app.example/auth/telegram-login?chatId=-1001&view=game&gameId=game_1'
   );
   assert.deepEqual(marked, [{ gameId: 'game_1', messageId: 77 }]);
 });
@@ -76,7 +76,8 @@ test('processPendingRatingPrompts falls back to plain link when keyboard send fa
   bot.sendText = async (chatId, text, options = {}) => {
     sent.push({ chatId, text, options });
 
-    if (options.replyMarkup?.inline_keyboard?.[0]?.[0]?.url) {
+    const button = options.replyMarkup?.inline_keyboard?.[0]?.[0];
+    if (button?.url || button?.login_url) {
       throw new Error('Telegram rejected keyboard');
     }
 
@@ -88,7 +89,7 @@ test('processPendingRatingPrompts falls back to plain link when keyboard send fa
   assert.equal(sent.length, 3);
   assert.equal(
     sent[2].text,
-    `${RATING_PROMPT_TEXT}\n\nhttps://t.me/football_test_bot?startapp=gameid_game_2`
+    `${RATING_PROMPT_TEXT}\n\nhttps://app.example/auth/telegram-login?chatId=-1002&view=game&gameId=game_2`
   );
   assert.deepEqual(marked, [{ gameId: 'game_2', messageId: 88 }]);
 });
@@ -148,7 +149,8 @@ test('/open falls back to plain link when Telegram rejects keyboard', async () =
   bot.sendText = async (chatId, text, options = {}) => {
     sent.push({ chatId, text, options });
 
-    if (options.replyMarkup?.inline_keyboard?.[0]?.[0]?.url) {
+    const button = options.replyMarkup?.inline_keyboard?.[0]?.[0];
+    if (button?.url || button?.login_url) {
       throw new Error('Telegram rejected keyboard');
     }
 
@@ -168,7 +170,7 @@ test('/open falls back to plain link when Telegram rejects keyboard', async () =
   assert.equal(sent[2].chatId, -1003);
   assert.equal(
     sent[2].text,
-    'https://t.me/football_test_bot?startapp=app'
+    'https://app.example/auth/telegram-login'
   );
 });
 
@@ -198,8 +200,8 @@ test('/open sends only button text with custom label when keyboard works', async
   assert.equal(sent[0].text, '\u2060');
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть футбольчик');
   assert.equal(
-    sent[0].options.replyMarkup.inline_keyboard[0][0].url,
-    'https://t.me/football_test_bot?startapp=app'
+    sent[0].options.replyMarkup.inline_keyboard[0][0].login_url.url,
+    'https://app.example/auth/telegram-login'
   );
 });
 
@@ -338,7 +340,7 @@ test('buildMainMiniAppLink uses configured bot username before getMe resolves', 
   );
 });
 
-test('/open uses Telegram miniapp deep link in group chats', async () => {
+test('/open uses the active deployment login URL in group chats', async () => {
   const { store } = createBotStore([]);
   const bot = new TelegramBot({
     telegramBotToken: 'token',
@@ -362,8 +364,8 @@ test('/open uses Telegram miniapp deep link in group chats', async () => {
 
   assert.equal(sent.length, 1);
   assert.equal(
-    sent[0].options.replyMarkup.inline_keyboard[0][0].url,
-    'https://t.me/football_test_bot?startapp=app'
+    sent[0].options.replyMarkup.inline_keyboard[0][0].login_url.url,
+    'https://footballmanager-production.up.railway.app/auth/telegram-login'
   );
 });
 
@@ -378,6 +380,37 @@ test('buildMiniAppUrl normalizes PUBLIC_BASE_URL without scheme for private chat
     bot.buildMiniAppUrl('-1005'),
     'https://footballmanager-production.up.railway.app/?chatId=-1005'
   );
+});
+
+test('syncDefaultMenuButton points Open at the active deployment', async () => {
+  const { store } = createBotStore([]);
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+  const calls = [];
+
+  bot.callApi = async (method, payload) => {
+    calls.push({ method, payload });
+    return true;
+  };
+
+  await bot.syncDefaultMenuButton();
+
+  assert.deepEqual(calls, [
+    {
+      method: 'setChatMenuButton',
+      payload: {
+        menu_button: {
+          type: 'web_app',
+          text: 'Open',
+          web_app: {
+            url: 'https://app.example/'
+          }
+        }
+      }
+    }
+  ]);
 });
 
 test('handleAnnouncement sends details button only for fresh messages', async () => {
@@ -1115,7 +1148,10 @@ test('sendGameDetailsEntry sends bare lineup image when photo keyboard is reject
   assert.equal(photos[1].options.replyMarkup, undefined);
   assert.equal(texts.length, 1);
   assert.equal(texts[0].options.replyMarkup.inline_keyboard[0][0].text, 'Детали игры');
-  assert.equal(texts[0].options.replyMarkup.inline_keyboard[0][0].url, 'https://t.me/football_test_bot?startapp=gameid_game_selected');
+  assert.equal(
+    texts[0].options.replyMarkup.inline_keyboard[0][0].login_url.url,
+    'https://app.example/auth/telegram-login?chatId=-1007&view=game&gameId=game_selected'
+  );
 });
 
 test('notifyPlayersAboutManualGame sends private invites with decline button', async () => {

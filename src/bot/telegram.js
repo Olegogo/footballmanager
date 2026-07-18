@@ -200,19 +200,8 @@ export class TelegramBot {
       };
     }
 
-    if (directMiniAppLink) {
-      return {
-        inline_keyboard: [
-          [
-            {
-              text: buttonText,
-              url: directMiniAppLink
-            }
-          ]
-        ]
-      };
-    }
-
+    // Group buttons use Telegram Login against the current deployment. This
+    // avoids stale Main Mini App URLs cached by BotFather.
     if (chatType !== 'private' && loginUrl) {
       return {
         inline_keyboard: [
@@ -229,6 +218,19 @@ export class TelegramBot {
       };
     }
 
+    if (directMiniAppLink) {
+      return {
+        inline_keyboard: [
+          [
+            {
+              text: buttonText,
+              url: directMiniAppLink
+            }
+          ]
+        ]
+      };
+    }
+
     return undefined;
   }
 
@@ -239,9 +241,10 @@ export class TelegramBot {
   getMiniAppFallbackUrl(chatId = '', chatType = 'private', options = {}) {
     const publicUrl = this.buildMiniAppUrl(chatId, options);
     const directMiniAppLink = this.buildMainMiniAppLink(chatId, options);
+    const loginUrl = this.buildTelegramLoginUrl(chatId, options);
     return chatType === 'private'
       ? publicUrl || directMiniAppLink || ''
-      : directMiniAppLink || publicUrl || '';
+      : loginUrl || publicUrl || directMiniAppLink || '';
   }
 
   buildFallbackUrlKeyboard(chatId = '', chatType = 'private', buttonText = '⚽', options = {}) {
@@ -328,6 +331,22 @@ export class TelegramBot {
 
     const me = await this.callApi('getMe');
     this.botUsername = me?.username ?? '';
+  }
+
+  async syncDefaultMenuButton() {
+    const url = this.buildMiniAppUrl();
+
+    if (!url) {
+      return;
+    }
+
+    await this.callApi('setChatMenuButton', {
+      menu_button: {
+        type: 'web_app',
+        text: 'Open',
+        web_app: { url }
+      }
+    });
   }
 
   async callApi(method, payload = {}) {
@@ -1273,6 +1292,17 @@ export class TelegramBot {
 
     try {
       await this.ensureBotProfile();
+    } catch (error) {
+      console.error('Unable to load bot profile:', error.message);
+    }
+
+    try {
+      await this.syncDefaultMenuButton();
+    } catch (error) {
+      console.error('Unable to update Telegram menu button:', error.message);
+    }
+
+    try {
       await this.callApi('deleteWebhook', { drop_pending_updates: false });
     } catch (error) {
       console.error('Unable to delete webhook before polling:', error.message);

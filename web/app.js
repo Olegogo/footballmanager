@@ -1478,6 +1478,8 @@ function renderFifaCard(player, options = {}) {
   const hasRating = hasVisibleRating(player, currentStats);
   const hasStats = hasVisibleStats(player, currentStats);
   const isRatingCard = variant === 'game-rating';
+  const showPositionSelector = isRatingCard || Boolean(options.showPositionSelector);
+  const editablePosition = Boolean(options.editablePosition);
   const viewerHasRatedTarget = Boolean(player.viewerHasRatedTarget);
   const hideMatchDetailsUntilViewerRates = isRatingCard && !viewerHasRatedTarget;
   const showKnownStats = !hideMatchDetailsUntilViewerRates && hasStats;
@@ -1524,8 +1526,15 @@ function renderFifaCard(player, options = {}) {
           <div class="card-nick">@${escapeHtml(player.username || 'unknown')}</div>
         </div>
         ${
-          isRatingCard
-            ? renderPositionSelector(t('common.labels.position'), effectivePosition === 'N/A' ? t('common.misc.not_selected') : getPositionLabel(effectivePosition, 'title'))
+          showPositionSelector
+            ? editablePosition
+              ? renderEditablePositionSelector(
+                  t('common.labels.position'),
+                  effectivePosition === 'N/A' ? t('common.misc.not_selected') : getPositionLabel(effectivePosition, 'title'),
+                  effectivePosition,
+                  true
+                )
+              : renderPositionSelector(t('common.labels.position'), effectivePosition === 'N/A' ? t('common.misc.not_selected') : getPositionLabel(effectivePosition, 'title'))
             : ''
         }
         <div class="metric-grid metric-grid--summary ${overviewCells.length === 1 ? 'metric-grid--single' : ''}">
@@ -1641,6 +1650,22 @@ function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
   const statMeta = getStatMetaForPosition(defaults.position);
   const isGoalkeeper = isGoalkeeperPosition(defaults.position);
 
+  if (!editable) {
+    return `
+      <div class="editor-overlay player-preview-overlay" data-modal-backdrop="true">
+        <section class="player-preview-dialog" role="dialog" aria-modal="true" aria-label="${escapeHtml(player.displayName)}">
+          <button class="editor-close player-preview-close" type="button" data-close-modal="true" aria-label="${escapeHtml(t('common.buttons.close'))}">×</button>
+          ${renderFifaCard(player, {
+            currentStats,
+            variant: 'player-preview',
+            clickable: false,
+            showPositionSelector: true
+          })}
+        </section>
+      </div>
+    `;
+  }
+
   return `
     <div class="editor-overlay" data-modal-backdrop="true">
       <section class="editor-screen" role="dialog" aria-modal="true" aria-label="${escapeHtml(player.displayName)}">
@@ -1654,33 +1679,18 @@ function renderEditorScreen(player, gamePlayer, editable, defaults, game) {
             <div class="editor-name">${escapeHtml(player.displayName)}</div>
             <div class="editor-nick">@${escapeHtml(player.username || 'unknown')}</div>
           </div>
-          ${
-            editable
-              ? `
-                <div class="editor-form editor-form--quick">
-                  <div class="quick-rating-block">
-                    <span class="quick-rating-label">${escapeHtml(t('mvp.vote_title'))}</span>
-                    ${renderQuickRatingMvpButton(player, game, getQuickRatingDraft(game))}
-                  </div>
-                  <div class="quick-rating-block">
-                    <span class="quick-rating-label">${escapeHtml(t('rating.stat_points'))}</span>
-                    <p class="quick-rating-hint">${escapeHtml(t('rating.stat_points_hint', { count: QUICK_RATING_POINTS }))}</p>
-                    ${renderQuickStatControls(player, game, getQuickRatingDraft(game))}
-                  </div>
-                  ${isQuickRatingDraftChanged(game) ? `<button type="button" class="primary-button card-action editor-submit" data-submit-quick-rating="${escapeHtml(game.id)}">${escapeHtml(t('common.buttons.save'))}</button>` : ''}
+          <div class="editor-form editor-form--quick">
+            <div class="quick-rating-block">
+              <span class="quick-rating-label">${escapeHtml(t('mvp.vote_title'))}</span>
+              ${renderQuickRatingMvpButton(player, game, getQuickRatingDraft(game))}
+            </div>
+            <div class="quick-rating-block">
+              <span class="quick-rating-label">${escapeHtml(t('rating.stat_points'))}</span>
+              <p class="quick-rating-hint">${escapeHtml(t('rating.stat_points_hint', { count: QUICK_RATING_POINTS }))}</p>
+              ${renderQuickStatControls(player, game, getQuickRatingDraft(game))}
+            </div>
+            ${isQuickRatingDraftChanged(game) ? `<button type="button" class="primary-button card-action editor-submit" data-submit-quick-rating="${escapeHtml(game.id)}">${escapeHtml(t('common.buttons.save'))}</button>` : ''}
                 </div>
-              `
-              : `
-                ${renderFifaCard(player, {
-                  currentStats,
-                  variant: gamePlayer ? 'game-summary' : 'player-list',
-                  clickable: false
-                })}
-                <div class="panel subtle-panel">
-                  <p>${escapeHtml(t('players.view_only_description'))}</p>
-                </div>
-              `
-          }
         </div>
       </section>
     </div>
@@ -3538,31 +3548,12 @@ function renderProfileTab() {
   const effectivePosition = selfProfileDefaults.position || 'N/A';
   const canEditOwnProfile = Boolean(state.token && state.snapshot?.viewerPlayerId === player.id);
   const isEditingSelfProfile = canEditOwnProfile && state.selfProfileEditing;
-  const showProfileValues = hasCareerRatings || player.hasSelfProfile;
-  const statMeta = getStatMetaForPosition(effectivePosition);
-  const overviewCells = [
-    { label: t('stats.games'), value: player.games }
-  ];
-  if (hasDisciplineCards(player)) {
-    overviewCells.push({
-      label: t('stats.cards'),
-      value: renderDisciplineCards(player.cards || player, 'profile-cards-total'),
-      html: true
-    });
-  }
-  const statCells = statMeta.map(([key, label]) => [
-    label,
-    showProfileValues ? player.stats[key] : '-'
-  ]);
-  const achievements = getPlayerAchievements(player);
-  const unlockedAchievements = achievements.filter((achievement) => achievement.count > 0);
-  const profileStatusLabel = getCardStatusLabel(player);
-
   return `
-    <section class="editor-screen profile-screen" aria-label="${escapeHtml(t('players.card_title'))}">
-      <div class="editor-hero profile-hero">
-        ${renderCardHero(player)}
-        <button type="button" class="profile-back-button" data-close-profile aria-label="${escapeHtml(t('common.buttons.back'))}">‹</button>
+    <section class="profile-screen ${isEditingSelfProfile ? 'profile-screen--editing' : ''}" aria-label="${escapeHtml(t('players.card_title'))}">
+      <header class="profile-toolbar">
+        <button type="button" class="profile-back-button" data-close-profile aria-label="${escapeHtml(t('common.buttons.back'))}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 5.3a1 1 0 0 1 0 1.4L9.4 12l5.3 5.3a1 1 0 1 1-1.4 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.4 0Z"></path></svg>
+        </button>
         ${
           canEditOwnProfile
             ? `
@@ -3570,73 +3561,33 @@ function renderProfileTab() {
                 ${renderDotsIcon()}
               </button>
             `
-            : ''
+            : '<span class="profile-toolbar-spacer" aria-hidden="true"></span>'
         }
-        <button type="button" class="profile-share-button" data-share-profile aria-label="${escapeHtml(t('common.buttons.share_card'))}">
-          ${renderShareIcon()}
-        </button>
-        ${profileStatusLabel ? `<span class="editor-status">${escapeHtml(profileStatusLabel)}</span>` : ''}
-        ${
-          hasCareerRatings
-            ? `
-              <div class="hero-score ${profileStatusLabel ? 'hero-score--with-status' : ''}">
-                ${renderRatingValue(player.overall, player.ratingDelta, 'hero-rating-value')}
-                <span>${escapeHtml(getPositionLabel(effectivePosition, 'card'))}</span>
+      </header>
+      ${
+        isEditingSelfProfile
+          ? `
+            <article class="fifa-card fifa-card--profile fifa-card--profile-editing">
+              <div class="fifa-card-hero">
+                ${renderCardHero(player)}
+                ${hasCareerRatings ? `<div class="hero-score">${renderRatingValue(player.overall, player.ratingDelta, 'hero-rating-value')}<span>${escapeHtml(getPositionLabel(effectivePosition, 'card'))}</span></div>` : ''}
               </div>
-            `
-            : ''
-        }
-      </div>
-      <div class="editor-body profile-body">
-        <div class="editor-nameblock">
-          <div class="editor-name">${escapeHtml(player.displayName)}</div>
-          <div class="editor-nick">@${escapeHtml(player.username || 'unknown')}</div>
-        </div>
-        ${
-          isEditingSelfProfile
-            ? renderSelfProfileForm(player, selfProfileDefaults, { includeStats: !hasCareerRatings })
-            : `
-              ${renderEditablePositionSelector(
-                t('common.labels.position'),
-                effectivePosition === 'N/A' ? t('common.misc.not_selected') : getPositionLabel(effectivePosition, 'title'),
-                effectivePosition,
-                canEditOwnProfile
-              )}
-            `
-        }
-        ${
-          isEditingSelfProfile
-            ? ''
-            : `
-              <div class="profile-card-metrics">
-                <div class="metric-grid metric-grid--summary ${overviewCells.length === 1 ? 'metric-grid--single' : ''}">
-                  ${overviewCells.map((cell) => renderMetricCell(cell.label, cell.value, cell)).join('')}
+              <div class="fifa-card-panel">
+                <div class="fifa-card-nameblock">
+                  <div class="card-name">${escapeHtml(player.displayName)}</div>
+                  <div class="card-nick">@${escapeHtml(player.username || 'unknown')}</div>
                 </div>
-                <div class="metric-grid metric-grid--stats">
-                  ${statCells.map(([label, value]) => renderMetricCell(label, value)).join('')}
-                </div>
+                ${renderSelfProfileForm(player, selfProfileDefaults, { includeStats: !hasCareerRatings })}
               </div>
-            `
-        }
-        ${
-          isEditingSelfProfile
-            ? ''
-            : `
-              <section class="profile-achievements" aria-label="${escapeHtml(t('players.achievements'))}">
-                ${renderAchievementTitle(unlockedAchievements)}
-                ${
-                  unlockedAchievements.length
-                    ? `
-                      <div class="achievement-grid">
-                        ${unlockedAchievements.map((achievement) => renderAchievementCard(achievement)).join('')}
-                      </div>
-                    `
-                    : `<p class="achievement-empty">${escapeHtml(t('players.empty_achievements'))}</p>`
-                }
-              </section>
-            `
-        }
-      </div>
+            </article>
+          `
+          : renderFifaCard(player, {
+              variant: 'profile',
+              clickable: false,
+              showPositionSelector: true,
+              editablePosition: canEditOwnProfile
+            })
+      }
     </section>
   `;
 }

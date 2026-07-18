@@ -4447,3 +4447,171 @@ input[type="range"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Card-based profile and player preview */
+.app-shell--profile {
+  width: min(100%, 560px);
+  max-width: 560px;
+  margin-inline: auto;
+  padding: 12px 12px calc(24px + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(circle at 50% 0%, rgba(38, 104, 69, 0.32), transparent 38%),
+    #0b2a1c;
+}
+
+.app-shell--profile .content {
+  width: 100%;
+  gap: 0;
+}
+
+.profile-screen {
+  width: 100%;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+.profile-toolbar {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 44px;
+  margin-bottom: 12px;
+}
+
+.profile-back-button,
+.profile-menu-button {
+  position: static;
+  inset: auto;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 240, 209, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.profile-back-button {
+  font-size: 0;
+}
+
+.profile-back-button svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+.profile-menu-button svg {
+  width: 22px;
+  height: 22px;
+}
+
+.profile-toolbar-spacer {
+  width: 44px;
+  height: 44px;
+}
+
+.fifa-card--profile,
+.fifa-card--player-preview {
+  width: 100%;
+  border-radius: 26px;
+}
+
+.fifa-card--profile .fifa-card-hero,
+.fifa-card--player-preview .fifa-card-hero {
+  min-height: 0;
+  aspect-ratio: 1.92 / 1;
+}
+
+.fifa-card--profile .fifa-card-panel,
+.fifa-card--player-preview .fifa-card-panel {
+  gap: 10px;
+  padding: 14px 16px 18px;
+}
+
+.fifa-card--profile .card-name,
+.fifa-card--player-preview .card-name {
+  font-size: 24px;
+}
+
+.fifa-card--profile .card-nick,
+.fifa-card--player-preview .card-nick {
+  margin-top: 4px;
+  font-size: 15px;
+}
+
+.fifa-card--profile .position-selector,
+.fifa-card--player-preview .position-selector {
+  margin-top: 4px;
+}
+
+.fifa-card--profile .metric-grid,
+.fifa-card--player-preview .metric-grid {
+  gap: 8px;
+}
+
+.fifa-card--profile .metric-cell,
+.fifa-card--player-preview .metric-cell {
+  min-height: 52px;
+}
+
+.fifa-card--profile .quick-achievement-pills,
+.fifa-card--player-preview .quick-achievement-pills {
+  gap: 16px;
+  padding-bottom: 2px;
+}
+
+.fifa-card--profile .quick-achievement-pill,
+.fifa-card--player-preview .quick-achievement-pill,
+.fifa-card--profile .quick-achievement-pill .achievement-icon,
+.fifa-card--player-preview .quick-achievement-pill .achievement-icon {
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
+  flex-basis: 64px;
+}
+
+.profile-screen--editing {
+  padding-bottom: 104px;
+}
+
+.player-preview-overlay {
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.player-preview-dialog {
+  position: relative;
+  width: min(100%, 400px);
+  margin: auto;
+  padding-top: 56px;
+}
+
+.player-preview-close {
+  top: 0;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  box-shadow: none;
+}
+
+@media (max-width: 640px) {
+  .app-shell--profile {
+    padding-inline: 12px;
+  }
+
+  .player-preview-overlay {
+    padding-inline: 12px;
+  }
+}
