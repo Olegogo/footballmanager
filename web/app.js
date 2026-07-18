@@ -1813,11 +1813,17 @@ function renderOrganizerPanel(game) {
 
 function renderRatingBanner(game) {
   if (game.ratingWindowOpen) {
+    const countdownLabel = getRatingCountdownLabel(game.ratingWindowEndsAt);
+    const timer = countdownLabel
+      ? `<strong data-rating-countdown="${escapeHtml(game.ratingWindowEndsAt)}">${escapeHtml(countdownLabel)}</strong>`
+      : '';
+
     if (!game.viewerIsParticipant) {
       return `
         <section class="notice-banner notice-banner--rating-live notice-banner--rating-viewer">
           <div class="rating-live-main">
             <p>${escapeHtml(t('rating.for_participants_started'))}</p>
+            ${timer}
           </div>
         </section>
       `;
@@ -1831,6 +1837,7 @@ function renderRatingBanner(game) {
       <section class="notice-banner notice-banner--rating-live">
         <div class="rating-live-main">
           <p>${escapeHtml(t('rating.give_points'))}</p>
+          ${timer}
         </div>
         <div class="rating-live-chips">
           <span>${escapeHtml(t('rating.points_left', {
