@@ -700,6 +700,110 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'POST' && url.pathname === '/api/teams') {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Требуется авторизация' });
+        return;
+      }
+
+      const body = await readJsonBody(req);
+      const result = await store.createTeam({
+        requesterPlayerId: session.playerId,
+        name: body.name,
+        city: body.city,
+        format: body.format,
+        level: body.level,
+        captainPlayerId: body.captainPlayerId,
+        playerIds: body.playerIds,
+        status: body.status
+      });
+      sendJson(res, 200, {
+        team: { id: result.team.id },
+        snapshot: getGlobalSnapshot(session.playerId)
+      });
+      return;
+    }
+
+    if (req.method === 'PUT' && /^\/api\/teams\/[^/]+$/.test(url.pathname)) {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Требуется авторизация' });
+        return;
+      }
+
+      const body = await readJsonBody(req);
+      const teamId = decodeURIComponent(url.pathname.split('/')[3]);
+      const result = await store.updateTeam({
+        teamId,
+        requesterPlayerId: session.playerId,
+        payload: body
+      });
+      sendJson(res, 200, {
+        team: { id: result.team.id },
+        snapshot: getGlobalSnapshot(session.playerId)
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/team-challenges') {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Требуется авторизация' });
+        return;
+      }
+
+      const body = await readJsonBody(req);
+      const result = await store.createTeamChallenge({
+        requesterPlayerId: session.playerId,
+        challengerTeamId: body.challengerTeamId,
+        opponentTeamId: body.opponentTeamId,
+        payload: body
+      });
+      await bot.notifyTeamChallenge?.(result.challenge.id);
+      sendJson(res, 200, {
+        challenge: { id: result.challenge.id },
+        snapshot: getGlobalSnapshot(session.playerId)
+      });
+      return;
+    }
+
+    if (req.method === 'PATCH' && /^\/api\/team-challenges\/[^/]+$/.test(url.pathname)) {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Требуется авторизация' });
+        return;
+      }
+
+      const body = await readJsonBody(req);
+      const challengeId = decodeURIComponent(url.pathname.split('/')[3]);
+      const result = await store.respondToTeamChallenge({
+        challengeId,
+        requesterPlayerId: session.playerId,
+        action: body.action,
+        payload: body,
+        timezoneOffset: config.chatTimezoneOffset
+      });
+
+      if (result.game) {
+        bot.schedulePromptForGame(result.game);
+        await bot.notifyPlayersAboutManualGame(result.game.id);
+      } else if (body.action === 'counter') {
+        await bot.notifyTeamChallenge?.(result.challenge.id);
+      }
+
+      sendJson(res, 200, {
+        challenge: { id: result.challenge.id },
+        game: result.game ? { id: result.game.id } : null,
+        snapshot: getGlobalSnapshot(session.playerId)
+      });
+      return;
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/games') {
       const session = getViewerSession(req);
       const locale = getRequestLocale(req, url, session);

@@ -1645,3 +1645,115 @@ test('importCareerSeed stores old volume ratings by username', async () => {
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
+
+test('team challenge creates a global game from both team rosters', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const firstCaptain = await store.rememberTelegramUser(777, {
+      id: 777,
+      username: 'first_captain',
+      first_name: 'First'
+    }, {
+      chatTitle: 'First captain',
+      chatType: 'private'
+    });
+    const secondCaptain = await store.rememberTelegramUser(888, {
+      id: 888,
+      username: 'second_captain',
+      first_name: 'Second'
+    }, {
+      chatTitle: 'Second captain',
+      chatType: 'private'
+    });
+    const firstPlayer = await store.upsertPlayerByUsername('global', 'first_player');
+    const secondPlayer = await store.upsertPlayerByUsername('global', 'second_player');
+
+    const firstTeamResult = await store.createTeam({
+      requesterPlayerId: firstCaptain.id,
+      name: 'FC North',
+      city: 'САО',
+      format: '5x5',
+      level: 'amateur',
+      captainPlayerId: firstCaptain.id,
+      playerIds: [firstCaptain.id, firstPlayer.id],
+      status: 'open'
+    });
+    const secondTeamResult = await store.createTeam({
+      requesterPlayerId: secondCaptain.id,
+      name: 'Red Socks',
+      city: 'ЦАО',
+      format: '5x5',
+      level: 'strong_amateur',
+      captainPlayerId: secondCaptain.id,
+      playerIds: [secondCaptain.id, secondPlayer.id],
+      status: 'open'
+    });
+    const challengeResult = await store.createTeamChallenge({
+      requesterPlayerId: firstCaptain.id,
+      challengerTeamId: firstTeamResult.team.id,
+      opponentTeamId: secondTeamResult.team.id,
+      payload: {
+        format: '5x5',
+        date: '2099-07-25',
+        time: '19:00',
+        location: 'Авиапарк, поле 2',
+        duration: 90,
+        mode: 'ranked',
+        costSplit: '50/50',
+        needsReferee: true,
+        comment: 'Играем без грубости'
+      }
+    });
+
+    const secondCaptainSnapshot = store.getSnapshot('global', secondCaptain.id);
+    const visibleChallenge = secondCaptainSnapshot.teamChallenges.find(
+      (challenge) => challenge.id === challengeResult.challenge.id
+    );
+
+    assert.equal(visibleChallenge.canRespond, true);
+    assert.equal(visibleChallenge.compatibility, 'good');
+
+    const accepted = await store.respondToTeamChallenge({
+      challengeId: challengeResult.challenge.id,
+      requesterPlayerId: secondCaptain.id,
+      action: 'accept',
+      payload: {},
+      timezoneOffset: '+03:00'
+    });
+
+    assert.equal(accepted.challenge.status, 'accepted');
+    assert.equal(accepted.challenge.gameId, accepted.game.id);
+    assert.equal(accepted.game.chatId, 'global');
+    assert.equal(accepted.game.source, 'team_challenge');
+    assert.equal(accepted.game.time, '19:00–20:30');
+    assert.deepEqual(
+      new Set(accepted.game.teamIds),
+      new Set([firstTeamResult.team.id, secondTeamResult.team.id])
+    );
+    assert.deepEqual(
+      new Set([...(accepted.game.playerIds ?? []), ...(accepted.game.invitedPlayerIds ?? [])]),
+      new Set([firstCaptain.id, firstPlayer.id, secondCaptain.id, secondPlayer.id])
+    );
+
+    const globalSnapshot = store.getSnapshot('global', firstCaptain.id);
+    assert.equal(globalSnapshot.teams.length, 2);
+    assert.ok(globalSnapshot.games.some((game) => game.id === accepted.game.id));
+    assert.equal(
+      globalSnapshot.teamChallenges.find((challenge) => challenge.id === accepted.challenge.id)?.status,
+      'accepted'
+    );
+    await assert.rejects(
+      store.respondToTeamChallenge({
+        challengeId: challengeResult.challenge.id,
+        requesterPlayerId: secondCaptain.id,
+        action: 'accept',
+        payload: {},
+        timezoneOffset: '+03:00'
+      }),
+      /уже обработан/
+    );
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});

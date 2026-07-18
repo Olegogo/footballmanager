@@ -160,6 +160,15 @@ const state = {
   fieldTeamFilter: 'top',
   playerSearch: '',
   showCreateGameTooltip: false,
+  showCreateTeamTooltip: false,
+  teamScreen: 'list',
+  teamSearch: '',
+  teamSort: 'rating',
+  selectedTeamId: '',
+  teamEditingId: '',
+  teamPlayerSearch: '',
+  teamDraft: null,
+  challengeDraft: null,
   selectedPlayerId: null,
   playerScrollTargetId: launchContext.playerId || '',
   selectedGameId: launchContext.gameId,
@@ -192,6 +201,7 @@ const state = {
   }
 };
 let createGameTooltipTimer = null;
+let createTeamTooltipTimer = null;
 const PROFILE_STEPPER_LONG_TAP_MS = 450;
 const profileStepperPressStartedAt = new WeakMap();
 
@@ -411,7 +421,7 @@ function normalizeUsername(value = '') {
 }
 
 function getScreenTitle() {
-  if (state.manualGameOpen) {
+  if (state.manualGameOpen || (state.activeTab === 'teams' && state.teamScreen !== 'list')) {
     return '';
   }
 
@@ -538,6 +548,26 @@ function showCreateGameTooltip() {
     if (state.activeTab === 'games' && !state.manualGameOpen) {
       render();
     }
+  }, 4000);
+}
+
+function hideCreateTeamTooltip() {
+  state.showCreateTeamTooltip = false;
+  clearTimeout(createTeamTooltipTimer);
+  createTeamTooltipTimer = null;
+}
+
+function showCreateTeamTooltip() {
+  if (state.activeTab !== 'teams' || state.teamScreen !== 'list') {
+    return;
+  }
+
+  state.showCreateTeamTooltip = true;
+  clearTimeout(createTeamTooltipTimer);
+  createTeamTooltipTimer = setTimeout(() => {
+    state.showCreateTeamTooltip = false;
+    createTeamTooltipTimer = null;
+    if (state.activeTab === 'teams' && state.teamScreen === 'list') render();
   }, 4000);
 }
 
@@ -3600,17 +3630,379 @@ function renderProfileTab() {
 }
 
 function renderTeamsTab() {
-  const title = t('common.labels.teams');
-  const description = state.locale === 'en'
-    ? 'Teams are coming soon. For now we are finishing the match screen, profile and rating flow.'
-    : 'Команды скоро появятся. Сейчас доделываем экран игры, профиль и процесс оценки.';
+  if (state.teamScreen === 'editor') return renderTeamEditor();
+  if (state.teamScreen === 'detail') return renderTeamDetail();
+  if (state.teamScreen === 'challenge') return renderTeamChallengeEditor();
+  return renderTeamsList();
+}
+
+function getTeams() {
+  return state.snapshot?.teams ?? [];
+}
+
+function getTeamChallenges() {
+  return state.snapshot?.teamChallenges ?? [];
+}
+
+function getSelectedTeam() {
+  return getTeams().find((team) => team.id === state.selectedTeamId) ?? null;
+}
+
+function getManagedTeams() {
+  return getTeams().filter((team) => team.canManage);
+}
+
+function teamChoiceLabel(group, value) {
+  return t(`teams.${group}.${value}`);
+}
+
+function renderTeamAvatar(team) {
+  const initials = String(team?.name || '?').split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+  return `<span class="team-avatar">${escapeHtml(initials)}</span>`;
+}
+
+function renderTeamCard(team) {
+  return `
+    <button type="button" class="team-card" data-open-team="${escapeHtml(team.id)}">
+      <span class="team-card-head">
+        ${renderTeamAvatar(team)}
+        <span class="team-card-identity">
+          <strong>${escapeHtml(team.name)}</strong>
+          <span>${escapeHtml(team.city)}</span>
+        </span>
+        <span class="team-card-rating"><small>${escapeHtml(t('teams.rating'))}</small>${team.rating || '—'}</span>
+      </span>
+      <span class="team-card-meta">
+        <span>${escapeHtml(teamChoiceLabel('formats', team.format))}</span>
+        <span>${escapeHtml(teamChoiceLabel('levels', team.level))}</span>
+        <span>${escapeHtml(t('teams.players_count', { count: team.players?.length ?? 0 }))}</span>
+      </span>
+    </button>
+  `;
+}
+
+function renderTeamsList() {
+  const query = String(state.teamSearch || '').trim().toLowerCase();
+  const teams = [...getTeams()]
+    .filter((team) => !query || `${team.name} ${team.city}`.toLowerCase().includes(query))
+    .sort((left, right) => state.teamSort === 'players'
+      ? (right.players?.length ?? 0) - (left.players?.length ?? 0) || right.rating - left.rating
+      : right.rating - left.rating || (right.players?.length ?? 0) - (left.players?.length ?? 0));
+  const openChallenges = getTeamChallenges().filter((challenge) => challenge.status === 'open');
 
   return `
-    <section class="empty-state teams-empty">
-      <h2>${escapeHtml(title)}</h2>
-      <p>${escapeHtml(description)}</p>
+    <section class="teams-list-screen">
+      <label class="team-search-field">
+        <span class="sr-only">${escapeHtml(t('teams.search'))}</span>
+        <input type="search" value="${escapeHtml(state.teamSearch)}" data-team-search placeholder="${escapeHtml(t('teams.search'))}">
+      </label>
+      <div class="teams-sort-row">
+        <button type="button" class="chip ${state.teamSort === 'rating' ? 'active' : ''}" data-team-sort="rating">${escapeHtml(t('teams.sort_rating'))}</button>
+        <button type="button" class="chip ${state.teamSort === 'players' ? 'active' : ''}" data-team-sort="players">${escapeHtml(t('teams.sort_players'))}</button>
+      </div>
+      ${openChallenges.length ? `
+        <section class="team-open-challenges">
+          <h2>${escapeHtml(t('teams.open_challenges'))}</h2>
+          ${openChallenges.map((challenge) => renderChallengeCard(challenge, true)).join('')}
+        </section>
+      ` : ''}
+      ${teams.length
+        ? `<section class="team-grid">${teams.map(renderTeamCard).join('')}</section>`
+        : `<section class="empty-state teams-empty"><h2>${escapeHtml(t('teams.empty'))}</h2><p>${escapeHtml(t('teams.empty_description'))}</p></section>`}
+    </section>
+    <div class="floating-create-action">
+      ${state.showCreateTeamTooltip ? `<div class="floating-create-tooltip" role="status">${escapeHtml(t('teams.create_tooltip'))}</div>` : ''}
+      <button type="button" class="floating-create-button" data-open-create-team aria-label="${escapeHtml(t('teams.create_tooltip'))}"><span aria-hidden="true">+</span></button>
+    </div>
+  `;
+}
+
+function renderTeamScreenHeader(title) {
+  return `<header class="team-screen-header"><h1>${escapeHtml(title)}</h1><button type="button" class="game-top-button" data-close-team-screen aria-label="${escapeHtml(t('common.buttons.close'))}">×</button></header>`;
+}
+
+function renderTeamPlayerPicker(draft) {
+  const selectedIds = new Set(draft.playerIds ?? []);
+  const query = String(state.teamPlayerSearch || '').trim().replace(/^@/, '').toLowerCase();
+  const candidates = getAvailablePlayers().filter((player) => {
+    if (selectedIds.has(player.id)) return false;
+    return !query || `${player.displayName} ${player.username}`.toLowerCase().includes(query);
+  }).slice(0, 30);
+  const selected = (draft.playerIds ?? []).map(getPlayer).filter(Boolean);
+
+  return `
+    <section class="team-editor-island">
+      <div class="team-section-title"><h2>${escapeHtml(t('teams.players'))}</h2><span>${selected.length}</span></div>
+      <label class="team-search-field team-search-field--picker"><input type="search" data-team-player-search value="${escapeHtml(state.teamPlayerSearch)}" placeholder="${escapeHtml(t('teams.player_search'))}"></label>
+      ${state.teamPlayerSearch ? `<div class="team-player-results">${candidates.length ? candidates.map((player) => `
+        <button type="button" data-team-add-player="${escapeHtml(player.id)}">
+          <span class="team-player-avatar">${renderMiniAvatar(player)}</span><span><strong>${escapeHtml(player.displayName)}</strong><small>@${escapeHtml(player.username || 'unknown')}</small></span>
+        </button>`).join('') : `<p>${escapeHtml(t('teams.no_players_found'))}</p>`}</div>` : ''}
+      <div class="team-selected-players">${selected.map((player) => `
+        <div class="team-player-row">
+          <span class="team-player-avatar">${renderMiniAvatar(player)}</span>
+          <span><strong>${escapeHtml(player.displayName)}</strong><small>@${escapeHtml(player.username || 'unknown')}</small></span>
+          <button type="button" data-team-remove-player="${escapeHtml(player.id)}" aria-label="${escapeHtml(t('common.buttons.delete'))}">×</button>
+        </div>`).join('')}</div>
     </section>
   `;
+}
+
+function renderTeamEditor() {
+  const draft = state.teamDraft ?? {};
+  const selectedPlayers = (draft.playerIds ?? []).map(getPlayer).filter(Boolean);
+  return `
+    <section class="team-fullscreen team-editor-screen">
+      ${renderTeamScreenHeader(state.teamEditingId ? t('teams.edit_title') : t('teams.new_title'))}
+      <form id="teamForm" class="team-editor-form">
+        <section class="team-editor-island">
+          <h2>${escapeHtml(t('teams.information'))}</h2>
+          <label class="team-form-field"><span>${escapeHtml(t('teams.name'))}</span><input name="name" value="${escapeHtml(draft.name || '')}" required placeholder="${escapeHtml(t('teams.name_placeholder'))}"></label>
+          <label class="team-form-field"><span>${escapeHtml(t('teams.city'))}</span><input name="city" value="${escapeHtml(draft.city || '')}" required placeholder="${escapeHtml(t('teams.city_placeholder'))}"></label>
+          <div class="team-form-grid">
+            <label class="team-form-field"><span>${escapeHtml(t('teams.format'))}</span><select name="format">${['5x5','6x6','7x7','8x8','11x11'].map((value) => `<option value="${value}" ${draft.format === value ? 'selected' : ''}>${escapeHtml(teamChoiceLabel('formats', value))}</option>`).join('')}</select></label>
+            <label class="team-form-field"><span>${escapeHtml(t('teams.level'))}</span><select name="level">${['beginner','amateur','strong_amateur','semi_pro'].map((value) => `<option value="${value}" ${draft.level === value ? 'selected' : ''}>${escapeHtml(teamChoiceLabel('levels', value))}</option>`).join('')}</select></label>
+          </div>
+          <label class="team-form-field"><span>${escapeHtml(t('teams.captain'))}</span><select name="captainPlayerId">${selectedPlayers.map((player) => `<option value="${escapeHtml(player.id)}" ${draft.captainPlayerId === player.id ? 'selected' : ''}>${escapeHtml(player.displayName)}</option>`).join('')}</select></label>
+          <label class="team-form-field"><span>${escapeHtml(t('teams.status'))}</span><select name="status">${['open','invite_only','inactive'].map((value) => `<option value="${value}" ${draft.status === value ? 'selected' : ''}>${escapeHtml(teamChoiceLabel('statuses', value))}</option>`).join('')}</select></label>
+        </section>
+        ${renderTeamPlayerPicker(draft)}
+        <button type="submit" class="primary-button team-save-button">${escapeHtml(t('common.buttons.save'))}</button>
+      </form>
+    </section>
+  `;
+}
+
+function renderTeamRoster(team) {
+  return `<section class="team-detail-island"><h2>${escapeHtml(t('teams.players'))}</h2><div class="team-roster">${(team.players ?? []).map((player) => `
+    <button type="button" class="team-player-row" data-open-player="${escapeHtml(player.id)}">
+      <span class="team-player-avatar">${renderMiniAvatar(player)}</span><span><strong>${escapeHtml(player.displayName)}</strong><small>${escapeHtml(getPositionLabel(player.position, 'short') || t('common.labels.position'))}</small></span><b>${hasVisibleRating(player) ? escapeHtml(getPlayerOverallLabel(player)) : '—'}</b>
+    </button>`).join('')}</div></section>`;
+}
+
+function challengeStatusLabel(status) {
+  return t(`teams.challenge_statuses.${status}`);
+}
+
+function renderChallengeCard(challenge, compact = false) {
+  const opponent = challenge.opponent || null;
+  const title = opponent ? `${challenge.challenger?.name || '—'} → ${opponent.name}` : challenge.challenger?.name || '—';
+  const managedTeams = getManagedTeams().filter((team) => team.id !== challenge.challengerTeamId);
+  return `<article class="team-challenge-card ${compact ? 'team-challenge-card--compact' : ''}">
+    <div class="team-challenge-head"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(challengeStatusLabel(challenge.status))}</span></div>
+    <p>${escapeHtml(challenge.date)} · ${escapeHtml(challenge.time)} · ${escapeHtml(challenge.location)}</p>
+    <div class="team-challenge-meta"><span>${escapeHtml(teamChoiceLabel('formats', challenge.format))}</span><span>${escapeHtml(teamChoiceLabel('modes', challenge.mode))}</span>${opponent ? `<span>${escapeHtml(t(`teams.compatibility.${challenge.compatibility}`))}</span>` : ''}</div>
+    ${challenge.canAcceptOpen && managedTeams.length ? `<label class="team-inline-select"><select data-challenge-team-choice>${managedTeams.map((team) => `<option value="${escapeHtml(team.id)}">${escapeHtml(team.name)}</option>`).join('')}</select></label><button type="button" class="primary-button" data-team-challenge-action="accept" data-challenge-id="${escapeHtml(challenge.id)}">${escapeHtml(t('common.buttons.accept'))}</button>` : ''}
+    ${challenge.canRespond ? `<div class="team-challenge-actions"><button type="button" class="primary-button" data-team-challenge-action="accept" data-challenge-id="${escapeHtml(challenge.id)}">${escapeHtml(t('common.buttons.accept'))}</button><button type="button" data-team-counter-challenge="${escapeHtml(challenge.id)}">${escapeHtml(t('teams.counter'))}</button><button type="button" data-team-challenge-action="decline" data-challenge-id="${escapeHtml(challenge.id)}">${escapeHtml(t('common.buttons.decline'))}</button></div>` : ''}
+    ${challenge.gameId ? `<button type="button" data-open-game-id="${escapeHtml(challenge.gameId)}">${escapeHtml(t('common.buttons.open_game'))}</button>` : ''}
+  </article>`;
+}
+
+function renderTeamDetail() {
+  const team = getSelectedTeam();
+  if (!team) return `<section class="empty-state"><h2>${escapeHtml(t('teams.not_found'))}</h2></section>`;
+  const challenges = getTeamChallenges().filter((challenge) => [challenge.challengerTeamId, challenge.opponentTeamId].includes(team.id));
+  return `<section class="team-fullscreen team-detail-screen">
+    ${renderTeamScreenHeader(team.name)}
+    <section class="team-detail-hero">${renderTeamAvatar(team)}<div><h2>${escapeHtml(team.name)}</h2><p>${escapeHtml(team.city)}</p></div><strong>${team.rating || '—'}</strong></section>
+    <section class="team-detail-stats"><div><span>${escapeHtml(t('teams.format'))}</span><b>${escapeHtml(teamChoiceLabel('formats', team.format))}</b></div><div><span>${escapeHtml(t('teams.level'))}</span><b>${escapeHtml(teamChoiceLabel('levels', team.level))}</b></div><div><span>${escapeHtml(t('teams.games'))}</span><b>${team.gamesCount ?? 0}</b></div><div><span>${escapeHtml(t('teams.reputation'))}</span><b>${team.reputation ?? 100}</b></div></section>
+    <section class="team-detail-island team-captain"><h2>${escapeHtml(t('teams.captain'))}</h2>${team.captain ? `<div class="team-player-row"><span class="team-player-avatar">${renderMiniAvatar(team.captain)}</span><span><strong>${escapeHtml(team.captain.displayName)}</strong><small>@${escapeHtml(team.captain.username || 'unknown')}</small></span></div>` : ''}</section>
+    ${renderTeamRoster(team)}
+    <div class="team-primary-actions">${team.canManage ? `<button type="button" data-edit-team="${escapeHtml(team.id)}">${escapeHtml(t('common.buttons.edit'))}</button><button type="button" class="primary-button" data-open-open-challenge="${escapeHtml(team.id)}">${escapeHtml(t('teams.publish_open_challenge'))}</button>` : ''}${team.canChallenge ? `<button type="button" class="primary-button" data-open-team-challenge="${escapeHtml(team.id)}">${escapeHtml(t('teams.challenge'))}</button>` : ''}</div>
+    ${challenges.length ? `<section class="team-detail-island"><h2>${escapeHtml(t('teams.challenges'))}</h2>${challenges.map((challenge) => renderChallengeCard(challenge)).join('')}</section>` : ''}
+  </section>`;
+}
+
+function renderTeamChallengeEditor() {
+  const draft = state.challengeDraft ?? {};
+  const challenger = getTeams().find((team) => team.id === draft.challengerTeamId);
+  const opponent = getTeams().find((team) => team.id === draft.opponentTeamId);
+  return `<section class="team-fullscreen team-challenge-screen">
+    ${renderTeamScreenHeader(draft.counterChallengeId ? t('teams.counter_title') : t('teams.challenge_title'))}
+    <form id="teamChallengeForm" class="team-editor-form">
+      <section class="team-editor-island">
+        <div class="challenge-versus"><strong>${escapeHtml(challenger?.name || '')}</strong><span>→</span><strong>${escapeHtml(opponent?.name || t('teams.open_challenge'))}</strong></div>
+        <div class="team-form-grid"><label class="team-form-field"><span>${escapeHtml(t('common.labels.date'))}</span><input type="date" name="date" value="${escapeHtml(draft.date || '')}" required></label><label class="team-form-field"><span>${escapeHtml(t('common.labels.time'))}</span><input type="time" name="time" value="${escapeHtml(draft.time || '')}" required></label></div>
+        <label class="team-form-field"><span>${escapeHtml(t('common.labels.location'))}</span><input name="location" value="${escapeHtml(draft.location || '')}" required></label>
+        <div class="team-form-grid"><label class="team-form-field"><span>${escapeHtml(t('teams.format'))}</span><select name="format">${['5x5','6x6','7x7','8x8','11x11'].map((value) => `<option value="${value}" ${draft.format === value ? 'selected' : ''}>${escapeHtml(teamChoiceLabel('formats', value))}</option>`).join('')}</select></label><label class="team-form-field"><span>${escapeHtml(t('teams.duration'))}</span><select name="duration"><option value="60" ${draft.duration === 60 ? 'selected' : ''}>60</option><option value="90" ${draft.duration !== 60 ? 'selected' : ''}>90</option></select></label></div>
+        <label class="team-form-field"><span>${escapeHtml(t('teams.mode'))}</span><select name="mode">${['friendly','ranked','open'].map((value) => `<option value="${value}" ${draft.mode === value ? 'selected' : ''}>${escapeHtml(teamChoiceLabel('modes', value))}</option>`).join('')}</select></label>
+        <label class="team-form-field"><span>${escapeHtml(t('teams.cost'))}</span><input name="costSplit" value="${escapeHtml(draft.costSplit || '')}" placeholder="${escapeHtml(t('teams.cost_placeholder'))}"></label>
+        <label class="team-checkbox"><input type="checkbox" name="needsReferee" ${draft.needsReferee ? 'checked' : ''}><span>${escapeHtml(t('teams.referee'))}</span></label>
+        <label class="team-form-field"><span>${escapeHtml(t('teams.comment'))}</span><textarea name="comment" rows="3">${escapeHtml(draft.comment || '')}</textarea></label>
+      </section>
+      <button type="submit" class="primary-button team-save-button">${escapeHtml(draft.counterChallengeId ? t('teams.send_counter') : t('teams.send_challenge'))}</button>
+    </form>
+  </section>`;
+}
+
+function getDefaultTeamDraft(team = null) {
+  const viewerPlayerId = getViewerPlayerId();
+  const playerIds = team?.players?.map((player) => player.id) ?? (viewerPlayerId ? [viewerPlayerId] : []);
+
+  return {
+    name: team?.name || '',
+    city: team?.city || '',
+    format: team?.format || '5x5',
+    level: team?.level || 'amateur',
+    captainPlayerId: team?.captain?.id || viewerPlayerId,
+    playerIds,
+    status: team?.status || 'open'
+  };
+}
+
+function getDefaultChallengeDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function getDefaultChallengeDraft({ challengerTeamId = '', opponentTeamId = '', challenge = null } = {}) {
+  return {
+    challengerTeamId: challengerTeamId || challenge?.challengerTeamId || '',
+    opponentTeamId: opponentTeamId || challenge?.opponentTeamId || '',
+    date: challenge?.date || getDefaultChallengeDate(),
+    time: challenge?.time || '19:00',
+    location: challenge?.location || '',
+    format: challenge?.format || getTeams().find((team) => team.id === challengerTeamId)?.format || '5x5',
+    duration: challenge?.duration || 90,
+    mode: challenge?.mode || (opponentTeamId ? 'friendly' : 'open'),
+    costSplit: challenge?.costSplit || '50/50',
+    needsReferee: Boolean(challenge?.needsReferee),
+    comment: challenge?.comment || '',
+    counterChallengeId: challenge?.id || ''
+  };
+}
+
+function readTeamForm(form) {
+  const formData = new FormData(form);
+  return {
+    ...(state.teamDraft ?? {}),
+    name: String(formData.get('name') || ''),
+    city: String(formData.get('city') || ''),
+    format: String(formData.get('format') || '5x5'),
+    level: String(formData.get('level') || 'amateur'),
+    captainPlayerId: String(formData.get('captainPlayerId') || getViewerPlayerId()),
+    status: String(formData.get('status') || 'open'),
+    playerIds: [...new Set(state.teamDraft?.playerIds ?? [])]
+  };
+}
+
+function saveTeamFormDraft(form) {
+  if (form) state.teamDraft = readTeamForm(form);
+}
+
+function readTeamChallengeForm(form) {
+  const formData = new FormData(form);
+  return {
+    ...(state.challengeDraft ?? {}),
+    date: String(formData.get('date') || ''),
+    time: String(formData.get('time') || ''),
+    location: String(formData.get('location') || ''),
+    format: String(formData.get('format') || '5x5'),
+    duration: Number(formData.get('duration') || 90),
+    mode: String(formData.get('mode') || 'friendly'),
+    costSplit: String(formData.get('costSplit') || ''),
+    needsReferee: formData.get('needsReferee') === 'on',
+    comment: String(formData.get('comment') || '')
+  };
+}
+
+function saveTeamChallengeDraft(form) {
+  if (form) state.challengeDraft = readTeamChallengeForm(form);
+}
+
+function openTeamEditor(team = null) {
+  hideCreateTeamTooltip();
+  state.teamEditingId = team?.id || '';
+  state.teamDraft = getDefaultTeamDraft(team);
+  state.teamPlayerSearch = '';
+  state.teamScreen = 'editor';
+  render();
+}
+
+function openTeamChallengeEditor({ challengerTeamId, opponentTeamId = '', challenge = null } = {}) {
+  state.challengeDraft = getDefaultChallengeDraft({ challengerTeamId, opponentTeamId, challenge });
+  state.teamScreen = 'challenge';
+  render();
+}
+
+function closeTeamScreen() {
+  if (state.teamScreen === 'challenge' && state.selectedTeamId) {
+    state.teamScreen = 'detail';
+  } else {
+    state.teamScreen = 'list';
+    state.selectedTeamId = '';
+    showCreateTeamTooltip();
+  }
+  state.teamEditingId = '';
+  state.teamDraft = null;
+  state.challengeDraft = null;
+  state.teamPlayerSearch = '';
+  render();
+}
+
+async function submitTeam(form) {
+  if (!(await ensureAuthorizedForAction())) return;
+  saveTeamFormDraft(form);
+  const payload = state.teamDraft;
+
+  if (!payload.name.trim() || !payload.city.trim()) {
+    showToast(t('teams.validation_required'));
+    return;
+  }
+
+  const path = state.teamEditingId ? `/api/teams/${encodeURIComponent(state.teamEditingId)}` : '/api/teams';
+  const data = await api(path, { method: state.teamEditingId ? 'PUT' : 'POST', body: payload });
+  state.snapshot = data.snapshot;
+  state.selectedTeamId = data.team.id;
+  state.teamEditingId = '';
+  state.teamDraft = null;
+  state.teamScreen = 'detail';
+  render();
+  showToast(t('teams.saved'));
+}
+
+async function submitTeamChallenge(form) {
+  if (!(await ensureAuthorizedForAction())) return;
+  saveTeamChallengeDraft(form);
+  const payload = state.challengeDraft;
+
+  if (!payload.date || !payload.time || !payload.location.trim()) {
+    showToast(t('teams.challenge_validation'));
+    return;
+  }
+
+  const isCounter = Boolean(payload.counterChallengeId);
+  const path = isCounter
+    ? `/api/team-challenges/${encodeURIComponent(payload.counterChallengeId)}`
+    : '/api/team-challenges';
+  const data = await api(path, {
+    method: isCounter ? 'PATCH' : 'POST',
+    body: isCounter ? { ...payload, action: 'counter' } : payload
+  });
+  state.snapshot = data.snapshot;
+  state.challengeDraft = null;
+  state.teamScreen = state.selectedTeamId ? 'detail' : 'list';
+  render();
+  showToast(t(isCounter ? 'teams.counter_sent' : 'teams.challenge_sent'));
+}
+
+async function respondToTeamChallenge(challengeId, action, responderTeamId = '') {
+  if (!(await ensureAuthorizedForAction())) return;
+  const data = await api(`/api/team-challenges/${encodeURIComponent(challengeId)}`, {
+    method: 'PATCH',
+    body: { action, responderTeamId }
+  });
+  state.snapshot = data.snapshot;
+
+  if (data.game?.id) {
+    state.selectedGameId = data.game.id;
+    state.activeTab = 'game';
+    state.teamScreen = 'list';
+  }
+
+  render();
+  showToast(t(action === 'accept' ? 'teams.challenge_accepted' : 'teams.challenge_declined'));
 }
 
 function renderActiveTab() {
@@ -3788,7 +4180,10 @@ function scrollToTargetPlayerCard() {
 
 function syncTabbar() {
   document.querySelectorAll('.tab-button').forEach((button) => {
-    const activeTab = state.manualGameOpen || state.activeTab === 'game' || state.activeTab === 'profile' ? '' : state.activeTab;
+    const activeTab = state.manualGameOpen || state.activeTab === 'game' || state.activeTab === 'profile' ||
+      (state.activeTab === 'teams' && state.teamScreen !== 'list')
+      ? ''
+      : state.activeTab;
     button.classList.toggle('active', button.dataset.tab === activeTab);
   });
 }
@@ -3817,6 +4212,7 @@ function render() {
     const canShowProfileEntry = Boolean(
       !state.manualGameOpen &&
       !['game', 'profile'].includes(state.activeTab) &&
+      !(state.activeTab === 'teams' && state.teamScreen !== 'list') &&
       getViewerPlayer()
     );
     profileEntrySlotNode.hidden = !canShowProfileEntry;
@@ -3852,6 +4248,10 @@ function render() {
   appShellNode?.classList.toggle('app-shell--profile', state.activeTab === 'profile');
   appShellNode?.classList.toggle('app-shell--profile-edit', state.activeTab === 'profile' && state.selfProfileEditing);
   appShellNode?.classList.toggle('app-shell--manual', state.manualGameOpen);
+  appShellNode?.classList.toggle(
+    'app-shell--team-subscreen',
+    !state.manualGameOpen && state.activeTab === 'teams' && state.teamScreen !== 'list'
+  );
   appShellNode?.classList.toggle('app-shell--game', !state.manualGameOpen && state.activeTab === 'game');
   appShellNode?.classList.toggle('app-shell--join-floating', canShowFloatingJoin);
   syncTabbar();
@@ -4211,6 +4611,9 @@ function shouldSkipSilentRefresh() {
     document.getElementById('ratingForm') ||
     document.getElementById('selfProfileForm') ||
     document.getElementById('manualGameForm') ||
+    document.getElementById('teamForm') ||
+    document.getElementById('teamChallengeForm') ||
+    (state.activeTab === 'teams' && ['editor', 'challenge'].includes(state.teamScreen)) ||
     (state.activeTab === 'game' && game?.canViewerRate)
   );
 }
@@ -4384,6 +4787,15 @@ document.querySelector('.tabbar').addEventListener('click', (event) => {
   } else {
     hideCreateGameTooltip();
   }
+  if (state.activeTab === 'teams') {
+    state.teamScreen = 'list';
+    state.selectedTeamId = '';
+    state.teamDraft = null;
+    state.challengeDraft = null;
+    showCreateTeamTooltip();
+  } else {
+    hideCreateTeamTooltip();
+  }
   if (state.activeTab !== 'game') {
     state.selectedGameId = '';
   }
@@ -4440,6 +4852,133 @@ document.addEventListener('click', async (event) => {
 
   if (fieldTeamButton) {
     state.fieldTeamFilter = fieldTeamButton.dataset.fieldTeamFilter === 'bottom' ? 'bottom' : 'top';
+    render();
+    return;
+  }
+
+  const openCreateTeamButton = event.target.closest('[data-open-create-team]');
+
+  if (openCreateTeamButton) {
+    if (!(await ensureAuthorizedForAction())) return;
+    openTeamEditor();
+    return;
+  }
+
+  if (event.target.closest('[data-close-team-screen]')) {
+    closeTeamScreen();
+    return;
+  }
+
+  const openTeamButton = event.target.closest('[data-open-team]');
+
+  if (openTeamButton) {
+    hideCreateTeamTooltip();
+    state.selectedTeamId = openTeamButton.dataset.openTeam || '';
+    state.teamScreen = 'detail';
+    render();
+    return;
+  }
+
+  const editTeamButton = event.target.closest('[data-edit-team]');
+
+  if (editTeamButton) {
+    const team = getTeams().find((item) => item.id === editTeamButton.dataset.editTeam);
+    if (team) openTeamEditor(team);
+    return;
+  }
+
+  const addTeamPlayerButton = event.target.closest('[data-team-add-player]');
+
+  if (addTeamPlayerButton) {
+    saveTeamFormDraft(document.getElementById('teamForm'));
+    const playerId = addTeamPlayerButton.dataset.teamAddPlayer;
+    state.teamDraft.playerIds = [...new Set([...(state.teamDraft.playerIds ?? []), playerId])];
+    state.teamDraft.captainPlayerId ||= playerId;
+    state.teamPlayerSearch = '';
+    render();
+    return;
+  }
+
+  const removeTeamPlayerButton = event.target.closest('[data-team-remove-player]');
+
+  if (removeTeamPlayerButton) {
+    saveTeamFormDraft(document.getElementById('teamForm'));
+    const playerId = removeTeamPlayerButton.dataset.teamRemovePlayer;
+    state.teamDraft.playerIds = (state.teamDraft.playerIds ?? []).filter((id) => id !== playerId);
+    if (state.teamDraft.captainPlayerId === playerId) {
+      state.teamDraft.captainPlayerId = state.teamDraft.playerIds[0] || getViewerPlayerId();
+    }
+    render();
+    return;
+  }
+
+  const openDirectChallengeButton = event.target.closest('[data-open-team-challenge]');
+
+  if (openDirectChallengeButton) {
+    const opponentTeamId = openDirectChallengeButton.dataset.openTeamChallenge;
+    const challenger = getManagedTeams().find((team) => team.id !== opponentTeamId);
+    if (!challenger) {
+      showToast(t('teams.manage_team_required'));
+      return;
+    }
+    state.selectedTeamId = opponentTeamId;
+    openTeamChallengeEditor({ challengerTeamId: challenger.id, opponentTeamId });
+    return;
+  }
+
+  const openChallengeButton = event.target.closest('[data-open-open-challenge]');
+
+  if (openChallengeButton) {
+    const challengerTeamId = openChallengeButton.dataset.openOpenChallenge;
+    state.selectedTeamId = challengerTeamId;
+    openTeamChallengeEditor({ challengerTeamId });
+    return;
+  }
+
+  const counterChallengeButton = event.target.closest('[data-team-counter-challenge]');
+
+  if (counterChallengeButton) {
+    const challenge = getTeamChallenges().find((item) => item.id === counterChallengeButton.dataset.teamCounterChallenge);
+    const challenger = getManagedTeams().find((team) => team.id === challenge?.awaitingTeamId) ||
+      getManagedTeams().find((team) => [challenge?.challengerTeamId, challenge?.opponentTeamId].includes(team.id));
+    if (challenge && challenger) {
+      state.selectedTeamId = challenger.id;
+      openTeamChallengeEditor({
+        challengerTeamId: challenge.challengerTeamId,
+        opponentTeamId: challenge.opponentTeamId,
+        challenge
+      });
+    }
+    return;
+  }
+
+  const challengeActionButton = event.target.closest('[data-team-challenge-action]');
+
+  if (challengeActionButton) {
+    const challengeCard = challengeActionButton.closest('.team-challenge-card');
+    const responderTeamId = challengeCard?.querySelector('[data-challenge-team-choice]')?.value || '';
+    respondToTeamChallenge(
+      challengeActionButton.dataset.challengeId,
+      challengeActionButton.dataset.teamChallengeAction,
+      responderTeamId
+    ).catch((error) => showToast(error.message));
+    return;
+  }
+
+  const openChallengeGameButton = event.target.closest('[data-open-game-id]');
+
+  if (openChallengeGameButton) {
+    state.selectedGameId = openChallengeGameButton.dataset.openGameId;
+    state.activeTab = 'game';
+    state.teamScreen = 'list';
+    render();
+    return;
+  }
+
+  const teamSortButton = event.target.closest('[data-team-sort]');
+
+  if (teamSortButton) {
+    state.teamSort = teamSortButton.dataset.teamSort === 'players' ? 'players' : 'rating';
     render();
     return;
   }
@@ -4999,6 +5538,16 @@ document.addEventListener('change', (event) => {
     return;
   }
 
+  if (event.target.closest('#teamForm')) {
+    saveTeamFormDraft(event.target.closest('#teamForm'));
+    return;
+  }
+
+  if (event.target.closest('#teamChallengeForm')) {
+    saveTeamChallengeDraft(event.target.closest('#teamChallengeForm'));
+    return;
+  }
+
   if (event.target.id === 'positionFilter') {
     state.positionFilter = event.target.value;
     render();
@@ -5087,6 +5636,41 @@ document.addEventListener('input', (event) => {
     return;
   }
 
+  if (event.target.matches('[data-team-search]')) {
+    state.teamSearch = event.target.value;
+    const cursor = event.target.selectionStart ?? state.teamSearch.length;
+    render();
+    requestAnimationFrame(() => {
+      const input = document.querySelector('[data-team-search]');
+      input?.focus();
+      input?.setSelectionRange(cursor, cursor);
+    });
+    return;
+  }
+
+  if (event.target.matches('[data-team-player-search]')) {
+    saveTeamFormDraft(event.target.closest('#teamForm'));
+    state.teamPlayerSearch = event.target.value;
+    const cursor = event.target.selectionStart ?? state.teamPlayerSearch.length;
+    render();
+    requestAnimationFrame(() => {
+      const input = document.querySelector('[data-team-player-search]');
+      input?.focus();
+      input?.setSelectionRange(cursor, cursor);
+    });
+    return;
+  }
+
+  if (event.target.closest('#teamForm')) {
+    saveTeamFormDraft(event.target.closest('#teamForm'));
+    return;
+  }
+
+  if (event.target.closest('#teamChallengeForm')) {
+    saveTeamChallengeDraft(event.target.closest('#teamChallengeForm'));
+    return;
+  }
+
   if (event.target.closest('#manualGameForm')) {
     saveManualGameDraft(event.target.closest('#manualGameForm'));
     if (event.target.matches('textarea[data-manual-autosize]')) {
@@ -5118,6 +5702,26 @@ window.addEventListener('focus', () => {
 });
 
 document.addEventListener('submit', async (event) => {
+  if (event.target.id === 'teamForm') {
+    event.preventDefault();
+    try {
+      await submitTeam(event.target);
+    } catch (error) {
+      showToast(error.message);
+    }
+    return;
+  }
+
+  if (event.target.id === 'teamChallengeForm') {
+    event.preventDefault();
+    try {
+      await submitTeamChallenge(event.target);
+    } catch (error) {
+      showToast(error.message);
+    }
+    return;
+  }
+
   if (event.target.id === 'manualGameForm') {
     event.preventDefault();
     saveManualGameDraft(event.target);
@@ -5210,6 +5814,8 @@ async function init() {
 
   if (state.activeTab === 'games') {
     showCreateGameTooltip();
+  } else if (state.activeTab === 'teams') {
+    showCreateTeamTooltip();
   }
   render();
   if (authError) {

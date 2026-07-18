@@ -24,7 +24,9 @@ function defaultState() {
       nextRatingId: 1,
       nextStatBoostId: 1,
       nextMvpVoteId: 1,
-      nextAchievementVoteId: 1
+      nextAchievementVoteId: 1,
+      nextTeamId: 1,
+      nextChallengeId: 1
     },
     chats: {},
     players: {},
@@ -33,8 +35,93 @@ function defaultState() {
     statBoosts: {},
     mvpVotes: {},
     achievementVotes: {},
+    teams: {},
+    teamChallenges: {},
     sessions: {}
   };
+}
+
+const TEAM_FORMATS = new Set(['5x5', '6x6', '7x7', '8x8', '11x11']);
+const TEAM_LEVELS = new Set(['beginner', 'amateur', 'strong_amateur', 'semi_pro']);
+const TEAM_STATUSES = new Set(['open', 'invite_only', 'inactive']);
+const CHALLENGE_MODES = new Set(['friendly', 'ranked', 'open']);
+
+function normalizeChoice(value, choices, fallback) {
+  const normalized = String(value ?? '').trim();
+  return choices.has(normalized) ? normalized : fallback;
+}
+
+function assertCanManageTeam(state, team, requesterPlayerId) {
+  const requester = findPlayerById(state, requesterPlayerId);
+
+  if (isSuperAdminPlayer(requester) || team.captainPlayerId === requesterPlayerId) {
+    return;
+  }
+
+  throw new Error('Управлять командой может только капитан');
+}
+
+function buildTeamViews(state, playerCards, viewerPlayerId) {
+  const cardsById = new Map((playerCards ?? []).map((player) => [player.id, player]));
+  const rawTeams = Object.values(state.teams ?? {});
+  const games = Object.values(state.games ?? {});
+
+  const teams = rawTeams.map((team) => {
+    const players = (team.playerIds ?? [])
+      .map((playerId) => cardsById.get(playerId))
+      .filter(Boolean);
+    const ratedPlayers = players.filter((player) => Number(player.overall) > 0 && Number(player.ratedGames) > 0);
+    const rating = ratedPlayers.length
+      ? Math.round(ratedPlayers.reduce((sum, player) => sum + Number(player.overall), 0) / ratedPlayers.length)
+      : 0;
+    const captain = cardsById.get(team.captainPlayerId) ?? null;
+
+    return {
+      ...team,
+      players,
+      captain,
+      rating,
+      averagePlayerRating: rating,
+      gamesCount: games.filter((game) => (game.teamIds ?? []).includes(team.id)).length,
+      isMember: (team.playerIds ?? []).includes(viewerPlayerId),
+      canManage: team.captainPlayerId === viewerPlayerId || isSuperAdminPlayer(state.players[viewerPlayerId]),
+      canChallenge: Boolean(viewerPlayerId) && team.status === 'open' && team.captainPlayerId !== viewerPlayerId
+    };
+  });
+  const teamsById = new Map(teams.map((team) => [team.id, team]));
+  const viewerTeamIds = new Set(teams.filter((team) => team.canManage).map((team) => team.id));
+  const challenges = Object.values(state.teamChallenges ?? {})
+    .filter((challenge) =>
+      challenge.status === 'open' ||
+      viewerTeamIds.has(challenge.challengerTeamId) ||
+      viewerTeamIds.has(challenge.opponentTeamId)
+    )
+    .map((challenge) => {
+      const challenger = teamsById.get(challenge.challengerTeamId) ?? null;
+      const opponent = teamsById.get(challenge.opponentTeamId) ?? null;
+      const ratingDifference = challenger && opponent
+        ? Math.abs(challenger.rating - opponent.rating)
+        : 0;
+      const ratingBase = Math.max(challenger?.rating ?? 0, opponent?.rating ?? 0, 1);
+      const ratingDifferencePercent = Math.round((ratingDifference / ratingBase) * 100);
+      const compatibility = ratingDifferencePercent <= 8 ? 'good' : ratingDifferencePercent <= 18 ? 'fair' : 'hard';
+
+      return {
+        ...challenge,
+        challenger,
+        opponent,
+        ratingDifferencePercent,
+        compatibility,
+        canRespond: viewerTeamIds.has(challenge.awaitingTeamId) && ['sent', 'counter'].includes(challenge.status),
+        canAcceptOpen: challenge.status === 'open' &&
+          !viewerTeamIds.has(challenge.challengerTeamId) &&
+          viewerTeamIds.size > 0,
+        canManage: viewerTeamIds.has(challenge.challengerTeamId) || viewerTeamIds.has(challenge.opponentTeamId)
+      };
+    })
+    .sort((left, right) => new Date(right.updatedAt) - new Date(left.updatedAt));
+
+  return { teams, teamChallenges: challenges };
 }
 
 function ensureLocaleFields(state) {
@@ -1552,6 +1639,308 @@ export class AppStore {
     });
   }
 
+  async createTeam({
+    requesterPlayerId,
+    name,
+    city,
+    format,
+    level,
+    captainPlayerId,
+    playerIds,
+    status
+  }) {
+    return this.mutate((state) => {
+      const requester = findPlayerById(state, requesterPlayerId);
+
+      if (!requester) {
+        throw new Error('Игрок не найден');
+      }
+
+      const normalizedName = String(name ?? '').trim();
+      const normalizedCity = String(city ?? '').trim();
+
+      if (!normalizedName || !normalizedCity) {
+        throw new Error('Укажите название команды и город или район');
+      }
+
+      const selectedPlayerIds = resolveManualPlayerIds(state, [
+        requesterPlayerId,
+        ...(Array.isArray(playerIds) ? playerIds : [])
+      ]);
+      const selectedCaptainId = selectedPlayerIds.includes(captainPlayerId)
+        ? captainPlayerId
+        : requesterPlayerId;
+      const now = new Date().toISOString();
+      const teamId = `team_${state.meta.nextTeamId++}`;
+      const team = {
+        id: teamId,
+        name: normalizedName,
+        city: normalizedCity,
+        format: normalizeChoice(format, TEAM_FORMATS, '5x5'),
+        level: normalizeChoice(level, TEAM_LEVELS, 'amateur'),
+        captainPlayerId: selectedCaptainId,
+        playerIds: unique(selectedPlayerIds),
+        status: normalizeChoice(status, TEAM_STATUSES, 'open'),
+        reputation: 100,
+        createdByPlayerId: requesterPlayerId,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      state.teams[teamId] = team;
+      return { created: true, team };
+    });
+  }
+
+  async updateTeam({ teamId, requesterPlayerId, payload }) {
+    return this.mutate((state) => {
+      const team = state.teams?.[teamId];
+
+      if (!team) {
+        throw new Error('Команда не найдена');
+      }
+
+      assertCanManageTeam(state, team, requesterPlayerId);
+      const requestedCaptainId = String(payload?.captainPlayerId ?? team.captainPlayerId);
+      const selectedPlayerIds = resolveManualPlayerIds(state, [
+        ...(Array.isArray(payload?.playerIds) ? payload.playerIds : team.playerIds),
+        requestedCaptainId
+      ]);
+      const selectedCaptainId = selectedPlayerIds.includes(requestedCaptainId)
+        ? requestedCaptainId
+        : team.captainPlayerId;
+
+      team.name = String(payload?.name ?? team.name).trim() || team.name;
+      team.city = String(payload?.city ?? team.city).trim() || team.city;
+      team.format = normalizeChoice(payload?.format, TEAM_FORMATS, team.format);
+      team.level = normalizeChoice(payload?.level, TEAM_LEVELS, team.level);
+      team.status = normalizeChoice(payload?.status, TEAM_STATUSES, team.status);
+      team.playerIds = unique(selectedPlayerIds);
+      team.captainPlayerId = team.playerIds.includes(selectedCaptainId)
+        ? selectedCaptainId
+        : requesterPlayerId;
+      team.updatedAt = new Date().toISOString();
+      return { updated: true, team };
+    });
+  }
+
+  async createTeamChallenge({ requesterPlayerId, challengerTeamId, opponentTeamId, payload }) {
+    return this.mutate((state) => {
+      const challengerTeam = state.teams?.[challengerTeamId];
+
+      if (!challengerTeam) {
+        throw new Error('Команда не найдена');
+      }
+
+      assertCanManageTeam(state, challengerTeam, requesterPlayerId);
+      const opponentTeam = opponentTeamId ? state.teams?.[opponentTeamId] : null;
+
+      if (opponentTeamId && !opponentTeam) {
+        throw new Error('Соперник не найден');
+      }
+
+      if (opponentTeam?.id === challengerTeam.id) {
+        throw new Error('Нельзя бросить вызов своей команде');
+      }
+
+      const date = String(payload?.date ?? '').trim();
+      const time = String(payload?.time ?? '').trim();
+      const location = String(payload?.location ?? '').trim();
+
+      if (!date || !time || !location) {
+        throw new Error('Укажите дату, время и площадку');
+      }
+
+      const now = new Date().toISOString();
+      const challengeId = `challenge_${state.meta.nextChallengeId++}`;
+      const mode = normalizeChoice(payload?.mode, CHALLENGE_MODES, opponentTeam ? 'friendly' : 'open');
+      const challenge = {
+        id: challengeId,
+        challengerTeamId: challengerTeam.id,
+        opponentTeamId: opponentTeam?.id ?? null,
+        format: normalizeChoice(payload?.format, TEAM_FORMATS, challengerTeam.format),
+        date,
+        time,
+        location,
+        duration: Number(payload?.duration) === 60 ? 60 : 90,
+        mode,
+        costSplit: String(payload?.costSplit ?? '').trim(),
+        needsReferee: Boolean(payload?.needsReferee),
+        comment: String(payload?.comment ?? '').trim(),
+        status: opponentTeam ? 'sent' : 'open',
+        awaitingTeamId: opponentTeam?.id ?? null,
+        createdByPlayerId: requesterPlayerId,
+        gameId: null,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      state.teamChallenges[challengeId] = challenge;
+      return { created: true, challenge };
+    });
+  }
+
+  async respondToTeamChallenge({ challengeId, requesterPlayerId, action, payload, timezoneOffset }) {
+    return this.mutate((state) => {
+      const challenge = state.teamChallenges?.[challengeId];
+
+      if (!challenge) {
+        throw new Error('Вызов не найден');
+      }
+
+      if (!['open', 'sent', 'counter'].includes(challenge.status)) {
+        throw new Error('Вызов уже обработан');
+      }
+
+      let opponentTeam = challenge.opponentTeamId ? state.teams?.[challenge.opponentTeamId] : null;
+      const challengerTeam = state.teams?.[challenge.challengerTeamId];
+      const managedTeams = Object.values(state.teams ?? {}).filter((team) => {
+        if (!team) return false;
+        try {
+          assertCanManageTeam(state, team, requesterPlayerId);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+      let managedTeam = managedTeams.find((team) => team.id === challenge.awaitingTeamId) ??
+        managedTeams.find((team) => [challengerTeam?.id, opponentTeam?.id].includes(team.id));
+
+      if (challenge.status === 'open' && action === 'accept') {
+        const responderTeamId = String(payload?.responderTeamId ?? '').trim();
+        const responderTeam = managedTeams.find((team) => team.id === responderTeamId);
+
+        if (!responderTeam || responderTeam.id === challengerTeam?.id) {
+          throw new Error('Выберите свою команду для принятия вызова');
+        }
+
+        if (responderTeam.status === 'inactive') {
+          throw new Error('Неактивная команда не может принять вызов');
+        }
+
+        challenge.opponentTeamId = responderTeam.id;
+        opponentTeam = responderTeam;
+        managedTeam = responderTeam;
+      }
+
+      if (!managedTeam) {
+        throw new Error('Ответить на вызов может только капитан');
+      }
+
+      if (challenge.status !== 'open' && challenge.awaitingTeamId && managedTeam.id !== challenge.awaitingTeamId) {
+        throw new Error('Сейчас ответ ожидается от другой команды');
+      }
+
+      if (action === 'decline') {
+        challenge.status = 'declined';
+        challenge.awaitingTeamId = null;
+        challenge.updatedAt = new Date().toISOString();
+        return { challenge, game: null };
+      }
+
+      if (action === 'counter') {
+        challenge.date = String(payload?.date ?? challenge.date).trim();
+        challenge.time = String(payload?.time ?? challenge.time).trim();
+        challenge.location = String(payload?.location ?? challenge.location).trim();
+        challenge.duration = Number(payload?.duration) === 60 ? 60 : 90;
+        challenge.costSplit = String(payload?.costSplit ?? challenge.costSplit).trim();
+        challenge.needsReferee = payload?.needsReferee == null
+          ? challenge.needsReferee
+          : Boolean(payload.needsReferee);
+        challenge.comment = String(payload?.comment ?? challenge.comment).trim();
+        challenge.status = 'counter';
+        challenge.awaitingTeamId = managedTeam.id === challengerTeam.id
+          ? opponentTeam?.id ?? null
+          : challengerTeam.id;
+        challenge.updatedAt = new Date().toISOString();
+        return { challenge, game: null };
+      }
+
+      if (action !== 'accept' || !challengerTeam || !opponentTeam) {
+        throw new Error('Некорректное действие с вызовом');
+      }
+
+      const chat = state.chats.global;
+
+      if (!chat) {
+        throw new Error('Глобальный раздел игр не найден');
+      }
+
+      const now = new Date().toISOString();
+      const gameId = `game_${state.meta.nextGameId++}`;
+      const organizerPlayerId = challengerTeam.captainPlayerId;
+      const selectedPlayerIds = unique([
+        ...(challengerTeam.playerIds ?? []),
+        ...(opponentTeam.playerIds ?? [])
+      ]);
+      const game = {
+        id: gameId,
+        chatId: 'global',
+        messageId: null,
+        rawText: '',
+        key: '',
+        source: 'team_challenge',
+        sourceDate: now,
+        organizerPlayerId,
+        dateLabel: '',
+        location: '',
+        time: '',
+        scheduledAt: '',
+        date: '',
+        priceLine: '',
+        paymentLines: [],
+        rosterLocked: false,
+        playerUsernames: [],
+        playerIds: [],
+        invitedPlayerIds: [],
+        declinedPlayerIds: [],
+        pendingJoinPlayerIds: [],
+        ratingsOpenedAt: null,
+        ratingsPromptMessageId: null,
+        ratingSummarySentAt: null,
+        ratingSummaryChatMessageId: null,
+        ratingSummaryPrivatePlayerIds: [],
+        ratingsClosedByGameId: null,
+        closedAt: null,
+        teamIds: [challengerTeam.id, opponentTeam.id],
+        challengeId: challenge.id,
+        createdAt: now,
+        updatedAt: now
+      };
+      const details = [
+        challenge.mode === 'ranked' ? 'Рейтинговый матч' : 'Товарищеский матч',
+        challenge.costSplit,
+        challenge.needsReferee ? 'Нужен судья' : '',
+        challenge.comment
+      ].filter(Boolean).join('\n');
+
+      applyManualFieldsToGame(state, game, {
+        date: challenge.date,
+        time: challenge.time,
+        location: challenge.location,
+        additionalInfo: details,
+        playerIds: selectedPlayerIds,
+        timezoneOffset,
+        nowIso: now
+      });
+      applyManualInviteState(state, game, {
+        selectedPlayerIds: game.playerIds,
+        organizerPlayerId,
+        previousAcceptedPlayerIds: [organizerPlayerId],
+        previousInvitedPlayerIds: [],
+        nowIso: now
+      });
+      state.games[gameId] = game;
+      const currentGame = chat.currentGameId ? state.games[chat.currentGameId] : null;
+      setCurrentGame(chat, game, now, currentGame);
+      challenge.status = 'accepted';
+      challenge.awaitingTeamId = null;
+      challenge.gameId = game.id;
+      challenge.updatedAt = now;
+      return { challenge, game };
+    });
+  }
+
   async updateManualGame({
     chatId,
     gameId,
@@ -2486,7 +2875,11 @@ export class AppStore {
   }
 
   getSnapshot(chatId, viewerPlayerId = null, options = {}) {
-    return buildChatSnapshot(this.state, String(chatId), viewerPlayerId, new Date(), options);
+    const snapshot = buildChatSnapshot(this.state, String(chatId), viewerPlayerId, new Date(), options);
+    return {
+      ...snapshot,
+      ...buildTeamViews(this.state, snapshot.players, viewerPlayerId)
+    };
   }
 
   getPlayerById(playerId) {
@@ -2499,5 +2892,13 @@ export class AppStore {
 
   getGameById(gameId) {
     return this.state.games[gameId] ?? null;
+  }
+
+  getTeamById(teamId) {
+    return this.state.teams?.[teamId] ?? null;
+  }
+
+  getTeamChallengeById(challengeId) {
+    return this.state.teamChallenges?.[challengeId] ?? null;
   }
 }

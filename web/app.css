@@ -117,6 +117,21 @@ p {
   display: none;
 }
 
+.app-shell--team-subscreen {
+  min-height: 100dvh;
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-bottom: 18px;
+}
+
+.app-shell--team-subscreen .topbar,
+.app-shell--team-subscreen .tabbar {
+  display: none;
+}
+
+.app-shell--team-subscreen .content {
+  gap: 0;
+}
+
 .app-shell--game {
   padding-top: 12px;
   padding-bottom: 18px;
@@ -4606,6 +4621,480 @@ input[type="range"] {
   box-shadow: none;
 }
 
+/* Teams */
+.teams-list-screen,
+.team-fullscreen,
+.team-editor-form,
+.team-grid,
+.team-open-challenges,
+.team-roster,
+.team-primary-actions {
+  display: grid;
+  gap: 14px;
+}
+
+.teams-list-screen {
+  padding-bottom: 74px;
+}
+
+.team-search-field {
+  display: block;
+}
+
+.team-search-field input,
+.team-form-field input,
+.team-form-field select,
+.team-form-field textarea,
+.team-inline-select select {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--field-value);
+  font: inherit;
+}
+
+.team-search-field input {
+  height: 58px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 22px;
+  background: var(--field-surface);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.team-search-field input::placeholder,
+.team-form-field input::placeholder,
+.team-form-field textarea::placeholder {
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.teams-sort-row,
+.team-card-meta,
+.team-challenge-meta,
+.team-challenge-actions,
+.team-primary-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.team-card {
+  width: 100%;
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--card-border);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(116, 159, 101, 0.14), transparent 42%),
+    var(--card);
+  color: var(--text);
+  text-align: left;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.team-card-head {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.team-avatar {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 19px;
+  background: linear-gradient(145deg, #6e9e79, #173a28);
+  color: #fff8df;
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.team-card-identity,
+.team-card-rating,
+.team-player-row > span:nth-child(2) {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.team-card-identity strong,
+.team-detail-hero h2 {
+  overflow: hidden;
+  font-size: 20px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-card-identity span,
+.team-detail-hero p,
+.team-player-row small,
+.team-challenge-card p {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-card-rating {
+  justify-items: end;
+  color: var(--rating-gold);
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.team-card-rating small {
+  color: var(--field-label);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.team-card-meta,
+.team-challenge-meta {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+.team-card-meta span,
+.team-challenge-meta span,
+.team-challenge-head span {
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.team-open-challenges {
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  background: var(--card);
+}
+
+.team-open-challenges h2,
+.team-detail-island > h2,
+.team-editor-island > h2,
+.team-section-title h2 {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.team-fullscreen {
+  padding-bottom: 98px;
+}
+
+.team-screen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.team-screen-header h1 {
+  overflow: hidden;
+  font-size: clamp(30px, 8vw, 40px);
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-screen-header .game-top-button {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.09);
+  font-size: 32px;
+}
+
+.team-editor-island,
+.team-detail-island,
+.team-detail-hero,
+.team-detail-stats,
+.team-challenge-card {
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  background: var(--card);
+}
+
+.team-editor-island {
+  display: grid;
+  gap: 12px;
+}
+
+.team-form-grid,
+.team-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.team-form-field {
+  min-height: 63px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  padding: 10px 14px;
+  border-radius: 20px;
+  background: var(--field-surface);
+}
+
+.team-form-field > span,
+.team-detail-stats span {
+  color: var(--field-label);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.team-form-field input,
+.team-form-field select,
+.team-form-field textarea {
+  padding: 0;
+  font-size: 17px;
+  font-weight: 900;
+  resize: vertical;
+}
+
+.team-form-field textarea {
+  min-height: 54px;
+  line-height: 1.35;
+}
+
+.team-checkbox {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 20px;
+  background: var(--field-surface);
+  font-weight: 800;
+}
+
+.team-checkbox input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--gold-1);
+}
+
+.team-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.team-section-title span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.team-player-results {
+  max-height: 280px;
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  background: #102319;
+  overflow-y: auto;
+}
+
+.team-player-results button,
+.team-player-row {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 0;
+  border-radius: 17px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.team-player-results button:hover,
+.team-player-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.team-player-avatar,
+.team-player-avatar .mini-avatar,
+.team-player-avatar img {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+}
+
+.team-player-avatar {
+  overflow: hidden;
+}
+
+.team-player-row strong,
+.team-player-results strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-player-row > button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0 0 2px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  font-size: 25px;
+}
+
+.team-save-button {
+  position: fixed;
+  left: calc(var(--app-shell-left) + var(--page-gutter));
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 70;
+  width: calc(var(--app-shell-width) - (var(--page-gutter) * 2));
+  max-width: calc(100vw - (var(--page-gutter) * 2));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
+}
+
+.team-detail-hero {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.team-detail-hero .team-avatar {
+  width: 70px;
+  height: 70px;
+  border-radius: 23px;
+  font-size: 23px;
+}
+
+.team-detail-hero > strong {
+  color: var(--rating-gold);
+  font-size: 36px;
+}
+
+.team-detail-stats > div {
+  min-height: 63px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  padding: 12px 14px;
+  border-radius: 20px;
+  background: var(--field-surface);
+}
+
+.team-detail-stats b {
+  font-size: 17px;
+}
+
+.team-detail-island,
+.team-challenge-card {
+  display: grid;
+  gap: 12px;
+}
+
+.team-primary-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  overflow: visible;
+}
+
+.team-primary-actions button,
+.team-challenge-actions button,
+.team-challenge-card > button {
+  min-height: 56px;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.13);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.team-primary-actions .primary-button,
+.team-challenge-actions .primary-button,
+.team-challenge-card > .primary-button {
+  background: linear-gradient(135deg, #ffe495, #d89d18);
+  color: #281800;
+}
+
+.team-challenge-head,
+.challenge-versus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.team-challenge-head > strong {
+  overflow: hidden;
+  font-size: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.challenge-versus {
+  min-height: 70px;
+  padding: 14px;
+  border-radius: 20px;
+  background: var(--field-surface);
+  font-size: 18px;
+}
+
+.challenge-versus strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-inline-select {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--field-surface);
+}
+
+.team-inline-select select {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+@media (min-width: 620px) {
+  .team-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
   .app-shell--profile {
     padding-inline: 12px;
@@ -4613,5 +5102,23 @@ input[type="range"] {
 
   .player-preview-overlay {
     padding-inline: 12px;
+  }
+
+  .team-form-grid,
+  .team-detail-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .team-card {
+    padding: 16px;
+  }
+
+  .team-card-head {
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+  }
+
+  .team-avatar {
+    width: 52px;
+    height: 52px;
   }
 }

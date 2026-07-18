@@ -739,6 +739,62 @@ export class TelegramBot {
     }
   }
 
+  async notifyTeamChallenge(challengeId) {
+    const challenge = this.store.getTeamChallengeById?.(challengeId);
+
+    if (!challenge?.awaitingTeamId) {
+      return;
+    }
+
+    const challenger = this.store.getTeamById?.(challenge.challengerTeamId);
+    const opponent = this.store.getTeamById?.(challenge.opponentTeamId);
+    const recipientTeam = this.store.getTeamById?.(challenge.awaitingTeamId);
+    const senderTeam = recipientTeam?.id === challenger?.id ? opponent : challenger;
+    const captain = recipientTeam?.captainPlayerId
+      ? this.store.getPlayerById?.(recipientTeam.captainPlayerId)
+      : null;
+
+    if (!captain?.privateChatId || !senderTeam) {
+      return;
+    }
+
+    const locale = this.getPlayerLocale(captain);
+    const mode = challenge.mode === 'ranked'
+      ? (locale === 'en' ? 'Ranked' : 'Рейтинговый')
+      : (locale === 'en' ? 'Friendly' : 'Товарищеский');
+    const isCounter = challenge.status === 'counter';
+    const text = locale === 'en'
+      ? `<b>${senderTeam.name} ${isCounter ? 'suggests new terms' : 'challenges your team'}</b>\n${challenge.format}, ${challenge.date} ${challenge.time}\n${challenge.location}\n${mode}`
+      : `<b>${senderTeam.name} ${isCounter ? 'предлагает новые условия' : 'бросает вам вызов'}</b>\n${challenge.format}, ${challenge.date} ${challenge.time}\n${challenge.location}\n${mode}`;
+    const appLink = this.buildMainMiniAppLink('', { initialView: 'teams' });
+
+    try {
+      await this.sendText(captain.privateChatId, text, {
+        parseMode: 'HTML',
+        replyMarkup: {
+          inline_keyboard: [
+            [
+              {
+                text: locale === 'en' ? 'Accept' : 'Принять',
+                callback_data: `team_challenge_accept:${challenge.id}`
+              },
+              {
+                text: locale === 'en' ? 'Decline' : 'Отклонить',
+                callback_data: `team_challenge_decline:${challenge.id}`
+              }
+            ],
+            ...(appLink ? [[{
+              text: locale === 'en' ? 'Suggest another time' : 'Предложить другое время',
+              url: appLink
+            }]] : [])
+          ]
+        }
+      });
+    } catch (error) {
+      console.error(`Unable to send team challenge ${challenge.id}:`, error.message);
+    }
+  }
+
   formatJoinRequestText(game, player) {
     const locale = this.getGameLocale(game);
     const username = player?.username ? `@${player.username}` : this.t(locale, 'bot.no_username');
@@ -1236,6 +1292,43 @@ export class TelegramBot {
       await this.store.setPlayerLocaleByTelegramUserId(callbackQuery.from?.id, locale, 'manual');
       await this.answerCallbackQuery(callbackQuery.id, this.t(locale, 'settings.language.updated'));
       await this.sendText(callbackQuery.from.id, this.t(locale, 'settings.language.updated'));
+      return;
+    }
+
+    if (data.startsWith('team_challenge_accept:') || data.startsWith('team_challenge_decline:')) {
+      const player = this.store.getPlayerByTelegramUserId?.(callbackQuery.from?.id);
+      const locale = this.getPlayerLocale(player);
+
+      if (!player) {
+        await this.answerCallbackQuery(callbackQuery.id, locale === 'en' ? 'Player not found' : 'Игрок не найден');
+        return;
+      }
+
+      try {
+        const challengeId = data.split(':')[1];
+        const action = data.startsWith('team_challenge_accept:') ? 'accept' : 'decline';
+        const result = await this.store.respondToTeamChallenge({
+          challengeId,
+          requesterPlayerId: player.id,
+          action,
+          payload: {},
+          timezoneOffset: this.config.chatTimezoneOffset
+        });
+
+        if (result.game) {
+          this.schedulePromptForGame(result.game);
+          await this.notifyPlayersAboutManualGame(result.game.id);
+        }
+
+        await this.answerCallbackQuery(
+          callbackQuery.id,
+          action === 'accept'
+            ? (locale === 'en' ? 'Challenge accepted' : 'Вызов принят')
+            : (locale === 'en' ? 'Challenge declined' : 'Вызов отклонён')
+        );
+      } catch (error) {
+        await this.answerCallbackQuery(callbackQuery.id, error.message);
+      }
       return;
     }
 
