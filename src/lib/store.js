@@ -4,7 +4,7 @@ import path from 'node:path';
 import { isSuperAdminPlayer } from './admins.js';
 import { createSessionToken } from './auth.js';
 import { parseAnnouncementTextLog, parseTelegramExportGames } from './parser.js';
-import { MAX_RED_CARDS, MAX_YELLOW_CARDS, POSITION_OPTIONS, QUICK_ACHIEVEMENT_DEFINITIONS, QUICK_RATING_POINTS, STAT_KEYS, buildChatSnapshot, buildGlobalCareerIndex, getRatingWindowEnd, isRatingWindowOpen } from './stats.js';
+import { MAX_RED_CARDS, MAX_YELLOW_CARDS, POSITION_OPTIONS, QUICK_ACHIEVEMENT_DEFINITIONS, QUICK_RATING_POINTS, STAT_KEYS, buildChatSnapshot, buildGlobalCareerIndex, getRatingWindowEnd, haveAllParticipantsRated, isRatingWindowOpen } from './stats.js';
 import { clamp, formatDisplayName, normalizeUsername, toIsoString, unique } from './utils.js';
 import { DEFAULT_LOCALE, normalizeLocale, resolveLocale } from '../../packages/i18n/index.js';
 
@@ -1993,7 +1993,9 @@ export class AppStore {
 
       const ratingWindowEndAt = getRatingWindowEnd(this.state, game).getTime();
 
-      if (!Number.isFinite(ratingWindowEndAt) || nowMs < ratingWindowEndAt) {
+      const ratingComplete = haveAllParticipantsRated(this.state, game);
+
+      if (!ratingComplete && (!Number.isFinite(ratingWindowEndAt) || nowMs < ratingWindowEndAt)) {
         return false;
       }
 

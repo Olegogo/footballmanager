@@ -725,7 +725,7 @@ test('submitRating stores goalkeeper goals and assists as zero', async () => {
   }
 });
 
-test('submitRating rejects ratings after 16 hours without rating activity', async () => {
+test('submitRating rejects ratings after the fixed 24 hour rating deadline', async () => {
   const { directory, store } = await createStore();
 
   try {
@@ -811,7 +811,7 @@ test('submitRating rejects ratings after 16 hours without rating activity', asyn
   }
 });
 
-test('listGamesRequiringSummary waits for 16 hours of rating inactivity', async () => {
+test('listGamesRequiringSummary waits for 24 hours after the game ends', async () => {
   const { directory, store } = await createStore();
 
   try {
@@ -887,11 +887,58 @@ test('listGamesRequiringSummary waits for 16 hours of rating inactivity', async 
     });
 
     assert.deepEqual(
-      store.listGamesRequiringSummary(new Date('2026-05-11T18:59:00.000Z')).map((game) => game.id),
+      store.listGamesRequiringSummary(new Date('2026-05-11T20:29:00.000Z')).map((game) => game.id),
       []
     );
     assert.deepEqual(
-      store.listGamesRequiringSummary(new Date('2026-05-11T19:00:00.000Z')).map((game) => game.id),
+      store.listGamesRequiringSummary(new Date('2026-05-11T20:30:00.000Z')).map((game) => game.id),
+      ['game_1']
+    );
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('listGamesRequiringSummary closes early after every participant rates', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    await store.mutate((state) => {
+      state.chats['-1001'] = {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        currentGameId: 'game_1',
+        playerIds: ['player_1', 'player_2']
+      };
+      state.games.game_1 = {
+        id: 'game_1',
+        chatId: '-1001',
+        scheduledAt: '2026-05-10T19:00:00.000Z',
+        time: '19:00',
+        playerIds: ['player_1', 'player_2'],
+        ratingsOpenedAt: '2026-05-10T19:00:00.000Z',
+        ratingSummarySentAt: null,
+        closedAt: null
+      };
+      state.mvpVotes.mvp_vote_1 = {
+        id: 'mvp_vote_1',
+        gameId: 'game_1',
+        raterPlayerId: 'player_1',
+        targetPlayerId: 'player_2'
+      };
+      state.statBoosts.stat_boost_1 = {
+        id: 'stat_boost_1',
+        gameId: 'game_1',
+        raterPlayerId: 'player_2',
+        targetPlayerId: 'player_1',
+        statKey: 'pace',
+        points: 1
+      };
+    });
+
+    assert.deepEqual(
+      store.listGamesRequiringSummary(new Date('2026-05-10T20:00:00.000Z')).map((game) => game.id),
       ['game_1']
     );
   } finally {

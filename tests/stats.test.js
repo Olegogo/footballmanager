@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildChatSnapshot, getLatestMvp } from '../src/lib/stats.js';
+import { buildChatSnapshot, getGameEndAt, getLatestMvp, getRatingWindowEnd } from '../src/lib/stats.js';
 
 function rating(overrides = {}) {
   return {
@@ -537,7 +537,7 @@ test('buildChatSnapshot softly lowers quiet participants after quick ratings', (
   assert.equal(restedPlayer.overall, 72);
 });
 
-test('buildChatSnapshot keeps rating window open for 16 hours after last rating activity', () => {
+test('buildChatSnapshot keeps rating window open for 24 hours after the default 90 minute game', () => {
   const state = {
     version: 1,
     meta: {},
@@ -602,12 +602,32 @@ test('buildChatSnapshot keeps rating window open for 16 hours after last rating 
     }
   };
 
-  const openSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T18:59:00.000Z'));
-  const laterSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T19:00:00.000Z'));
+  const openSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T20:29:00.000Z'));
+  const laterSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T20:30:00.000Z'));
 
   assert.equal(openSnapshot.currentGame.canViewerRate, true);
-  assert.equal(openSnapshot.currentGame.ratingWindowEndsAt, '2026-05-11T19:00:00.000Z');
+  assert.equal(openSnapshot.currentGame.ratingWindowEndsAt, '2026-05-11T20:30:00.000Z');
   assert.equal(laterSnapshot.currentGame.canViewerRate, false);
+});
+
+test('rating deadline uses an explicit game end and is not extended by rating activity', () => {
+  const game = {
+    id: 'game_1',
+    scheduledAt: '2026-05-10T19:00:00.000Z',
+    time: '22:00–23:30'
+  };
+  const state = {
+    ratings: {
+      rating_1: {
+        gameId: 'game_1',
+        raterPlayerId: 'player_1',
+        updatedAt: '2026-05-11T18:00:00.000Z'
+      }
+    }
+  };
+
+  assert.equal(getGameEndAt(game).toISOString(), '2026-05-10T20:30:00.000Z');
+  assert.equal(getRatingWindowEnd(state, game).toISOString(), '2026-05-11T20:30:00.000Z');
 });
 
 test('buildChatSnapshot merges viewer games and career ratings across football chats', () => {

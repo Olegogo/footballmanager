@@ -3,7 +3,8 @@ import { round } from './utils.js';
 
 export const STAT_KEYS = ['pace', 'dribbling', 'shooting', 'defense', 'passing', 'physical'];
 export const POSITION_OPTIONS = ['N/A', 'GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST'];
-export const RATING_INACTIVITY_WINDOW_MS = 16 * 60 * 60 * 1000;
+export const DEFAULT_GAME_DURATION_MS = 90 * 60 * 1000;
+export const RATING_WINDOW_AFTER_GAME_MS = 24 * 60 * 60 * 1000;
 export const MAX_YELLOW_CARDS = 2;
 export const MAX_RED_CARDS = 1;
 export const QUICK_RATING_POINTS = 3;
@@ -95,13 +96,63 @@ export function getRatingActivityAt(state, game) {
   return new Date(Math.max(...activityTimes));
 }
 
-export function getRatingWindowEnd(state, game) {
-  const activityAt = getRatingActivityAt(state, game).getTime();
-  return new Date(activityAt + RATING_INACTIVITY_WINDOW_MS);
+export function getGameEndAt(game) {
+  const scheduledAt = getTimeOrNull(game?.scheduledAt);
+
+  if (scheduledAt === null) {
+    return new Date(Number.NaN);
+  }
+
+  const timeParts = [...String(game?.time ?? '').matchAll(/([01]\d|2[0-3]):([0-5]\d)/g)];
+
+  if (timeParts.length < 2) {
+    return new Date(scheduledAt + DEFAULT_GAME_DURATION_MS);
+  }
+
+  const startMinutes = Number(timeParts[0][1]) * 60 + Number(timeParts[0][2]);
+  const endMinutes = Number(timeParts[1][1]) * 60 + Number(timeParts[1][2]);
+  const durationMinutes = (endMinutes - startMinutes + 24 * 60) % (24 * 60);
+
+  return new Date(scheduledAt + (durationMinutes || 24 * 60) * 60 * 1000);
+}
+
+export function getRatingWindowEnd(_state, game) {
+  return new Date(getGameEndAt(game).getTime() + RATING_WINDOW_AFTER_GAME_MS);
+}
+
+export function getGameRaterIds(state, game) {
+  const participantIds = new Set(game?.playerIds ?? []);
+  const raterIds = new Set();
+
+  for (const collection of [
+    state?.ratings,
+    state?.statBoosts,
+    state?.mvpVotes,
+    state?.achievementVotes
+  ]) {
+    for (const item of Object.values(collection ?? {})) {
+      if (item.gameId === game?.id && participantIds.has(item.raterPlayerId)) {
+        raterIds.add(item.raterPlayerId);
+      }
+    }
+  }
+
+  return raterIds;
+}
+
+export function haveAllParticipantsRated(state, game) {
+  const participantIds = [...new Set(game?.playerIds ?? [])];
+
+  if (participantIds.length < 2) {
+    return false;
+  }
+
+  const raterIds = getGameRaterIds(state, game);
+  return participantIds.every((playerId) => raterIds.has(playerId));
 }
 
 export function isRatingWindowOpen(state, game, now = new Date()) {
-  if (game?.closedAt) {
+  if (game?.closedAt || haveAllParticipantsRated(state, game)) {
     return false;
   }
 
@@ -122,7 +173,7 @@ function isFinalizedForCareer(state, game, now = new Date()) {
     return true;
   }
 
-  return now >= getRatingWindowEnd(state, game);
+  return haveAllParticipantsRated(state, game) || now >= getRatingWindowEnd(state, game);
 }
 
 function pickDominantPosition(positionCounts) {
