@@ -3693,8 +3693,7 @@ function renderTeamsList() {
   return `
     <section class="teams-list-screen">
       <label class="team-search-field">
-        <span class="sr-only">${escapeHtml(t('teams.search'))}</span>
-        <input type="search" value="${escapeHtml(state.teamSearch)}" data-team-search placeholder="${escapeHtml(t('teams.search'))}">
+        <input type="search" value="${escapeHtml(state.teamSearch)}" data-team-search placeholder="${escapeHtml(t('teams.search'))}" aria-label="${escapeHtml(t('teams.search'))}">
       </label>
       <div class="teams-sort-row">
         <button type="button" class="chip ${state.teamSort === 'rating' ? 'active' : ''}" data-team-sort="rating">${escapeHtml(t('teams.sort_rating'))}</button>
@@ -3731,21 +3730,36 @@ function renderTeamPlayerPicker(draft) {
   const selected = (draft.playerIds ?? []).map(getPlayer).filter(Boolean);
 
   return `
-    <section class="team-editor-island">
-      <div class="team-section-title"><h2>${escapeHtml(t('teams.players'))}</h2><span>${selected.length}</span></div>
-      <label class="team-search-field team-search-field--picker"><input type="search" data-team-player-search value="${escapeHtml(state.teamPlayerSearch)}" placeholder="${escapeHtml(t('teams.player_search'))}"></label>
-      ${state.teamPlayerSearch ? `<div class="team-player-results">${candidates.length ? candidates.map((player) => `
-        <button type="button" data-team-add-player="${escapeHtml(player.id)}">
-          <span class="team-player-avatar">${renderMiniAvatar(player)}</span><span><strong>${escapeHtml(player.displayName)}</strong><small>@${escapeHtml(player.username || 'unknown')}</small></span>
-        </button>`).join('') : `<p>${escapeHtml(t('teams.no_players_found'))}</p>`}</div>` : ''}
-      <div class="team-selected-players">${selected.map((player) => `
-        <div class="team-player-row">
-          <span class="team-player-avatar">${renderMiniAvatar(player)}</span>
-          <span><strong>${escapeHtml(player.displayName)}</strong><small>@${escapeHtml(player.username || 'unknown')}</small></span>
-          <button type="button" data-team-remove-player="${escapeHtml(player.id)}" aria-label="${escapeHtml(t('common.buttons.delete'))}">×</button>
-        </div>`).join('')}</div>
+    <section class="team-editor-island manual-player-panel">
+      <div class="manual-section-title"><h2>${escapeHtml(t('teams.players'))}</h2><span>${selected.length}</span></div>
+      <div class="manual-player-search-wrap">
+        <input class="manual-player-search" type="search" data-team-player-search value="${escapeHtml(state.teamPlayerSearch)}" placeholder="${escapeHtml(t('teams.player_search'))}" aria-label="${escapeHtml(t('teams.player_search'))}">
+        ${state.teamPlayerSearch ? `<div class="manual-player-picker">${candidates.length ? candidates.map((player) => `
+          <button type="button" class="manual-player-card" data-team-add-player="${escapeHtml(player.id)}">
+            ${renderMiniAvatar(player)}
+            <span class="manual-player-card__identity"><strong>${escapeHtml(player.displayName)}</strong><small>@${escapeHtml(player.username || 'unknown')}</small></span>
+            <span class="manual-player-card__add" aria-hidden="true">+</span>
+          </button>`).join('') : `<p>${escapeHtml(t('teams.no_players_found'))}</p>`}</div>` : ''}
+      </div>
+      <div class="manual-selected-row">${selected.map((player) => `
+        <span class="manual-selected-chip">${escapeHtml(player.displayName)}<button type="button" data-team-remove-player="${escapeHtml(player.id)}" aria-label="${escapeHtml(t('common.buttons.delete'))}">×</button></span>
+      `).join('')}</div>
     </section>
   `;
+}
+
+function renderTeamFieldPreview(draft) {
+  const participants = (draft.playerIds ?? [])
+    .map(getPlayer)
+    .filter(Boolean)
+    .map((player) => ({ ...player, canRateTarget: false, currentGameStats: null }));
+
+  return renderField({ participants }, {
+    className: 'manual-field-panel team-field-preview',
+    interactive: false,
+    static: true,
+    emptyMessage: t('match.field_empty')
+  });
 }
 
 function renderTeamEditor() {
@@ -3767,7 +3781,8 @@ function renderTeamEditor() {
           <label class="team-form-field"><span>${escapeHtml(t('teams.status'))}</span><select name="status">${['open','invite_only','inactive'].map((value) => `<option value="${value}" ${draft.status === value ? 'selected' : ''}>${escapeHtml(teamChoiceLabel('statuses', value))}</option>`).join('')}</select></label>
         </section>
         ${renderTeamPlayerPicker(draft)}
-        <button type="submit" class="primary-button team-save-button">${escapeHtml(t('common.buttons.save'))}</button>
+        ${renderTeamFieldPreview(draft)}
+        <button type="submit" class="primary-button team-save-button">${escapeHtml(t(state.teamEditingId ? 'common.buttons.save' : 'common.buttons.create'))}</button>
       </form>
     </section>
   `;
@@ -3794,6 +3809,7 @@ function renderChallengeCard(challenge, compact = false) {
     <div class="team-challenge-meta"><span>${escapeHtml(teamChoiceLabel('formats', challenge.format))}</span><span>${escapeHtml(teamChoiceLabel('modes', challenge.mode))}</span>${opponent ? `<span>${escapeHtml(t(`teams.compatibility.${challenge.compatibility}`))}</span>` : ''}</div>
     ${challenge.canAcceptOpen && managedTeams.length ? `<label class="team-inline-select"><select data-challenge-team-choice>${managedTeams.map((team) => `<option value="${escapeHtml(team.id)}">${escapeHtml(team.name)}</option>`).join('')}</select></label><button type="button" class="primary-button" data-team-challenge-action="accept" data-challenge-id="${escapeHtml(challenge.id)}">${escapeHtml(t('common.buttons.accept'))}</button>` : ''}
     ${challenge.canRespond ? `<div class="team-challenge-actions"><button type="button" class="primary-button" data-team-challenge-action="accept" data-challenge-id="${escapeHtml(challenge.id)}">${escapeHtml(t('common.buttons.accept'))}</button><button type="button" data-team-counter-challenge="${escapeHtml(challenge.id)}">${escapeHtml(t('teams.counter'))}</button><button type="button" data-team-challenge-action="decline" data-challenge-id="${escapeHtml(challenge.id)}">${escapeHtml(t('common.buttons.decline'))}</button></div>` : ''}
+    ${challenge.canEdit ? `<div class="team-challenge-actions team-challenge-actions--manage"><button type="button" data-edit-team-challenge="${escapeHtml(challenge.id)}">${escapeHtml(t('common.buttons.edit'))}</button><button type="button" data-cancel-team-challenge="${escapeHtml(challenge.id)}">${escapeHtml(t('teams.cancel_challenge'))}</button></div>` : ''}
     ${challenge.gameId ? `<button type="button" data-open-game-id="${escapeHtml(challenge.gameId)}">${escapeHtml(t('common.buttons.open_game'))}</button>` : ''}
   </article>`;
 }
@@ -3818,7 +3834,7 @@ function renderTeamChallengeEditor() {
   const challenger = getTeams().find((team) => team.id === draft.challengerTeamId);
   const opponent = getTeams().find((team) => team.id === draft.opponentTeamId);
   return `<section class="team-fullscreen team-challenge-screen">
-    ${renderTeamScreenHeader(draft.counterChallengeId ? t('teams.counter_title') : t('teams.challenge_title'))}
+    ${renderTeamScreenHeader(draft.editChallengeId ? t('teams.edit_challenge_title') : draft.counterChallengeId ? t('teams.counter_title') : t('teams.challenge_title'))}
     <form id="teamChallengeForm" class="team-editor-form">
       <section class="team-editor-island">
         <div class="challenge-versus"><strong>${escapeHtml(challenger?.name || '')}</strong><span>→</span><strong>${escapeHtml(opponent?.name || t('teams.open_challenge'))}</strong></div>
@@ -3830,7 +3846,7 @@ function renderTeamChallengeEditor() {
         <label class="team-checkbox"><input type="checkbox" name="needsReferee" ${draft.needsReferee ? 'checked' : ''}><span>${escapeHtml(t('teams.referee'))}</span></label>
         <label class="team-form-field"><span>${escapeHtml(t('teams.comment'))}</span><textarea name="comment" rows="3">${escapeHtml(draft.comment || '')}</textarea></label>
       </section>
-      <button type="submit" class="primary-button team-save-button">${escapeHtml(draft.counterChallengeId ? t('teams.send_counter') : t('teams.send_challenge'))}</button>
+      <button type="submit" class="primary-button team-save-button">${escapeHtml(draft.editChallengeId ? t('teams.update_challenge') : draft.counterChallengeId ? t('teams.send_counter') : t('teams.send_challenge'))}</button>
     </form>
   </section>`;
 }
@@ -3856,7 +3872,7 @@ function getDefaultChallengeDate() {
   return date.toISOString().slice(0, 10);
 }
 
-function getDefaultChallengeDraft({ challengerTeamId = '', opponentTeamId = '', challenge = null } = {}) {
+function getDefaultChallengeDraft({ challengerTeamId = '', opponentTeamId = '', challenge = null, editorMode = 'create' } = {}) {
   return {
     challengerTeamId: challengerTeamId || challenge?.challengerTeamId || '',
     opponentTeamId: opponentTeamId || challenge?.opponentTeamId || '',
@@ -3869,7 +3885,8 @@ function getDefaultChallengeDraft({ challengerTeamId = '', opponentTeamId = '', 
     costSplit: challenge?.costSplit || '50/50',
     needsReferee: Boolean(challenge?.needsReferee),
     comment: challenge?.comment || '',
-    counterChallengeId: challenge?.id || ''
+    counterChallengeId: editorMode === 'counter' ? challenge?.id || '' : '',
+    editChallengeId: editorMode === 'edit' ? challenge?.id || '' : ''
   };
 }
 
@@ -3920,8 +3937,8 @@ function openTeamEditor(team = null) {
   render();
 }
 
-function openTeamChallengeEditor({ challengerTeamId, opponentTeamId = '', challenge = null } = {}) {
-  state.challengeDraft = getDefaultChallengeDraft({ challengerTeamId, opponentTeamId, challenge });
+function openTeamChallengeEditor({ challengerTeamId, opponentTeamId = '', challenge = null, editorMode = 'create' } = {}) {
+  state.challengeDraft = getDefaultChallengeDraft({ challengerTeamId, opponentTeamId, challenge, editorMode });
   state.teamScreen = 'challenge';
   render();
 }
@@ -3972,19 +3989,33 @@ async function submitTeamChallenge(form) {
     return;
   }
 
+  const isEdit = Boolean(payload.editChallengeId);
   const isCounter = Boolean(payload.counterChallengeId);
-  const path = isCounter
-    ? `/api/team-challenges/${encodeURIComponent(payload.counterChallengeId)}`
+  const challengeId = payload.editChallengeId || payload.counterChallengeId;
+  const path = challengeId
+    ? `/api/team-challenges/${encodeURIComponent(challengeId)}`
     : '/api/team-challenges';
   const data = await api(path, {
-    method: isCounter ? 'PATCH' : 'POST',
-    body: isCounter ? { ...payload, action: 'counter' } : payload
+    method: challengeId ? 'PATCH' : 'POST',
+    body: challengeId ? { ...payload, action: isEdit ? 'edit' : 'counter' } : payload
   });
   state.snapshot = data.snapshot;
   state.challengeDraft = null;
   state.teamScreen = state.selectedTeamId ? 'detail' : 'list';
   render();
-  showToast(t(isCounter ? 'teams.counter_sent' : 'teams.challenge_sent'));
+  showToast(t(isEdit ? 'teams.challenge_updated' : isCounter ? 'teams.counter_sent' : 'teams.challenge_sent'));
+}
+
+async function cancelTeamChallenge(challengeId) {
+  if (!(await ensureAuthorizedForAction())) return;
+  if (!window.confirm(t('teams.cancel_challenge_confirm'))) return;
+  const data = await api(`/api/team-challenges/${encodeURIComponent(challengeId)}`, {
+    method: 'PATCH',
+    body: { action: 'cancel' }
+  });
+  state.snapshot = data.snapshot;
+  render();
+  showToast(t('teams.challenge_cancelled'));
 }
 
 async function respondToTeamChallenge(challengeId, action, responderTeamId = '') {
@@ -4946,9 +4977,34 @@ document.addEventListener('click', async (event) => {
       openTeamChallengeEditor({
         challengerTeamId: challenge.challengerTeamId,
         opponentTeamId: challenge.opponentTeamId,
-        challenge
+        challenge,
+        editorMode: 'counter'
       });
     }
+    return;
+  }
+
+  const editChallengeButton = event.target.closest('[data-edit-team-challenge]');
+
+  if (editChallengeButton) {
+    const challenge = getTeamChallenges().find((item) => item.id === editChallengeButton.dataset.editTeamChallenge);
+    if (challenge) {
+      state.selectedTeamId = challenge.challengerTeamId;
+      openTeamChallengeEditor({
+        challengerTeamId: challenge.challengerTeamId,
+        opponentTeamId: challenge.opponentTeamId,
+        challenge,
+        editorMode: 'edit'
+      });
+    }
+    return;
+  }
+
+  const cancelChallengeButton = event.target.closest('[data-cancel-team-challenge]');
+
+  if (cancelChallengeButton) {
+    cancelTeamChallenge(cancelChallengeButton.dataset.cancelTeamChallenge)
+      .catch((error) => showToast(error.message));
     return;
   }
 

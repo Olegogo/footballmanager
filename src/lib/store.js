@@ -116,7 +116,9 @@ function buildTeamViews(state, playerCards, viewerPlayerId) {
         canAcceptOpen: challenge.status === 'open' &&
           !viewerTeamIds.has(challenge.challengerTeamId) &&
           viewerTeamIds.size > 0,
-        canManage: viewerTeamIds.has(challenge.challengerTeamId) || viewerTeamIds.has(challenge.opponentTeamId)
+        canManage: viewerTeamIds.has(challenge.challengerTeamId) || viewerTeamIds.has(challenge.opponentTeamId),
+        canEdit: viewerTeamIds.has(challenge.challengerTeamId) &&
+          ['open', 'sent', 'counter'].includes(challenge.status)
       };
     })
     .sort((left, right) => new Date(right.updatedAt) - new Date(left.updatedAt));
@@ -391,6 +393,17 @@ function parseManualTimeInput(time) {
     hours: startHours,
     minutes: startMinutes
   };
+}
+
+function buildTimeRangeWithDuration(time, durationMinutes) {
+  const parsed = parseManualTimeInput(time);
+
+  if (!parsed) {
+    return time;
+  }
+
+  const duration = Number(durationMinutes) === 60 ? 60 : 90;
+  return `${parsed.start}–${formatTimeFromMinutes(parsed.hours * 60 + parsed.minutes + duration)}`;
 }
 
 function buildManualSchedule(date, time, timezoneOffset = process.env.CHAT_TIMEZONE_OFFSET || '+03:00') {
@@ -1780,6 +1793,76 @@ export class AppStore {
     });
   }
 
+  async updateTeamChallenge({ challengeId, requesterPlayerId, payload }) {
+    return this.mutate((state) => {
+      const challenge = state.teamChallenges?.[challengeId];
+
+      if (!challenge) {
+        throw new Error('Вызов не найден');
+      }
+
+      if (!['open', 'sent', 'counter'].includes(challenge.status)) {
+        throw new Error('Активный вызов уже нельзя изменить');
+      }
+
+      const challengerTeam = state.teams?.[challenge.challengerTeamId];
+
+      if (!challengerTeam) {
+        throw new Error('Команда не найдена');
+      }
+
+      assertCanManageTeam(state, challengerTeam, requesterPlayerId);
+      const date = String(payload?.date ?? challenge.date).trim();
+      const time = String(payload?.time ?? challenge.time).trim();
+      const location = String(payload?.location ?? challenge.location).trim();
+
+      if (!date || !time || !location) {
+        throw new Error('Укажите дату, время и площадку');
+      }
+
+      challenge.date = date;
+      challenge.time = time;
+      challenge.location = location;
+      challenge.format = normalizeChoice(payload?.format, TEAM_FORMATS, challenge.format);
+      challenge.duration = Number(payload?.duration) === 60 ? 60 : 90;
+      challenge.mode = normalizeChoice(payload?.mode, CHALLENGE_MODES, challenge.mode);
+      challenge.costSplit = String(payload?.costSplit ?? challenge.costSplit).trim();
+      challenge.needsReferee = payload?.needsReferee == null
+        ? challenge.needsReferee
+        : Boolean(payload.needsReferee);
+      challenge.comment = String(payload?.comment ?? challenge.comment).trim();
+      challenge.updatedAt = new Date().toISOString();
+      return { challenge, game: null };
+    });
+  }
+
+  async cancelTeamChallenge({ challengeId, requesterPlayerId }) {
+    return this.mutate((state) => {
+      const challenge = state.teamChallenges?.[challengeId];
+
+      if (!challenge) {
+        throw new Error('Вызов не найден');
+      }
+
+      if (!['open', 'sent', 'counter'].includes(challenge.status)) {
+        throw new Error('Вызов уже закрыт');
+      }
+
+      const challengerTeam = state.teams?.[challenge.challengerTeamId];
+
+      if (!challengerTeam) {
+        throw new Error('Команда не найдена');
+      }
+
+      assertCanManageTeam(state, challengerTeam, requesterPlayerId);
+      challenge.status = 'cancelled';
+      challenge.awaitingTeamId = null;
+      challenge.cancelledAt = new Date().toISOString();
+      challenge.updatedAt = challenge.cancelledAt;
+      return { challenge, game: null };
+    });
+  }
+
   async respondToTeamChallenge({ challengeId, requesterPlayerId, action, payload, timezoneOffset }) {
     return this.mutate((state) => {
       const challenge = state.teamChallenges?.[challengeId];
@@ -1916,7 +1999,7 @@ export class AppStore {
 
       applyManualFieldsToGame(state, game, {
         date: challenge.date,
-        time: challenge.time,
+        time: buildTimeRangeWithDuration(challenge.time, challenge.duration),
         location: challenge.location,
         additionalInfo: details,
         playerIds: selectedPlayerIds,

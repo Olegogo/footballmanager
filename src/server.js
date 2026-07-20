@@ -781,13 +781,24 @@ const server = http.createServer(async (req, res) => {
 
       const body = await readJsonBody(req);
       const challengeId = decodeURIComponent(url.pathname.split('/')[3]);
-      const result = await store.respondToTeamChallenge({
-        challengeId,
-        requesterPlayerId: session.playerId,
-        action: body.action,
-        payload: body,
-        timezoneOffset: config.chatTimezoneOffset
-      });
+      const result = body.action === 'edit'
+        ? await store.updateTeamChallenge({
+          challengeId,
+          requesterPlayerId: session.playerId,
+          payload: body
+        })
+        : body.action === 'cancel'
+          ? await store.cancelTeamChallenge({
+            challengeId,
+            requesterPlayerId: session.playerId
+          })
+          : await store.respondToTeamChallenge({
+            challengeId,
+            requesterPlayerId: session.playerId,
+            action: body.action,
+            payload: body,
+            timezoneOffset: config.chatTimezoneOffset
+          });
 
       if (result.game) {
         bot.schedulePromptForGame(result.game);
@@ -1084,12 +1095,6 @@ const server = http.createServer(async (req, res) => {
         raterPlayerId: session.playerId,
         payload: body
       });
-
-      try {
-        await bot.processQuickRatingProgressForGame?.(gameId);
-      } catch (error) {
-        console.error(`Unable to process quick rating progress for ${gameId}:`, error.message);
-      }
 
       const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
       sendJson(res, 200, { snapshot });

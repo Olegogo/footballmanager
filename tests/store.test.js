@@ -1714,6 +1714,40 @@ test('team challenge creates a global game from both team rosters', async () => 
     assert.equal(visibleChallenge.canRespond, true);
     assert.equal(visibleChallenge.compatibility, 'good');
 
+    const firstCaptainSnapshot = store.getSnapshot('global', firstCaptain.id);
+    assert.equal(
+      firstCaptainSnapshot.teamChallenges.find((challenge) => challenge.id === challengeResult.challenge.id)?.canEdit,
+      true
+    );
+
+    const updatedChallenge = await store.updateTeamChallenge({
+      challengeId: challengeResult.challenge.id,
+      requesterPlayerId: firstCaptain.id,
+      payload: {
+        date: '2099-07-25',
+        time: '20:00',
+        location: 'Авиапарк, поле 3',
+        format: '5x5',
+        duration: 60,
+        mode: 'ranked',
+        costSplit: 'Пополам',
+        needsReferee: false,
+        comment: 'Обновленные условия'
+      }
+    });
+
+    assert.equal(updatedChallenge.challenge.time, '20:00');
+    assert.equal(updatedChallenge.challenge.location, 'Авиапарк, поле 3');
+    assert.equal(updatedChallenge.challenge.duration, 60);
+    await assert.rejects(
+      store.updateTeamChallenge({
+        challengeId: challengeResult.challenge.id,
+        requesterPlayerId: secondCaptain.id,
+        payload: { time: '21:00' }
+      }),
+      /только капитан/
+    );
+
     const accepted = await store.respondToTeamChallenge({
       challengeId: challengeResult.challenge.id,
       requesterPlayerId: secondCaptain.id,
@@ -1726,7 +1760,7 @@ test('team challenge creates a global game from both team rosters', async () => 
     assert.equal(accepted.challenge.gameId, accepted.game.id);
     assert.equal(accepted.game.chatId, 'global');
     assert.equal(accepted.game.source, 'team_challenge');
-    assert.equal(accepted.game.time, '19:00–20:30');
+    assert.equal(accepted.game.time, '20:00–21:00');
     assert.deepEqual(
       new Set(accepted.game.teamIds),
       new Set([firstTeamResult.team.id, secondTeamResult.team.id])
@@ -1753,6 +1787,25 @@ test('team challenge creates a global game from both team rosters', async () => 
       }),
       /уже обработан/
     );
+
+    const openChallenge = await store.createTeamChallenge({
+      requesterPlayerId: firstCaptain.id,
+      challengerTeamId: firstTeamResult.team.id,
+      opponentTeamId: null,
+      payload: {
+        format: '5x5',
+        date: '2099-08-01',
+        time: '18:00',
+        location: 'Парк, поле 1'
+      }
+    });
+    const cancelled = await store.cancelTeamChallenge({
+      challengeId: openChallenge.challenge.id,
+      requesterPlayerId: firstCaptain.id
+    });
+
+    assert.equal(cancelled.challenge.status, 'cancelled');
+    assert.equal(cancelled.challenge.awaitingTeamId, null);
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }

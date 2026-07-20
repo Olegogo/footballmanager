@@ -51,8 +51,8 @@ test('processPendingRatingPrompts sends a rating prompt with miniapp link', asyn
   assert.equal(sent[0].text, RATING_PROMPT_TEXT);
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Оценить');
   assert.equal(
-    sent[0].options.replyMarkup.inline_keyboard[0][0].login_url.url,
-    'https://app.example/auth/telegram-login?chatId=-1001&view=game&gameId=game_1'
+    sent[0].options.replyMarkup.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=gameid_game_1'
   );
   assert.deepEqual(marked, [{ gameId: 'game_1', messageId: 77 }]);
 });
@@ -89,7 +89,7 @@ test('processPendingRatingPrompts falls back to plain link when keyboard send fa
   assert.equal(sent.length, 3);
   assert.equal(
     sent[2].text,
-    `${RATING_PROMPT_TEXT}\n\nhttps://app.example/auth/telegram-login?chatId=-1002&view=game&gameId=game_2`
+    `${RATING_PROMPT_TEXT}\n\nhttps://t.me/football_test_bot?startapp=gameid_game_2`
   );
   assert.deepEqual(marked, [{ gameId: 'game_2', messageId: 88 }]);
 });
@@ -170,7 +170,7 @@ test('/open falls back to plain link when Telegram rejects keyboard', async () =
   assert.equal(sent[2].chatId, -1003);
   assert.equal(
     sent[2].text,
-    'https://app.example/auth/telegram-login'
+    'https://t.me/football_test_bot?startapp=app'
   );
 });
 
@@ -200,8 +200,8 @@ test('/open sends only button text with custom label when keyboard works', async
   assert.equal(sent[0].text, '\u2060');
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть футбольчик');
   assert.equal(
-    sent[0].options.replyMarkup.inline_keyboard[0][0].login_url.url,
-    'https://app.example/auth/telegram-login'
+    sent[0].options.replyMarkup.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=app'
   );
 });
 
@@ -230,8 +230,8 @@ test('/open in private chats opens the games list by default', async () => {
 
   assert.equal(sent.length, 1);
   assert.equal(
-    sent[0].options.replyMarkup.inline_keyboard[0][0].web_app.url,
-    'https://app.example/'
+    sent[0].options.replyMarkup.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=app'
   );
 });
 
@@ -288,8 +288,8 @@ test('/start uses the deployed web app URL in private chats', async () => {
 
   assert.equal(sent.length, 3);
   assert.equal(
-    sent[2].options.replyMarkup.inline_keyboard[0][0].web_app.url,
-    'https://app.example/'
+    sent[2].options.replyMarkup.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=app'
   );
 });
 
@@ -305,8 +305,8 @@ test('buildManualInviteKeyboard uses the deployed web app URL in private chats',
 
   assert.equal(keyboard.inline_keyboard[0][0].text, 'К игре');
   assert.equal(
-    keyboard.inline_keyboard[0][0].web_app.url,
-    'https://app.example/?chatId=-1009&view=game&gameId=game_9'
+    keyboard.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=gameid_game_9'
   );
   assert.equal(keyboard.inline_keyboard[1][0].callback_data, 'decline_game:game_9');
 });
@@ -364,8 +364,8 @@ test('/open uses the active deployment login URL in group chats', async () => {
 
   assert.equal(sent.length, 1);
   assert.equal(
-    sent[0].options.replyMarkup.inline_keyboard[0][0].login_url.url,
-    'https://footballmanager-production.up.railway.app/auth/telegram-login'
+    sent[0].options.replyMarkup.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=app'
   );
 });
 
@@ -1149,8 +1149,8 @@ test('sendGameDetailsEntry sends bare lineup image when photo keyboard is reject
   assert.equal(texts.length, 1);
   assert.equal(texts[0].options.replyMarkup.inline_keyboard[0][0].text, 'Детали игры');
   assert.equal(
-    texts[0].options.replyMarkup.inline_keyboard[0][0].login_url.url,
-    'https://app.example/auth/telegram-login?chatId=-1007&view=game&gameId=game_selected'
+    texts[0].options.replyMarkup.inline_keyboard[0][0].url,
+    'https://t.me/football_test_bot?startapp=gameid_game_selected'
   );
 });
 

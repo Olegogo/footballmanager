@@ -113,6 +113,16 @@ function buildClusterOffsets(count, position) {
     return [{ x: 0, y: 0 }];
   }
 
+  if (['GK', 'CB', 'CDM', 'CM', 'CAM', 'ST'].includes(position)) {
+    if (count === 2) {
+      return [{ x: 0, y: -9 }, { x: 0, y: 9 }];
+    }
+
+    if (count === 3) {
+      return [{ x: 0, y: -12 }, { x: 0, y: 0 }, { x: 0, y: 12 }];
+    }
+  }
+
   const columns = count <= 2 ? count : count <= 4 ? 2 : 3;
   const rows = Math.ceil(count / columns);
   const xGap = position === 'N/A' ? 16 : ['LB', 'RB', 'LM', 'RM', 'LW', 'RW'].includes(position) ? 11 : 13;

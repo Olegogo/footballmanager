@@ -183,8 +183,21 @@ export class TelegramBot {
     const directMiniAppLink = this.buildMainMiniAppLink(chatId, options);
     const loginUrl = this.buildTelegramLoginUrl(chatId, options);
 
-    // Private-chat web_app buttons use the deployed URL directly and do not
-    // depend on the Main Mini App URL cached in BotFather.
+    // Always enter through Telegram's Main Mini App. Opening the deployment
+    // directly loses initData in previews and creates a different session.
+    if (directMiniAppLink) {
+      return {
+        inline_keyboard: [
+          [
+            {
+              text: buttonText,
+              url: directMiniAppLink
+            }
+          ]
+        ]
+      };
+    }
+
     if (chatType === 'private' && publicUrl) {
       return {
         inline_keyboard: [
@@ -200,8 +213,6 @@ export class TelegramBot {
       };
     }
 
-    // Group buttons use Telegram Login against the current deployment. This
-    // avoids stale Main Mini App URLs cached by BotFather.
     if (chatType !== 'private' && loginUrl) {
       return {
         inline_keyboard: [
@@ -212,19 +223,6 @@ export class TelegramBot {
                 url: loginUrl,
                 request_write_access: true
               }
-            }
-          ]
-        ]
-      };
-    }
-
-    if (directMiniAppLink) {
-      return {
-        inline_keyboard: [
-          [
-            {
-              text: buttonText,
-              url: directMiniAppLink
             }
           ]
         ]
@@ -242,9 +240,9 @@ export class TelegramBot {
     const publicUrl = this.buildMiniAppUrl(chatId, options);
     const directMiniAppLink = this.buildMainMiniAppLink(chatId, options);
     const loginUrl = this.buildTelegramLoginUrl(chatId, options);
-    return chatType === 'private'
-      ? publicUrl || directMiniAppLink || ''
-      : loginUrl || publicUrl || directMiniAppLink || '';
+    return directMiniAppLink || (chatType === 'private'
+      ? publicUrl || ''
+      : loginUrl || publicUrl || '');
   }
 
   buildFallbackUrlKeyboard(chatId = '', chatType = 'private', buttonText = '⚽', options = {}) {
