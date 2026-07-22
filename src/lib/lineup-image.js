@@ -12,6 +12,10 @@ import {
 const WIDTH = 1200;
 const HEIGHT = 1240;
 const LINE_INSET = 48;
+const SNAPSHOT_X_SOURCE_MIN = 5;
+const SNAPSHOT_X_SOURCE_MAX = 95;
+const SNAPSHOT_X_TARGET_MIN = 10;
+const SNAPSHOT_X_TARGET_MAX = 90;
 const PLAYER_CARD = {
   width: 150,
   height: 132
@@ -43,7 +47,14 @@ function getShortPlayerName(player) {
 }
 
 function toFieldX(percent) {
-  return (WIDTH * percent) / 100;
+  const normalized = Math.max(
+    0,
+    Math.min(1, (percent - SNAPSHOT_X_SOURCE_MIN) / (SNAPSHOT_X_SOURCE_MAX - SNAPSHOT_X_SOURCE_MIN))
+  );
+  const insetPercent =
+    SNAPSHOT_X_TARGET_MIN + normalized * (SNAPSHOT_X_TARGET_MAX - SNAPSHOT_X_TARGET_MIN);
+
+  return (WIDTH * insetPercent) / 100;
 }
 
 function toFieldY(percent) {
