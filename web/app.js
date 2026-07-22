@@ -434,7 +434,7 @@ function getScreenTitle() {
   }
 
   if (state.activeTab === 'players') {
-    return t('common.labels.players');
+    return t('players.title');
   }
 
   if (state.activeTab === 'teams') {

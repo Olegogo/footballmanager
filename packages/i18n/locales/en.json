@@ -261,6 +261,7 @@
     }
   },
   "players": {
+    "title": "Players",
     "achievements": "Achievements",
     "card_title": "Player card",
     "card_saved": "Card saved",
