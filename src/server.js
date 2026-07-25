@@ -883,6 +883,7 @@ const server = http.createServer(async (req, res) => {
       });
 
       bot.schedulePromptForGame(result.game);
+      await bot.publishOrSyncGameAnnouncement?.(result.game.id);
 
       const snapshot = getGlobalSnapshot(session.playerId);
       sendJson(res, 200, {
@@ -908,6 +909,7 @@ const server = http.createServer(async (req, res) => {
         requesterPlayerId: session.playerId,
         rosterLocked: Boolean(body.rosterLocked)
       });
+      await bot.publishOrSyncGameAnnouncement?.(gameId);
       const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
       sendJson(res, 200, { snapshot });
       return;
@@ -953,6 +955,7 @@ const server = http.createServer(async (req, res) => {
       if (result.requested) {
         await bot.notifyOrganizerAboutJoinRequest(result.game.id, result.player.id);
       }
+      await bot.publishOrSyncGameAnnouncement?.(result.game.id);
 
       const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
       sendJson(res, 200, { snapshot });
@@ -976,6 +979,7 @@ const server = http.createServer(async (req, res) => {
         playerId: targetPlayerId,
         requesterPlayerId: session.playerId
       });
+      await bot.publishOrSyncGameAnnouncement?.(gameId);
 
       const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
       sendJson(res, 200, { snapshot });
@@ -998,6 +1002,7 @@ const server = http.createServer(async (req, res) => {
       });
 
       bot.schedulePromptForGame(result.game);
+      await bot.publishOrSyncGameAnnouncement?.(result.game.id);
 
       const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
       sendJson(res, 200, { snapshot });
@@ -1022,6 +1027,7 @@ const server = http.createServer(async (req, res) => {
       if (result.removed && result.organizer?.privateChatId) {
         await bot.notifyOrganizerAboutDeclinedGame(result.game.id, result.player.id, result);
       }
+      await bot.publishOrSyncGameAnnouncement?.(result.game.id);
 
       const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
       sendJson(res, 200, { snapshot });
@@ -1048,6 +1054,7 @@ const server = http.createServer(async (req, res) => {
 
       bot.schedulePromptForGame(result.game);
       await bot.notifyPlayerAddedToGame(result.game.id, result.player.id);
+      await bot.publishOrSyncGameAnnouncement?.(result.game.id);
 
       const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
       sendJson(res, 200, { snapshot });
@@ -1073,6 +1080,7 @@ const server = http.createServer(async (req, res) => {
         targetPlayerId: body.targetPlayerId,
         payload: body
       });
+      await bot.publishOrSyncGameAnnouncement?.(gameId);
       const snapshot = getGlobalSnapshot(session.playerId);
       sendJson(res, 200, { snapshot });
       return;
@@ -1095,6 +1103,7 @@ const server = http.createServer(async (req, res) => {
         raterPlayerId: session.playerId,
         payload: body
       });
+      await bot.publishOrSyncGameAnnouncement?.(gameId);
 
       const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
       sendJson(res, 200, { snapshot });

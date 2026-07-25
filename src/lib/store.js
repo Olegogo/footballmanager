@@ -26,7 +26,8 @@ function defaultState() {
       nextMvpVoteId: 1,
       nextAchievementVoteId: 1,
       nextTeamId: 1,
-      nextChallengeId: 1
+      nextChallengeId: 1,
+      nextAnnouncementDraftId: 1
     },
     chats: {},
     players: {},
@@ -37,6 +38,7 @@ function defaultState() {
     achievementVotes: {},
     teams: {},
     teamChallenges: {},
+    announcementDrafts: {},
     sessions: {}
   };
 }
@@ -1351,6 +1353,105 @@ export class AppStore {
     ) ?? null;
   }
 
+  findAnnouncementDraftByMessage(chatId, messageId) {
+    return Object.values(this.state.announcementDrafts ?? {}).find(
+      (draft) => draft.chatId === String(chatId) && isSameTelegramMessageId(draft.sourceMessageId, messageId)
+    ) ?? null;
+  }
+
+  getAnnouncementDraftById(draftId) {
+    return this.state.announcementDrafts?.[draftId] ?? null;
+  }
+
+  async saveAnnouncementDraft({
+    chatId,
+    chatTitle,
+    chatType,
+    sourceMessageId,
+    rawText,
+    announcement,
+    organizerPlayerId,
+    authorTelegramUserId,
+    sourceDate
+  }) {
+    return this.mutate((state) => {
+      ensureChatState(state, {
+        id: chatId,
+        title: chatTitle ?? '',
+        type: chatType ?? 'supergroup'
+      });
+      state.announcementDrafts ??= {};
+
+      const existing = Object.values(state.announcementDrafts).find(
+        (draft) => draft.chatId === String(chatId) && isSameTelegramMessageId(draft.sourceMessageId, sourceMessageId)
+      );
+      const now = new Date().toISOString();
+      const draft = existing ?? {
+        id: `announcement_draft_${state.meta.nextAnnouncementDraftId++}`,
+        chatId: String(chatId),
+        sourceMessageId,
+        confirmationChatId: null,
+        confirmationMessageId: null,
+        createdAt: now
+      };
+
+      Object.assign(draft, {
+        chatTitle: chatTitle ?? '',
+        chatType: chatType ?? 'supergroup',
+        rawText,
+        announcement,
+        organizerPlayerId: organizerPlayerId || null,
+        authorTelegramUserId: authorTelegramUserId ?? null,
+        sourceDate: sourceDate ? toIsoString(sourceDate) : now,
+        updatedAt: now
+      });
+      state.announcementDrafts[draft.id] = draft;
+      return { created: !existing, draft };
+    });
+  }
+
+  async setAnnouncementDraftConfirmation(draftId, { chatId, messageId }) {
+    return this.mutate((state) => {
+      const draft = state.announcementDrafts?.[draftId];
+
+      if (!draft) {
+        return null;
+      }
+
+      draft.confirmationChatId = String(chatId);
+      draft.confirmationMessageId = messageId;
+      draft.updatedAt = new Date().toISOString();
+      return draft;
+    });
+  }
+
+  async deleteAnnouncementDraft(draftId) {
+    return this.mutate((state) => {
+      const draft = state.announcementDrafts?.[draftId] ?? null;
+
+      if (draft) {
+        delete state.announcementDrafts[draftId];
+      }
+
+      return draft;
+    });
+  }
+
+  async setGameBotAnnouncement(gameId, { chatId, messageId }) {
+    return this.mutate((state) => {
+      const game = state.games[gameId];
+
+      if (!game) {
+        return null;
+      }
+
+      game.botAnnouncementChatId = String(chatId);
+      game.botAnnouncementMessageId = messageId;
+      game.updatedAt = new Date().toISOString();
+      return game;
+    });
+  }
+
   async rememberTelegramUser(chatId, user, extra = {}) {
     return this.mutate((state) => {
       const chat = ensureChatState(state, {
@@ -2200,6 +2301,37 @@ export class AppStore {
 
       return {
         accepted: true,
+        game,
+        player,
+        organizer: game.organizerPlayerId ? findPlayerById(state, game.organizerPlayerId) : null
+      };
+    });
+  }
+
+  async joinGameFromBot({ gameId, playerId }) {
+    return this.mutate((state) => {
+      const game = state.games[gameId];
+      const player = findPlayerById(state, playerId);
+
+      if (!game || !player) {
+        throw new Error('Игра или игрок не найдены');
+      }
+
+      if (!isGameJoinable(game, new Date())) {
+        throw new Error('Запись на эту игру уже закрыта');
+      }
+
+      const wasInGame = game.playerIds.includes(playerId);
+      game.playerIds = unique([...(game.playerIds ?? []), playerId]);
+      game.invitedPlayerIds = (game.invitedPlayerIds ?? []).filter((id) => id !== playerId);
+      game.pendingJoinPlayerIds = (game.pendingJoinPlayerIds ?? []).filter((id) => id !== playerId);
+      game.declinedPlayerIds = (game.declinedPlayerIds ?? []).filter((id) => id !== playerId);
+      game.playerUsernames = game.playerIds.map((id) => state.players[id]?.username).filter(Boolean);
+      attachPlayerToChat(state, game.chatId, playerId);
+      game.updatedAt = new Date().toISOString();
+
+      return {
+        joined: !wasInGame,
         game,
         player,
         organizer: game.organizerPlayerId ? findPlayerById(state, game.organizerPlayerId) : null

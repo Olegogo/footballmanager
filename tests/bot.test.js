@@ -413,22 +413,36 @@ test('syncDefaultMenuButton points Open at the active deployment', async () => {
   ]);
 });
 
-test('handleAnnouncement sends details button only for fresh messages', async () => {
+test('handleAnnouncement creates one editable confirmation draft', async () => {
+  let draft = null;
   const store = {
     state: {
       chats: {},
       games: {}
     },
-    async recordGameFromAnnouncement() {
-      return {
-        created: true,
-        updated: false,
-        game: {
-          id: 'game_7',
-          chatId: '-1007',
-          scheduledAt: '2099-05-24T16:30:00.000Z'
-        }
+    findAnnouncementDraftByMessage(chatId, messageId) {
+      return draft
+        && String(draft.chatId) === String(chatId)
+        && draft.sourceMessageId === messageId
+        ? draft
+        : null;
+    },
+    async saveAnnouncementDraft(payload) {
+      draft = {
+        id: 'announcement_1',
+        chatId: String(payload.chatId),
+        sourceMessageId: payload.sourceMessageId,
+        announcement: payload.announcement,
+        rawText: payload.rawText,
+        confirmationChatId: draft?.confirmationChatId ?? '',
+        confirmationMessageId: draft?.confirmationMessageId ?? null
       };
+      return { draft };
+    },
+    async setAnnouncementDraftConfirmation(id, confirmation) {
+      assert.equal(id, 'announcement_1');
+      draft.confirmationChatId = String(confirmation.chatId);
+      draft.confirmationMessageId = confirmation.messageId;
     }
   };
   const bot = new TelegramBot({
@@ -436,11 +450,16 @@ test('handleAnnouncement sends details button only for fresh messages', async ()
     publicBaseUrl: 'https://app.example'
   }, store);
   const sent = [];
+  const edited = [];
 
   bot.botUsername = 'football_test_bot';
   bot.sendText = async (chatId, text, options = {}) => {
     sent.push({ chatId, text, options });
     return { message_id: 103 };
+  };
+  bot.editTextMessage = async (chatId, messageId, text, options = {}) => {
+    edited.push({ chatId, messageId, text, options });
+    return { message_id: messageId };
   };
 
   const message = {
@@ -469,32 +488,34 @@ test('handleAnnouncement sends details button only for fresh messages', async ()
   await bot.handleAnnouncement(message, { isEdited: false });
 
   assert.equal(sent.length, 1);
-  assert.equal(sent[0].text, '\u2060');
-  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Детали игры');
+  assert.match(sent[0].text, /Анонс распознан/);
+  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Создать игру');
 
-  sent.length = 0;
   await bot.handleAnnouncement(message, { isEdited: true });
-  assert.equal(sent.length, 0);
+  assert.equal(sent.length, 1);
+  assert.equal(edited.length, 1);
+  assert.equal(edited[0].messageId, 103);
 });
 
-test('handleAnnouncement creates game from announcement without payment block', async () => {
+test('handleAnnouncement creates confirmation draft without payment block', async () => {
   const calls = [];
   const store = {
     state: {
       chats: {},
       games: {}
     },
-    async recordGameFromAnnouncement(payload) {
+    async saveAnnouncementDraft(payload) {
       calls.push(payload);
       return {
-        created: true,
-        updated: false,
-        game: {
-          id: 'game_no_payment',
+        draft: {
+          id: 'announcement_no_payment',
           chatId: String(payload.chatId),
-          scheduledAt: payload.announcement.scheduledAt
+          sourceMessageId: payload.sourceMessageId,
+          announcement: payload.announcement
         }
       };
+    },
+    async setAnnouncementDraftConfirmation() {
     }
   };
   const bot = new TelegramBot({
@@ -600,7 +621,7 @@ test('handleAnnouncement updates known edited message without payment block', as
   assert.equal(sent.length, 0);
 });
 
-test('handleAnnouncement stores telegram announcement author as organizer', async () => {
+test('handleAnnouncement stores telegram announcement author on draft', async () => {
   const calls = [];
   const store = {
     state: {
@@ -611,24 +632,25 @@ test('handleAnnouncement stores telegram announcement author as organizer', asyn
       assert.equal(telegramUserId, 12345);
       return { id: 'player_author' };
     },
-    async recordGameFromAnnouncement(payload) {
+    async saveAnnouncementDraft(payload) {
       calls.push(payload);
       return {
-        created: false,
-        updated: false,
-        game: {
-          id: 'game_author',
+        draft: {
+          id: 'announcement_author',
           chatId: String(payload.chatId),
-          scheduledAt: payload.announcement.scheduledAt,
-          ratingsOpenedAt: true
+          sourceMessageId: payload.sourceMessageId,
+          announcement: payload.announcement
         }
       };
+    },
+    async setAnnouncementDraftConfirmation() {
     }
   };
   const bot = new TelegramBot({
     telegramBotToken: 'token',
     publicBaseUrl: 'https://app.example'
   }, store);
+  bot.sendText = async () => ({ message_id: 105 });
 
   await bot.handleAnnouncement({
     text: `24 мая
@@ -661,31 +683,32 @@ test('handleAnnouncement stores telegram announcement author as organizer', asyn
   assert.equal(calls[0].organizerPlayerId, 'player_author');
 });
 
-test('handleAnnouncement parses game announcement from message captions', async () => {
+test('handleAnnouncement parses confirmation draft from message captions', async () => {
   const calls = [];
   const store = {
     state: {
       chats: {},
       games: {}
     },
-    async recordGameFromAnnouncement(payload) {
+    async saveAnnouncementDraft(payload) {
       calls.push(payload);
       return {
-        created: false,
-        updated: false,
-        game: {
-          id: 'game_caption',
+        draft: {
+          id: 'announcement_caption',
           chatId: String(payload.chatId),
-          scheduledAt: payload.announcement.scheduledAt,
-          ratingsOpenedAt: true
+          sourceMessageId: payload.sourceMessageId,
+          announcement: payload.announcement
         }
       };
+    },
+    async setAnnouncementDraftConfirmation() {
     }
   };
   const bot = new TelegramBot({
     telegramBotToken: 'token',
     publicBaseUrl: 'https://app.example'
   }, store);
+  bot.sendText = async () => ({ message_id: 106 });
 
   await bot.handleAnnouncement({
     caption: `30 мая, суббота
@@ -742,12 +765,11 @@ test('handleCommand creates game from replied announcement with /game fallback',
     telegramBotToken: 'token',
     publicBaseUrl: 'https://app.example'
   }, store);
-  const sent = [];
+  const published = [];
 
   bot.botUsername = 'football_test_bot';
-  bot.sendText = async (chatId, text, options = {}) => {
-    sent.push({ chatId, text, options });
-    return { message_id: 501 };
+  bot.publishOrSyncGameAnnouncement = async (gameId, options = {}) => {
+    published.push({ gameId, options });
   };
 
   await bot.handleCommand({
@@ -785,8 +807,9 @@ test('handleCommand creates game from replied announcement with /game fallback',
   assert.equal(calls[0].source, 'telegram-command');
   assert.equal(calls[0].announcement.location, 'Поле 10');
   assert.equal(calls[0].announcement.playerUsernames[5], 'alexandr');
-  assert.equal(sent.length, 1);
-  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Детали игры');
+  assert.equal(published.length, 1);
+  assert.equal(published[0].gameId, 'game_command');
+  assert.equal(String(published[0].options.chatId), '-1010');
 });
 
 test('handleCommand supports /editgame as phone-friendly announcement update', async () => {
@@ -886,22 +909,23 @@ test('handleCommand ignores bare /game in groups to avoid chat spam', async () =
   assert.equal(sent.length, 0);
 });
 
-test('handleAnnouncement sends lineup image with details button when snapshot is available', async () => {
+test('handleAnnouncement asks for confirmation before publishing lineup image', async () => {
   const store = {
     state: {
       chats: {},
       games: {}
     },
-    async recordGameFromAnnouncement() {
+    async saveAnnouncementDraft(payload) {
       return {
-        created: true,
-        updated: false,
-        game: {
-          id: 'game_7',
-          chatId: '-1007',
-          scheduledAt: '2099-05-24T16:30:00.000Z'
+        draft: {
+          id: 'announcement_lineup',
+          chatId: String(payload.chatId),
+          sourceMessageId: payload.sourceMessageId,
+          announcement: payload.announcement
         }
       };
+    },
+    async setAnnouncementDraftConfirmation() {
     },
     getSnapshot() {
       return {
@@ -1001,11 +1025,10 @@ test('handleAnnouncement sends lineup image with details button when snapshot is
     message_id: 77
   }, { isEdited: false });
 
-  assert.equal(texts.length, 0);
-  assert.equal(photos.length, 1);
-  assert.equal(photos[0].chatId, -1007);
-  assert.ok(Buffer.isBuffer(photos[0].photo));
-  assert.equal(photos[0].options.replyMarkup.inline_keyboard[0][0].text, 'Детали игры');
+  assert.equal(texts.length, 1);
+  assert.match(texts[0].text, /Анонс распознан/);
+  assert.equal(texts[0].options.replyMarkup.inline_keyboard[0][0].text, 'Создать игру');
+  assert.equal(photos.length, 0);
 });
 
 test('sendGameDetailsEntry renders lineup image for selected game outside currentGame', async () => {

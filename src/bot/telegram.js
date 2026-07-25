@@ -403,11 +403,44 @@ export class TelegramBot {
       formData.set('caption', options.caption);
     }
 
+    if (options.parseMode) {
+      formData.set('parse_mode', options.parseMode);
+    }
+
     if (options.replyMarkup) {
       formData.set('reply_markup', JSON.stringify(options.replyMarkup));
     }
 
     return this.callApiMultipart('sendPhoto', formData);
+  }
+
+  async editPhotoMessage(chatId, messageId, photo, options = {}) {
+    const formData = new FormData();
+    formData.set('chat_id', String(chatId));
+    formData.set('message_id', String(messageId));
+    formData.set('photo', new Blob([photo], { type: 'image/png' }), options.filename || 'lineup.png');
+    formData.set('media', JSON.stringify({
+      type: 'photo',
+      media: 'attach://photo',
+      caption: options.caption || '',
+      parse_mode: options.parseMode
+    }));
+
+    if (options.replyMarkup) {
+      formData.set('reply_markup', JSON.stringify(options.replyMarkup));
+    }
+
+    return this.callApiMultipart('editMessageMedia', formData);
+  }
+
+  async editTextMessage(chatId, messageId, text, options = {}) {
+    return this.callApi('editMessageText', {
+      chat_id: chatId,
+      message_id: messageId,
+      text,
+      parse_mode: options.parseMode,
+      reply_markup: options.replyMarkup
+    });
   }
 
   async prepareShareMessage(userId, result) {
@@ -457,6 +490,181 @@ export class TelegramBot {
     }
 
     return renderLineupPng(game);
+  }
+
+  getGameAnnouncementView(game) {
+    const snapshot = this.store.getSnapshot?.('global', null, { selectedGameId: game.id });
+    const gameView = [snapshot?.currentGame, ...(snapshot?.gameDays ?? [])]
+      .find((item) => item?.id === game.id);
+    const participants = gameView?.participants ?? [];
+    const ratedPlayers = participants.filter((player) => Number.isFinite(Number(player.overall)));
+    const averageRating = ratedPlayers.length
+      ? Math.round(ratedPlayers.reduce((sum, player) => sum + Number(player.overall), 0) / ratedPlayers.length)
+      : null;
+
+    return {
+      participants,
+      playerCount: participants.length || game.playerIds?.length || 0,
+      averageRating
+    };
+  }
+
+  formatGameAnnouncementCaption(game) {
+    const { playerCount, averageRating } = this.getGameAnnouncementView(game);
+    const lines = [
+      '⚽ <b>Игра</b>',
+      `${escapeTelegramHtml(game.dateLabel || game.date || '')} · ${escapeTelegramHtml(game.time || '')}`,
+      escapeTelegramHtml(game.location || ''),
+      '',
+      `Игроков: <b>${playerCount}</b>`
+    ];
+
+    if (averageRating !== null) {
+      lines.push(`Уровень игры: <b>${averageRating}</b>`);
+    }
+
+    return lines.filter((line, index) => line || index === 3).join('\n').trim();
+  }
+
+  buildGameAnnouncementKeyboard(game) {
+    const chat = this.store.state?.chats?.[String(game.chatId)];
+    const detailsButton = this.buildMiniAppButton(
+      chat?.type || 'supergroup',
+      game.chatId,
+      'Детали игры',
+      { initialView: 'game', gameId: game.id }
+    );
+    const rows = [];
+
+    if (game.ratingsOpenedAt) {
+      const rateButton = this.buildMiniAppButton(
+        chat?.type || 'supergroup',
+        game.chatId,
+        'Оценить',
+        { initialView: 'game', gameId: game.id }
+      );
+      const actionRow = [rateButton, detailsButton].filter(Boolean);
+
+      if (actionRow.length) {
+        rows.push(actionRow);
+      }
+    } else {
+      rows.push([
+        { text: 'Участвую', callback_data: `game_join:${game.id}` },
+        { text: 'Не смогу', callback_data: `decline_game:${game.id}` }
+      ]);
+
+      if (detailsButton) {
+        rows.push([detailsButton]);
+      }
+    }
+
+    return { inline_keyboard: rows };
+  }
+
+  async publishOrSyncGameAnnouncement(gameId, options = {}) {
+    const game = this.store.getGameById?.(gameId);
+
+    if (!this.enabled || !game) {
+      return null;
+    }
+
+    const chatId = String(game.botAnnouncementChatId || options.chatId || game.chatId || '');
+    const chat = this.store.state?.chats?.[chatId];
+
+    if (!chatId || chat?.type === 'private' || chat?.type === 'global') {
+      return null;
+    }
+
+    const lineupImage = await this.buildGameLineupImage(chatId, game.id);
+
+    if (!lineupImage) {
+      return null;
+    }
+
+    const messageOptions = {
+      filename: `lineup-${game.id}.png`,
+      caption: this.formatGameAnnouncementCaption(game),
+      parseMode: 'HTML',
+      replyMarkup: this.buildGameAnnouncementKeyboard(game)
+    };
+
+    if (game.botAnnouncementMessageId) {
+      try {
+        return await this.editPhotoMessage(
+          chatId,
+          game.botAnnouncementMessageId,
+          lineupImage,
+          messageOptions
+        );
+      } catch (error) {
+        if (/message is not modified/i.test(error.message || '')) {
+          return null;
+        }
+        console.error(`Unable to update game announcement ${game.id}:`, error.message);
+      }
+    }
+
+    const message = await this.sendPhoto(chatId, lineupImage, messageOptions);
+    await this.store.setGameBotAnnouncement?.(game.id, {
+      chatId,
+      messageId: message.message_id
+    });
+    return message;
+  }
+
+  formatAnnouncementDraft(draft) {
+    const announcement = draft.announcement;
+    const playerCount = announcement.playerRefs?.length || announcement.playerUsernames?.length || 0;
+
+    return [
+      '⚽ <b>Анонс распознан</b>',
+      `${escapeTelegramHtml(announcement.dateLabel || announcement.date || '')} · ${escapeTelegramHtml(announcement.time || '')}`,
+      escapeTelegramHtml(announcement.location || ''),
+      `Игроков: <b>${playerCount}</b>`,
+      '',
+      'Создать игру и опубликовать карточку?'
+    ].join('\n');
+  }
+
+  buildAnnouncementDraftKeyboard(draftId) {
+    return {
+      inline_keyboard: [[
+        { text: 'Создать игру', callback_data: `confirm_announcement:${draftId}` },
+        { text: 'Отмена', callback_data: `cancel_announcement:${draftId}` }
+      ]]
+    };
+  }
+
+  async publishOrSyncAnnouncementDraft(draft) {
+    const text = this.formatAnnouncementDraft(draft);
+    const replyMarkup = this.buildAnnouncementDraftKeyboard(draft.id);
+
+    if (draft.confirmationMessageId) {
+      try {
+        return await this.editTextMessage(
+          draft.confirmationChatId || draft.chatId,
+          draft.confirmationMessageId,
+          text,
+          { parseMode: 'HTML', replyMarkup }
+        );
+      } catch (error) {
+        if (/message is not modified/i.test(error.message || '')) {
+          return null;
+        }
+        console.error(`Unable to update announcement draft ${draft.id}:`, error.message);
+      }
+    }
+
+    const message = await this.sendText(draft.chatId, text, {
+      parseMode: 'HTML',
+      replyMarkup
+    });
+    await this.store.setAnnouncementDraftConfirmation?.(draft.id, {
+      chatId: draft.chatId,
+      messageId: message.message_id
+    });
+    return message;
   }
 
   async sendGameDetailsEntry(chatId, chatType, targetChatId, game) {
@@ -1138,10 +1346,17 @@ export class TelegramBot {
 
     if (result?.game) {
       this.schedulePromptForGame(result.game);
-    }
+      await this.publishOrSyncGameAnnouncement(result.game.id, { chatId: targetChatId });
 
-    if (result?.game) {
-      await this.sendGameDetailsEntry(message.chat.id, message.chat.type, targetChatId, result.game);
+      if (message.chat.type === 'private') {
+        await this.sendMiniAppEntry(message.chat.id, 'private', targetChatId, {
+          primaryText: 'Игра создана',
+          buttonText: 'Детали игры',
+          locale: this.getGameLocale(result.game),
+          initialView: 'game',
+          gameId: result.game.id
+        });
+      }
       return;
     }
 
@@ -1159,14 +1374,22 @@ export class TelegramBot {
       ? (message.edit_date ?? message.date ?? Math.floor(Date.now() / 1000))
       : (message.date ?? Math.floor(Date.now() / 1000));
     const sourceDate = new Date(messageTimestamp * 1000);
-    const existingEditedGame = options.isEdited
-      ? this.store.findGameByMessage?.(message.chat.id, message.message_id)
-      : null;
+    const existingGame = this.store.findGameByMessage?.(message.chat.id, message.message_id);
+    const existingDraft = this.store.findAnnouncementDraftByMessage?.(message.chat.id, message.message_id);
     const announcement = parseAnnouncementText(rawText, sourceDate, {
       requirePaymentBlock: false
     });
 
     if (!announcement) {
+      if (options.isEdited && existingDraft) {
+        await this.store.deleteAnnouncementDraft?.(existingDraft.id);
+        await this.editTextMessage(
+          existingDraft.confirmationChatId || existingDraft.chatId,
+          existingDraft.confirmationMessageId,
+          'Анонс изменён и больше не распознаётся. Черновик отменён.',
+          { replyMarkup: { inline_keyboard: [] } }
+        ).catch(() => {});
+      }
       if (rawText.includes('89295991499')) {
         console.warn('Telegram announcement-like message was not parsed', {
           chatId: message.chat.id,
@@ -1190,25 +1413,43 @@ export class TelegramBot {
       : message.from?.id
         ? this.store.getPlayerByTelegramUserId?.(message.from.id)
         : null;
-    const result = await this.store.recordGameFromAnnouncement({
+
+    if (existingGame) {
+      const result = await this.store.recordGameFromAnnouncement({
+        chatId: message.chat.id,
+        chatTitle: message.chat.title ?? '',
+        chatType: message.chat.type,
+        messageId: message.message_id,
+        rawText,
+        announcement,
+        organizerPlayerId: organizerPlayer?.id ?? existingGame.organizerPlayerId ?? null,
+        source: 'telegram-confirmed',
+        sourceDate
+      });
+
+      if (result?.game) {
+        this.schedulePromptForGame(result.game);
+        await this.publishOrSyncGameAnnouncement(result.game.id, { chatId: message.chat.id });
+      }
+      return;
+    }
+
+    if (typeof this.store.saveAnnouncementDraft !== 'function') {
+      return;
+    }
+
+    const result = await this.store.saveAnnouncementDraft({
       chatId: message.chat.id,
       chatTitle: message.chat.title ?? '',
       chatType: message.chat.type,
-      messageId: message.message_id,
+      sourceMessageId: message.message_id,
       rawText,
       announcement,
       organizerPlayerId: organizerPlayer?.id ?? null,
-      source: 'telegram-message',
+      authorTelegramUserId: message.from?.id ?? null,
       sourceDate
     });
-
-    if (result?.game) {
-      this.schedulePromptForGame(result.game);
-    }
-
-    if (!options.isEdited && result && (result.created || result.updated)) {
-      await this.sendGameDetailsEntry(message.chat.id, message.chat.type, message.chat.id, result.game);
-    }
+    await this.publishOrSyncAnnouncementDraft(result.draft);
   }
 
   async handleMessage(message, options = {}) {
@@ -1330,6 +1571,102 @@ export class TelegramBot {
       return;
     }
 
+    if (data.startsWith('confirm_announcement:') || data.startsWith('cancel_announcement:')) {
+      const draftId = data.split(':')[1];
+      const draft = this.store.getAnnouncementDraftById?.(draftId);
+
+      if (!draft) {
+        await this.answerCallbackQuery(callbackQuery.id, 'Черновик уже недоступен');
+        return;
+      }
+
+      const isAuthor = String(draft.authorTelegramUserId ?? '') === String(callbackQuery.from?.id ?? '');
+      const isAdmin = isAuthor
+        ? false
+        : await this.isUserAdminOfChat(draft.chatId, callbackQuery.from?.id);
+
+      if (!isAuthor && !isAdmin) {
+        await this.answerCallbackQuery(callbackQuery.id, 'Подтвердить может автор или администратор');
+        return;
+      }
+
+      if (data.startsWith('cancel_announcement:')) {
+        await this.store.deleteAnnouncementDraft?.(draft.id);
+        await this.editTextMessage(
+          draft.confirmationChatId || draft.chatId,
+          draft.confirmationMessageId,
+          '⚽ Черновик отменён',
+          { replyMarkup: { inline_keyboard: [] } }
+        ).catch(() => {});
+        await this.answerCallbackQuery(callbackQuery.id, 'Черновик отменён');
+        return;
+      }
+
+      try {
+        const result = await this.store.recordGameFromAnnouncement({
+          chatId: draft.chatId,
+          chatTitle: draft.chatTitle,
+          chatType: draft.chatType,
+          messageId: draft.sourceMessageId,
+          rawText: draft.rawText,
+          announcement: draft.announcement,
+          organizerPlayerId: draft.organizerPlayerId,
+          source: 'telegram-confirmed',
+          sourceDate: new Date(draft.sourceDate)
+        });
+
+        if (!result?.game) {
+          await this.answerCallbackQuery(callbackQuery.id, 'Игра уже существует');
+          return;
+        }
+
+        this.schedulePromptForGame(result.game);
+        await this.publishOrSyncGameAnnouncement(result.game.id, { chatId: draft.chatId });
+        await this.store.deleteAnnouncementDraft?.(draft.id);
+        await this.editTextMessage(
+          draft.confirmationChatId || draft.chatId,
+          draft.confirmationMessageId,
+          '⚽ <b>Игра создана</b>',
+          { parseMode: 'HTML', replyMarkup: { inline_keyboard: [] } }
+        ).catch(() => {});
+        await this.answerCallbackQuery(callbackQuery.id, 'Игра создана');
+      } catch (error) {
+        await this.answerCallbackQuery(callbackQuery.id, error.message || 'Не удалось создать игру');
+      }
+      return;
+    }
+
+    if (data.startsWith('game_join:')) {
+      const gameId = data.split(':')[1];
+      const game = this.store.getGameById?.(gameId);
+
+      if (!game) {
+        await this.answerCallbackQuery(callbackQuery.id, 'Игра не найдена');
+        return;
+      }
+
+      try {
+        const chat = this.store.state?.chats?.[String(game.chatId)];
+        const player = await this.store.rememberTelegramUser(game.chatId, callbackQuery.from, {
+          chatTitle: chat?.title || '',
+          chatType: chat?.type || 'supergroup'
+        });
+        const result = await this.store.joinGameFromBot({
+          gameId,
+          playerId: player.id
+        });
+
+        await this.publishOrSyncGameAnnouncement(result.game.id);
+        await this.answerCallbackQuery(
+          callbackQuery.id,
+          result.joined ? 'Ты в составе' : 'Ты уже в составе'
+        );
+      } catch (error) {
+        await this.answerCallbackQuery(callbackQuery.id, error.message || 'Не удалось присоединиться');
+      }
+      return;
+    }
+
     if (!data.startsWith('decline_game:')) {
       return;
     }
@@ -1357,6 +1694,7 @@ export class TelegramBot {
       if (result.removed) {
         await this.notifyOrganizerAboutDeclinedGame(result.game.id, result.player.id, result);
       }
+      await this.publishOrSyncGameAnnouncement(result.game.id);
     } catch (error) {
       await this.answerCallbackQuery(callbackQuery.id, error.message || this.t(locale, 'bot.update_game_failed'));
     }
@@ -1444,7 +1782,10 @@ export class TelegramBot {
         let promptMessageId = null;
         let sentAnyPrompt = false;
 
-        if (chat?.type !== 'global') {
+        if (game.botAnnouncementMessageId) {
+          promptMessageId = game.botAnnouncementMessageId;
+          sentAnyPrompt = true;
+        } else if (chat?.type !== 'global') {
           try {
             const message = await this.sendMiniAppEntry(game.chatId, chat?.type || 'supergroup', game.chatId, {
               primaryText: this.t(chatLocale, 'rating.started_chat'),
@@ -1478,6 +1819,7 @@ export class TelegramBot {
 
         if (sentAnyPrompt || chat?.type === 'global') {
           await this.store.markRatingsPromptSent(game.id, promptMessageId);
+          await this.publishOrSyncGameAnnouncement(game.id);
           this.clearPromptTimer(game.id);
         }
       } catch (error) {

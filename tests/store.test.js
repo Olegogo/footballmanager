@@ -94,6 +94,126 @@ test('recordGameFromAnnouncement overwrites upcoming game before kickoff', async
   }
 });
 
+test('announcement draft is updated in place for the same Telegram message', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const first = await store.saveAnnouncementDraft({
+      chatId: '-1001',
+      chatTitle: 'Football Chat',
+      chatType: 'supergroup',
+      sourceMessageId: 42,
+      rawText: 'Первый вариант анонса',
+      announcement: {
+        date: '2099-08-10',
+        time: '19:00',
+        location: 'Поле 1',
+        usernames: ['first']
+      },
+      organizerPlayerId: 'player_1',
+      authorTelegramUserId: 100,
+      sourceDate: new Date('2099-08-01T10:00:00+03:00')
+    });
+    await store.setAnnouncementDraftConfirmation(first.draft.id, {
+      chatId: '-1001',
+      messageId: 99
+    });
+
+    const second = await store.saveAnnouncementDraft({
+      chatId: '-1001',
+      chatTitle: 'Football Chat',
+      chatType: 'supergroup',
+      sourceMessageId: 42,
+      rawText: 'Отредактированный анонс',
+      announcement: {
+        date: '2099-08-10',
+        time: '20:00',
+        location: 'Поле 2',
+        usernames: ['first', 'second']
+      },
+      organizerPlayerId: 'player_1',
+      authorTelegramUserId: 100,
+      sourceDate: new Date('2099-08-01T10:05:00+03:00')
+    });
+
+    assert.equal(first.created, true);
+    assert.equal(second.created, false);
+    assert.equal(second.draft.id, first.draft.id);
+    assert.equal(second.draft.confirmationMessageId, 99);
+    assert.equal(second.draft.announcement.time, '20:00');
+    assert.equal(store.findAnnouncementDraftByMessage('-1001', 42)?.id, first.draft.id);
+
+    const deleted = await store.deleteAnnouncementDraft(first.draft.id);
+    assert.equal(deleted?.id, first.draft.id);
+    assert.equal(store.getAnnouncementDraftById(first.draft.id), null);
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('joinGameFromBot adds a player once and clears previous invitation states', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const scheduledAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    await store.mutate((state) => {
+      state.chats['-1001'] = {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        currentGameId: 'game_1',
+        playerIds: ['player_1']
+      };
+      state.players.player_1 = {
+        id: 'player_1',
+        username: 'organizer',
+        displayName: 'Organizer',
+        chatIds: ['-1001']
+      };
+      state.players.player_2 = {
+        id: 'player_2',
+        username: 'new_player',
+        displayName: 'New Player',
+        chatIds: []
+      };
+      state.games.game_1 = {
+        id: 'game_1',
+        chatId: '-1001',
+        organizerPlayerId: 'player_1',
+        scheduledAt,
+        rosterLocked: false,
+        ratingsOpenedAt: null,
+        closedAt: null,
+        playerIds: ['player_1'],
+        invitedPlayerIds: ['player_2'],
+        pendingJoinPlayerIds: ['player_2'],
+        declinedPlayerIds: ['player_2'],
+        playerUsernames: ['organizer']
+      };
+    });
+
+    const first = await store.joinGameFromBot({
+      gameId: 'game_1',
+      playerId: 'player_2'
+    });
+    const second = await store.joinGameFromBot({
+      gameId: 'game_1',
+      playerId: 'player_2'
+    });
+
+    assert.equal(first.joined, true);
+    assert.equal(second.joined, false);
+    assert.deepEqual(store.state.games.game_1.playerIds, ['player_1', 'player_2']);
+    assert.deepEqual(store.state.games.game_1.invitedPlayerIds, []);
+    assert.deepEqual(store.state.games.game_1.pendingJoinPlayerIds, []);
+    assert.deepEqual(store.state.games.game_1.declinedPlayerIds, []);
+    assert.ok(store.state.players.player_2.chatIds.includes('-1001'));
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('submitQuickRating stores MVP vote and up to three stat points', async () => {
   const { directory, store } = await createStore();
 
