@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildChatSnapshot, getGameEndAt, getLatestMvp, getRatingWindowEnd } from '../src/lib/stats.js';
+import {
+  buildChatSnapshot,
+  buildGameBoostAggregation,
+  getGameEndAt,
+  getLatestMvp,
+  getRatingWindowEnd
+} from '../src/lib/stats.js';
 
 function rating(overrides = {}) {
   return {
@@ -414,13 +420,13 @@ test('buildChatSnapshot applies quick stat boosts and MVP votes globally', () =>
   const boostedPlayer = finishedSnapshot.players.find((player) => player.id === 'player_2');
 
   assert.equal(boostedPlayer.ratedGames, 1);
-  assert.equal(boostedPlayer.overall, 52);
+  assert.equal(boostedPlayer.overall, 51);
   assert.equal(boostedPlayer.isMvp, true);
   assert.equal(finishedSnapshot.games[0].mvp.playerId, 'player_2');
   assert.equal(finishedSnapshot.games[0].mvp.votes, 2);
 });
 
-test('buildChatSnapshot softly lowers quiet participants after quick ratings', () => {
+test('buildChatSnapshot does not lower quiet participants before quick-rating quorum', () => {
   const seededStats = rating({ overall: 72 });
   const state = {
     version: 1,
@@ -532,9 +538,143 @@ test('buildChatSnapshot softly lowers quiet participants after quick ratings', (
   const restedPlayer = snapshot.players.find((player) => player.id === 'player_rested');
 
   assert.equal(quietPlayer.ratedGames, 2);
-  assert.equal(quietPlayer.overall, 70);
+  assert.equal(quietPlayer.overall, 72);
   assert.equal(restedPlayer.ratedGames, 1);
   assert.equal(restedPlayer.overall, 72);
+});
+
+test('buildChatSnapshot gradually lowers quiet participants after quick-rating quorum', () => {
+  const seededStats = rating({ overall: 72 });
+  const participantIds = ['player_quiet', 'player_standout', 'player_rater_1', 'player_rater_2'];
+  const player = (id, telegramUserId, overrides = {}) => ({
+    id,
+    telegramUserId,
+    username: id,
+    displayName: id,
+    firstName: '',
+    lastName: '',
+    photoUrl: '',
+    defaultPosition: 'CM',
+    chatIds: ['-1001'],
+    ...overrides
+  });
+  const state = {
+    version: 1,
+    meta: {},
+    chats: {
+      '-1001': {
+        id: '-1001',
+        title: 'Football Chat',
+        type: 'supergroup',
+        username: '',
+        currentGameId: 'game_1',
+        playerIds: participantIds
+      }
+    },
+    players: {
+      player_quiet: player('player_quiet', 1, {
+        careerSeed: {
+          ratedGames: 1,
+          position: 'CM',
+          stats: seededStats
+        }
+      }),
+      player_standout: player('player_standout', 2, { defaultPosition: 'ST' }),
+      player_rater_1: player('player_rater_1', 3),
+      player_rater_2: player('player_rater_2', 4)
+    },
+    games: {
+      game_1: {
+        id: 'game_1',
+        chatId: '-1001',
+        dateLabel: '1 июня',
+        location: 'Поле',
+        time: '19:00',
+        scheduledAt: '2026-06-01T16:00:00.000Z',
+        playerIds: participantIds,
+        paymentLines: [],
+        priceLine: ''
+      }
+    },
+    ratings: {},
+    statBoosts: Object.fromEntries(
+      ['player_quiet', 'player_rater_1', 'player_rater_2'].map((raterPlayerId, index) => [
+        `boost_${index}`,
+        {
+          id: `boost_${index}`,
+          chatId: '-1001',
+          gameId: 'game_1',
+          raterPlayerId,
+          targetPlayerId: 'player_standout',
+          statKey: 'pace',
+          points: 1
+        }
+      ])
+    ),
+    mvpVotes: Object.fromEntries(
+      ['player_quiet', 'player_rater_1', 'player_rater_2'].map((raterPlayerId, index) => [
+        `vote_${index}`,
+        {
+          id: `vote_${index}`,
+          chatId: '-1001',
+          gameId: 'game_1',
+          raterPlayerId,
+          targetPlayerId: 'player_standout'
+        }
+      ])
+    )
+  };
+
+  const snapshot = buildChatSnapshot(
+    state,
+    '-1001',
+    'player_rater_1',
+    new Date('2026-06-03T17:00:00.000Z')
+  );
+  const quietPlayer = snapshot.players.find((item) => item.id === 'player_quiet');
+
+  assert.equal(quietPlayer.ratedGames, 2);
+  assert.ok(quietPlayer.overall < 72);
+  assert.ok(quietPlayer.overall >= 70);
+});
+
+test('buildGameBoostAggregation keeps negative achievements without rating penalty', () => {
+  const state = {
+    games: {
+      game_1: {
+        id: 'game_1',
+        playerIds: ['player_1', 'player_2', 'player_3']
+      }
+    },
+    statBoosts: {},
+    mvpVotes: {},
+    achievementVotes: {
+      achievement_1: {
+        id: 'achievement_1',
+        gameId: 'game_1',
+        raterPlayerId: 'player_2',
+        targetPlayerId: 'player_1',
+        achievementKey: 'maguire_day'
+      },
+      automatic_achievement: {
+        id: 'automatic_achievement',
+        gameId: 'game_1',
+        raterPlayerId: '',
+        targetPlayerId: 'player_1',
+        achievementKey: 'woodworker'
+      }
+    }
+  };
+
+  const aggregation = buildGameBoostAggregation(state, 'game_1');
+
+  assert.equal(aggregation.players.player_1.achievementScore, -2);
+  assert.equal(aggregation.players.player_1.ratingAchievementScore, 0);
+  assert.deepEqual(aggregation.players.player_1.achievementCounts, {
+    maguire_day: 1,
+    woodworker: 1
+  });
+  assert.equal(aggregation.raterCount, 1);
 });
 
 test('buildChatSnapshot keeps rating window open for 24 hours after the default 90 minute game', () => {

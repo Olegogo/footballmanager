@@ -30,6 +30,13 @@ export const QUICK_ACHIEVEMENT_DEFINITIONS = [
 const QUICK_ACHIEVEMENT_META = Object.fromEntries(
   QUICK_ACHIEVEMENT_DEFINITIONS.map((item) => [item.key, item])
 );
+const QUICK_RATING_MVP_WEIGHT = 1.5;
+const QUICK_RATING_ACHIEVEMENT_CAP = 3;
+const QUICK_RATING_GENERAL_SCALE = 4;
+const QUICK_RATING_GENERAL_MIN = -8;
+const QUICK_RATING_GENERAL_MAX = 10;
+const QUICK_RATING_STAT_FOCUS_SCALE = 4;
+const QUICK_RATING_STAT_FOCUS_CAP = 6;
 
 const FALLBACK_STATS = {
   pace: 50,
@@ -218,6 +225,7 @@ function createEmptyBoostSummary() {
     totalPoints: 0,
     mvpVotes: 0,
     achievementScore: 0,
+    ratingAchievementScore: 0,
     achievementCounts: {},
     statPoints: Object.fromEntries(STAT_KEYS.map((key) => [key, 0])),
     raterIds: new Set()
@@ -350,8 +358,51 @@ function finalizeCareerEntry(entry) {
   };
 }
 
+function clampNumber(value, min, max) {
+  const number = Number(value);
+  const safeNumber = Number.isFinite(number) ? number : 0;
+  return Math.max(min, Math.min(max, safeNumber));
+}
+
+function getPositiveAchievementScore(boostSummary) {
+  if (Number.isFinite(Number(boostSummary?.ratingAchievementScore))) {
+    return clampNumber(boostSummary.ratingAchievementScore, 0, QUICK_RATING_ACHIEVEMENT_CAP);
+  }
+
+  if (boostSummary?.achievementCounts) {
+    const score = Object.entries(boostSummary.achievementCounts).reduce((sum, [key, count]) => {
+      const weight = Math.max(0, Number(QUICK_ACHIEVEMENT_META[key]?.ratingWeight ?? 0));
+      return sum + weight * Math.max(0, Number(count) || 0);
+    }, 0);
+    return clampNumber(score, 0, QUICK_RATING_ACHIEVEMENT_CAP);
+  }
+
+  return clampNumber(boostSummary?.achievementScore, 0, QUICK_RATING_ACHIEVEMENT_CAP);
+}
+
+function getQuickRatingSignal(boostSummary) {
+  return (
+    Math.max(0, Number(boostSummary?.totalPoints ?? 0)) +
+    Math.max(0, Number(boostSummary?.mvpVotes ?? 0)) * QUICK_RATING_MVP_WEIGHT +
+    getPositiveAchievementScore(boostSummary)
+  );
+}
+
+function getQuickRatingQuorum(participantCount) {
+  const participants = Math.max(1, Math.round(Number(participantCount ?? 0)));
+  return Math.min(participants, Math.max(3, Math.ceil(participants * 0.5)));
+}
+
+function getQuickRatingConfidence(quickContext) {
+  const quorum = Math.max(
+    1,
+    Number(quickContext?.quorum ?? getQuickRatingQuorum(quickContext?.participantCount))
+  );
+  return clampNumber(Number(quickContext?.raterCount ?? 0) / quorum, 0, 1);
+}
+
 function applyBoostsToStats(baseStats, boostSummary) {
-  const signalScore = Number(boostSummary?.achievementScore ?? 0);
+  const signalScore = getPositiveAchievementScore(boostSummary);
 
   return Object.fromEntries(
     STAT_KEYS.map((key) => [
@@ -371,7 +422,16 @@ function getStatsOverall(stats) {
 
 function getQuickFormLearningRate(ratedGames) {
   const games = Math.max(0, Math.round(Number(ratedGames ?? 0)));
-  return Math.max(0.15, 0.25 - Math.min(games, 10) * 0.01);
+
+  if (games < 3) {
+    return 0.25;
+  }
+
+  if (games < 10) {
+    return 0.15;
+  }
+
+  return 0.08;
 }
 
 function getQuickFormBaseStats(entry, player) {
@@ -394,20 +454,46 @@ function getQuickFormPosition(entry, player) {
 
 function buildQuickFormStats(entry, boostSummary, quickContext, player) {
   const raterCount = Math.max(1, Number(quickContext?.raterCount ?? 0));
-  const visibility = (
-    Number(boostSummary?.totalPoints ?? 0) +
-    Number(boostSummary?.mvpVotes ?? 0) * 2 +
-    Number(boostSummary?.achievementScore ?? 0)
-  ) / raterCount;
-  const delta = Math.max(-8, Math.min(12, -8 + visibility * 4));
+  const participantCount = Math.max(1, Number(quickContext?.participantCount ?? 1));
+  const quorum = Math.max(
+    1,
+    Number(quickContext?.quorum ?? getQuickRatingQuorum(participantCount))
+  );
+  const confidence = Number.isFinite(Number(quickContext?.confidence))
+    ? clampNumber(quickContext.confidence, 0, 1)
+    : getQuickRatingConfidence(quickContext);
+  const quorumReached = Number(quickContext?.raterCount ?? 0) >= quorum;
+  const playerSignal = getQuickRatingSignal(boostSummary);
+  const averageSignal = Number.isFinite(Number(quickContext?.averageRatingSignal))
+    ? Number(quickContext.averageRatingSignal)
+    : Number(quickContext?.totalRatingSignal ?? 0) / participantCount;
+  let generalDelta = clampNumber(
+    ((playerSignal - averageSignal) / raterCount) * QUICK_RATING_GENERAL_SCALE,
+    QUICK_RATING_GENERAL_MIN,
+    QUICK_RATING_GENERAL_MAX
+  );
+
+  if (!quorumReached && generalDelta < 0) {
+    generalDelta = 0;
+  }
+
+  generalDelta *= confidence;
   const baseStats = getQuickFormBaseStats(entry, player);
 
   return Object.fromEntries(
     STAT_KEYS.map((key) => {
-      const statFocus = Math.min(3, Number(boostSummary?.statPoints?.[key] ?? 0));
+      const statPoints = Math.max(0, Number(boostSummary?.statPoints?.[key] ?? 0));
+      const statFocus = Math.min(
+        QUICK_RATING_STAT_FOCUS_CAP,
+        (statPoints / raterCount) * QUICK_RATING_STAT_FOCUS_SCALE
+      ) * confidence;
       return [
         key,
-        Math.max(1, Math.min(99, round(Number(baseStats[key] ?? FALLBACK_STATS[key]) + delta + statFocus)))
+        clampNumber(
+          Number(baseStats[key] ?? FALLBACK_STATS[key]) + generalDelta + statFocus,
+          1,
+          99
+        )
       ];
     })
   );
@@ -485,8 +571,10 @@ function applyBoostsToCareerEntry(entry, boostSummary, player, fullGameStatsAppl
   }
 
   if (fullGameStatsApplied && entry.ratedGames > 0) {
+    const achievementScore = getPositiveAchievementScore(boostSummary);
+
     for (const key of STAT_KEYS) {
-      entry.statSums[key] += Number(boostSummary.statPoints[key] ?? 0) + Number(boostSummary.achievementScore ?? 0);
+      entry.statSums[key] += Number(boostSummary.statPoints[key] ?? 0) + achievementScore;
     }
     return;
   }
@@ -607,18 +695,20 @@ export function buildGameBoostAggregation(state, gameId) {
 
   const byPlayer = new Map();
   const gameRaterIds = new Set();
+  const participantIds = new Set(game.playerIds);
 
   for (const playerId of game.playerIds) {
     byPlayer.set(playerId, createEmptyBoostSummary());
   }
 
   for (const boost of Object.values(state.statBoosts ?? {})) {
-    if (boost.gameId !== gameId || !STAT_KEYS.includes(boost.statKey)) {
+    if (
+      boost.gameId !== gameId ||
+      !STAT_KEYS.includes(boost.statKey) ||
+      !participantIds.has(boost.targetPlayerId) ||
+      !participantIds.has(boost.raterPlayerId)
+    ) {
       continue;
-    }
-
-    if (!byPlayer.has(boost.targetPlayerId)) {
-      byPlayer.set(boost.targetPlayerId, createEmptyBoostSummary());
     }
 
     const summary = byPlayer.get(boost.targetPlayerId);
@@ -633,12 +723,12 @@ export function buildGameBoostAggregation(state, gameId) {
   }
 
   for (const vote of Object.values(state.mvpVotes ?? {})) {
-    if (vote.gameId !== gameId || !game.playerIds.includes(vote.targetPlayerId)) {
+    if (
+      vote.gameId !== gameId ||
+      !participantIds.has(vote.targetPlayerId) ||
+      !participantIds.has(vote.raterPlayerId)
+    ) {
       continue;
-    }
-
-    if (!byPlayer.has(vote.targetPlayerId)) {
-      byPlayer.set(vote.targetPlayerId, createEmptyBoostSummary());
     }
 
     const summary = byPlayer.get(vote.targetPlayerId);
@@ -654,16 +744,19 @@ export function buildGameBoostAggregation(state, gameId) {
     const achievementKey = String(vote.achievementKey ?? '');
     const achievement = QUICK_ACHIEVEMENT_META[achievementKey];
 
-    if (!achievement || vote.gameId !== gameId || !game.playerIds.includes(vote.targetPlayerId)) {
+    if (
+      !achievement ||
+      vote.gameId !== gameId ||
+      !participantIds.has(vote.targetPlayerId) ||
+      (vote.raterPlayerId && !participantIds.has(vote.raterPlayerId))
+    ) {
       continue;
     }
 
-    if (!byPlayer.has(vote.targetPlayerId)) {
-      byPlayer.set(vote.targetPlayerId, createEmptyBoostSummary());
-    }
-
     const summary = byPlayer.get(vote.targetPlayerId);
-    summary.achievementScore += Number(achievement.ratingWeight ?? 0);
+    const ratingWeight = Number(achievement.ratingWeight ?? 0);
+    summary.achievementScore += ratingWeight;
+    summary.ratingAchievementScore += Math.max(0, ratingWeight);
     summary.achievementCounts[achievementKey] = (summary.achievementCounts[achievementKey] ?? 0) + 1;
 
     if (vote.raterPlayerId) {
@@ -672,26 +765,41 @@ export function buildGameBoostAggregation(state, gameId) {
     }
   }
 
+  const players = Object.fromEntries(
+    [...byPlayer.entries()].map(([playerId, summary]) => [
+      playerId,
+      {
+        hasBoosts: summary.totalPoints > 0,
+        hasAchievements: Object.keys(summary.achievementCounts).length > 0,
+        hasQuickRating: summary.totalPoints > 0 || summary.mvpVotes > 0 || Object.keys(summary.achievementCounts).length > 0,
+        totalPoints: summary.totalPoints,
+        mvpVotes: summary.mvpVotes,
+        achievementScore: summary.achievementScore,
+        ratingAchievementScore: summary.ratingAchievementScore,
+        achievementCounts: { ...summary.achievementCounts },
+        statPoints: { ...summary.statPoints },
+        ratingsCount: summary.raterIds.size
+      }
+    ])
+  );
+  const participantCount = Math.max(1, game.playerIds.length);
+  const raterCount = gameRaterIds.size;
+  const quorum = getQuickRatingQuorum(participantCount);
+  const totalRatingSignal = Object.values(players).reduce(
+    (sum, playerSummary) => sum + getQuickRatingSignal(playerSummary),
+    0
+  );
+
   return {
     gameId,
-    hasActivity: gameRaterIds.size > 0,
-    raterCount: gameRaterIds.size,
-    players: Object.fromEntries(
-      [...byPlayer.entries()].map(([playerId, summary]) => [
-        playerId,
-        {
-          hasBoosts: summary.totalPoints > 0,
-          hasAchievements: Object.keys(summary.achievementCounts).length > 0,
-          hasQuickRating: summary.totalPoints > 0 || summary.mvpVotes > 0 || Object.keys(summary.achievementCounts).length > 0,
-          totalPoints: summary.totalPoints,
-          mvpVotes: summary.mvpVotes,
-          achievementScore: summary.achievementScore,
-          achievementCounts: { ...summary.achievementCounts },
-          statPoints: { ...summary.statPoints },
-          ratingsCount: summary.raterIds.size
-        }
-      ])
-    )
+    hasActivity: raterCount > 0,
+    raterCount,
+    participantCount,
+    quorum,
+    confidence: clampNumber(raterCount / quorum, 0, 1),
+    totalRatingSignal,
+    averageRatingSignal: totalRatingSignal / participantCount,
+    players
   };
 }
 
