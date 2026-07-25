@@ -463,7 +463,7 @@ test('handleAnnouncement creates one editable confirmation draft', async () => {
   };
 
   const message = {
-    text: `24 мая
+    text: `24 мая 2099
 Сокольники, поле 10
 19:30
 
@@ -481,7 +481,7 @@ test('handleAnnouncement creates one editable confirmation draft', async () => {
       type: 'supergroup',
       title: 'Football'
     },
-    date: Math.floor(Date.now() / 1000),
+    date: Math.floor(new Date('2099-05-20T12:00:00Z').getTime() / 1000),
     message_id: 77
   };
 
@@ -730,7 +730,7 @@ test('handleAnnouncement parses confirmation draft from message captions', async
       type: 'supergroup',
       title: 'Football'
     },
-    date: Math.floor(new Date('2026-05-28T12:00:00Z').getTime() / 1000),
+    date: Math.floor(new Date('2099-05-28T12:00:00Z').getTime() / 1000),
     message_id: 88
   }, { isEdited: true });
 
@@ -741,22 +741,27 @@ test('handleAnnouncement parses confirmation draft from message captions', async
   assert.equal(calls[0].announcement.playerUsernames[5], 'alexandr');
 });
 
-test('handleCommand creates game from replied announcement with /game fallback', async () => {
+test('handleCommand creates confirmation draft from replied announcement with /game fallback', async () => {
   const calls = [];
   const store = {
     state: {
       chats: {},
       games: {}
     },
-    async recordGameFromAnnouncement(payload) {
+    async saveAnnouncementDraft(payload) {
       calls.push(payload);
       return {
-        created: true,
-        updated: false,
-        game: {
-          id: 'game_command',
+        draft: {
+          id: 'announcement_command',
           chatId: String(payload.chatId),
-          scheduledAt: payload.announcement.scheduledAt
+          chatTitle: payload.chatTitle,
+          chatType: payload.chatType,
+          sourceMessageId: payload.sourceMessageId,
+          rawText: payload.rawText,
+          announcement: payload.announcement,
+          organizerPlayerId: payload.organizerPlayerId,
+          authorTelegramUserId: payload.authorTelegramUserId,
+          sourceDate: payload.sourceDate
         }
       };
     }
@@ -768,8 +773,8 @@ test('handleCommand creates game from replied announcement with /game fallback',
   const published = [];
 
   bot.botUsername = 'football_test_bot';
-  bot.publishOrSyncGameAnnouncement = async (gameId, options = {}) => {
-    published.push({ gameId, options });
+  bot.publishOrSyncAnnouncementDraft = async (draft) => {
+    published.push(draft);
   };
 
   await bot.handleCommand({
@@ -779,11 +784,11 @@ test('handleCommand creates game from replied announcement with /game fallback',
       type: 'supergroup',
       title: 'Football'
     },
-    date: Math.floor(new Date('2026-05-28T12:00:00Z').getTime() / 1000),
+    date: Math.floor(new Date('2099-05-28T12:00:00Z').getTime() / 1000),
     message_id: 101,
     reply_to_message: {
       message_id: 100,
-      date: Math.floor(new Date('2026-05-28T12:00:00Z').getTime() / 1000),
+      date: Math.floor(new Date('2099-05-28T12:00:00Z').getTime() / 1000),
       text: `30 мая, суббота
 
 16:00. Поле 10
@@ -803,13 +808,74 @@ test('handleCommand creates game from replied announcement with /game fallback',
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].chatId, -1010);
-  assert.equal(calls[0].messageId, 100);
-  assert.equal(calls[0].source, 'telegram-command');
+  assert.equal(calls[0].sourceMessageId, 100);
   assert.equal(calls[0].announcement.location, 'Поле 10');
   assert.equal(calls[0].announcement.playerUsernames[5], 'alexandr');
   assert.equal(published.length, 1);
-  assert.equal(published[0].gameId, 'game_command');
-  assert.equal(String(published[0].options.chatId), '-1010');
+  assert.equal(published[0].id, 'announcement_command');
+  assert.equal(published[0].chatId, '-1010');
+});
+
+test('handleCommand keeps /game confirmation drafts isolated between chats', async () => {
+  const calls = [];
+  const store = {
+    state: {
+      chats: {},
+      games: {}
+    },
+    async saveAnnouncementDraft(payload) {
+      calls.push(payload);
+      return {
+        draft: {
+          id: `announcement_${payload.chatId}`,
+          chatId: String(payload.chatId),
+          sourceMessageId: payload.sourceMessageId,
+          announcement: payload.announcement
+        }
+      };
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+  const published = [];
+  bot.publishOrSyncAnnouncementDraft = async (draft) => published.push(draft);
+
+  const announcementText = `30 мая
+Поле 10
+16:00
+
+1. @teterko
+2. @O_legacy
+3. @dbabanin
+4. @satwerz
+5. @birarov
+
+1000р
+89295991499
+Альфа, Тинь, Сбер`;
+
+  for (const chatId of [-1010, -2020]) {
+    await bot.handleCommand({
+      text: '/game',
+      chat: {
+        id: chatId,
+        type: 'supergroup',
+        title: `Football ${chatId}`
+      },
+      date: Math.floor(new Date('2099-05-28T12:00:00Z').getTime() / 1000),
+      message_id: Math.abs(chatId),
+      reply_to_message: {
+        message_id: Math.abs(chatId) + 1,
+        date: Math.floor(new Date('2099-05-28T12:00:00Z').getTime() / 1000),
+        text: announcementText
+      }
+    });
+  }
+
+  assert.deepEqual(calls.map((item) => item.chatId), [-1010, -2020]);
+  assert.deepEqual(published.map((item) => item.chatId), ['-1010', '-2020']);
 });
 
 test('handleCommand supports /editgame as phone-friendly announcement update', async () => {
@@ -860,7 +926,7 @@ test('handleCommand supports /editgame as phone-friendly announcement update', a
       type: 'supergroup',
       title: 'Football'
     },
-    date: Math.floor(new Date('2026-05-28T12:00:00Z').getTime() / 1000),
+    date: Math.floor(new Date('2099-05-28T12:00:00Z').getTime() / 1000),
     message_id: 103
   });
 
@@ -872,7 +938,7 @@ test('handleCommand supports /editgame as phone-friendly announcement update', a
   assert.equal(calls[0].announcement.playerUsernames.length, 6);
 });
 
-test('handleCommand ignores bare /game in groups to avoid chat spam', async () => {
+test('handleCommand offers manual creation for bare /game in groups', async () => {
   let recordCalled = false;
   const store = {
     state: {
@@ -887,11 +953,9 @@ test('handleCommand ignores bare /game in groups to avoid chat spam', async () =
     telegramBotToken: 'token',
     publicBaseUrl: 'https://app.example'
   }, store);
-  const sent = [];
-
-  bot.sendText = async (chatId, text, options = {}) => {
-    sent.push({ chatId, text, options });
-    return { message_id: 502 };
+  const entries = [];
+  bot.sendMiniAppEntry = async (chatId, chatType, targetChatId, options = {}) => {
+    entries.push({ chatId, chatType, targetChatId, options });
   };
 
   await bot.handleCommand({
@@ -901,12 +965,17 @@ test('handleCommand ignores bare /game in groups to avoid chat spam', async () =
       type: 'supergroup',
       title: 'Football'
     },
-    date: Math.floor(new Date('2026-05-28T12:00:00Z').getTime() / 1000),
+    date: Math.floor(new Date('2099-05-28T12:00:00Z').getTime() / 1000),
     message_id: 102
   });
 
   assert.equal(recordCalled, false);
-  assert.equal(sent.length, 0);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].chatId, -1011);
+  assert.equal(entries[0].chatType, 'supergroup');
+  assert.equal(entries[0].targetChatId, -1011);
+  assert.equal(entries[0].options.initialView, 'create-game');
+  assert.equal(entries[0].options.buttonText, 'Создать игру');
 });
 
 test('handleAnnouncement asks for confirmation before publishing lineup image', async () => {
@@ -1021,7 +1090,7 @@ test('handleAnnouncement asks for confirmation before publishing lineup image', 
       type: 'supergroup',
       title: 'Football'
     },
-    date: Math.floor(Date.now() / 1000),
+    date: Math.floor(new Date('2099-05-20T12:00:00Z').getTime() / 1000),
     message_id: 77
   }, { isEdited: false });
 

@@ -443,6 +443,18 @@ function buildManualSchedule(date, time, timezoneOffset = process.env.CHAT_TIMEZ
   };
 }
 
+function assertScheduleNotInPast(scheduledAt, now = new Date()) {
+  const scheduledMs = new Date(scheduledAt).getTime();
+  const currentMinuteMs = Math.floor(now.getTime() / 60_000) * 60_000;
+
+  if (Number.isFinite(scheduledMs) && scheduledMs < currentMinuteMs) {
+    const error = new Error('Нельзя создать игру в прошлом');
+    error.code = 'GAME_IN_PAST';
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
 function resolveManualPlayerIds(state, playerIds) {
   return unique(
     (Array.isArray(playerIds) ? playerIds : [])
@@ -1695,6 +1707,8 @@ export class AppStore {
       }
 
       const now = new Date().toISOString();
+      const requestedSchedule = buildManualSchedule(date, time, timezoneOffset);
+      assertScheduleNotInPast(requestedSchedule.scheduledAt);
       const gameId = `game_${state.meta.nextGameId++}`;
       const game = {
         id: gameId,

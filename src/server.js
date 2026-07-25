@@ -1137,8 +1137,15 @@ const server = http.createServer(async (req, res) => {
 
     notFound(res);
   } catch (error) {
-    console.error(error);
-    sendJson(res, 500, {
+    const statusCode = Number(error.statusCode) >= 400 && Number(error.statusCode) < 600
+      ? Number(error.statusCode)
+      : 500;
+
+    if (statusCode >= 500) {
+      console.error(error);
+    }
+
+    sendJson(res, statusCode, {
       error: error.message || 'Internal server error'
     });
   }

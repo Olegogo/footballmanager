@@ -29,6 +29,12 @@ function stripCommandPayload(text) {
   return String(text ?? '').replace(/^\/[a-z0-9_]+(?:@\w+)?\s*/i, '').trim();
 }
 
+function isScheduledInPast(scheduledAt, now = new Date()) {
+  const scheduledMs = new Date(scheduledAt).getTime();
+  const currentMinuteMs = Math.floor(now.getTime() / 60_000) * 60_000;
+  return Number.isFinite(scheduledMs) && scheduledMs < currentMinuteMs;
+}
+
 function escapeTelegramHtml(value = '') {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -1262,7 +1268,9 @@ export class TelegramBot {
     }
 
     if (['/game', '/addgame', '/parse', '/editgame', '/updategame'].includes(command)) {
-      await this.handleGameParseCommand(message, targetChatId);
+      await this.handleGameParseCommand(message, targetChatId, {
+        requireConfirmation: command === '/game' && message.chat.type !== 'private'
+      });
       return;
     }
 
@@ -1299,17 +1307,24 @@ export class TelegramBot {
     return null;
   }
 
-  async handleGameParseCommand(message, targetChatId) {
+  async handleGameParseCommand(message, targetChatId, options = {}) {
     const source = this.getGameParseSource(message);
+    const locale = this.getMessageLocale(message);
 
     if (!source) {
       if (message.chat.type !== 'private') {
+        await this.sendMiniAppEntry(message.chat.id, message.chat.type, targetChatId, {
+          primaryText: this.t(locale, 'match.game_command_help'),
+          buttonText: this.t(locale, 'match.create_game'),
+          locale,
+          initialView: 'create-game'
+        });
         return;
       }
 
       await this.sendText(
         message.chat.id,
-        this.t(this.getMessageLocale(message), 'match.parse_missing_text')
+        this.t(locale, 'match.parse_missing_text')
       );
       return;
     }
@@ -1322,8 +1337,13 @@ export class TelegramBot {
     if (!announcement) {
       await this.sendText(
         message.chat.id,
-        this.t(this.getMessageLocale(message), 'match.parse_failed')
+        this.t(locale, 'match.parse_failed')
       );
+      return;
+    }
+
+    if (isScheduledInPast(announcement.scheduledAt)) {
+      await this.sendText(message.chat.id, this.t(locale, 'match.past_game'));
       return;
     }
 
@@ -1332,6 +1352,23 @@ export class TelegramBot {
     const organizerPlayer = message.from?.id
       ? this.store.getPlayerByTelegramUserId?.(message.from.id)
       : null;
+
+    if (options.requireConfirmation && typeof this.store.saveAnnouncementDraft === 'function') {
+      const result = await this.store.saveAnnouncementDraft({
+        chatId: targetChatId,
+        chatTitle: targetChatTitle,
+        chatType: targetChatType,
+        sourceMessageId: source.sourceMessage?.message_id ?? message.message_id,
+        rawText: source.rawText,
+        announcement,
+        organizerPlayerId: organizerPlayer?.id ?? null,
+        authorTelegramUserId: message.from?.id ?? null,
+        sourceDate
+      });
+      await this.publishOrSyncAnnouncementDraft(result.draft);
+      return;
+    }
+
     const result = await this.store.recordGameFromAnnouncement({
       chatId: targetChatId,
       chatTitle: targetChatTitle,
@@ -1431,6 +1468,14 @@ export class TelegramBot {
         this.schedulePromptForGame(result.game);
         await this.publishOrSyncGameAnnouncement(result.game.id, { chatId: message.chat.id });
       }
+      return;
+    }
+
+    if (isScheduledInPast(announcement.scheduledAt)) {
+      if (existingDraft) {
+        await this.store.deleteAnnouncementDraft?.(existingDraft.id);
+      }
+      await this.sendText(message.chat.id, this.t(this.getMessageLocale(message), 'match.past_game'));
       return;
     }
 
@@ -1603,6 +1648,18 @@ export class TelegramBot {
       }
 
       try {
+        if (isScheduledInPast(draft.announcement?.scheduledAt)) {
+          await this.store.deleteAnnouncementDraft?.(draft.id);
+          await this.editTextMessage(
+            draft.confirmationChatId || draft.chatId,
+            draft.confirmationMessageId,
+            '⚽ Игра не создана: дата и время уже прошли.',
+            { replyMarkup: { inline_keyboard: [] } }
+          ).catch(() => {});
+          await this.answerCallbackQuery(callbackQuery.id, 'Нельзя создать игру в прошлом');
+          return;
+        }
+
         const result = await this.store.recordGameFromAnnouncement({
           chatId: draft.chatId,
           chatTitle: draft.chatTitle,

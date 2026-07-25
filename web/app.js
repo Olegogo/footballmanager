@@ -2992,7 +2992,7 @@ function renderCreateGameScreen() {
           <div class="manual-fields">
             <label>
               <span>${escapeHtml(t('common.labels.date'))}</span>
-              <input type="date" name="date" value="${escapeHtml(state.manualGameDraft.date)}" required>
+              <input type="date" name="date" min="${escapeHtml(toDateInputValue(new Date()))}" value="${escapeHtml(state.manualGameDraft.date)}" required>
             </label>
             <label>
               <span>${escapeHtml(t('common.labels.time'))}</span>
@@ -5785,6 +5785,11 @@ document.addEventListener('submit', async (event) => {
 
     if (!payload.date || !payload.time || !payload.location) {
       showToast(t('match.validation_required'));
+      return;
+    }
+
+    if (state.manualGameMode !== 'edit' && payload.date < toDateInputValue(new Date())) {
+      showToast(t('match.validation_past_date'));
       return;
     }
 

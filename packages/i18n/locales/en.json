@@ -141,6 +141,9 @@
     "organizer": "Organizer",
     "parse_failed": "Couldn’t recognize the game. Make sure the announcement has a date, time, place and player list.",
     "parse_missing_text": "I see /game, but Telegram did not pass the announcement text. Copy the announcement after /game in one message or disable Privacy Mode in BotFather.",
+    "game_command_help": "Create a game in the app or reply to an announcement with /game.",
+    "create_game": "Create game",
+    "past_game": "You can’t create a game in the past.",
     "player_added": "Player added",
     "players_title": "Players",
     "players_search": "Search by name or @username",
@@ -163,6 +166,7 @@
     "team_white": "White team",
     "unknown": "Game not found",
     "validation_required": "Fill in date, time and location",
+    "validation_past_date": "You can’t create a game in the past.",
     "validation_players_min": "Add at least two players",
     "waiting": "Waiting"
   },
@@ -428,7 +432,7 @@
     "unauthorized": "Authorization required"
   },
   "bot": {
-    "chat_connected": "I’m connected to the chat. I’ll catch new game announcements automatically. For full history, run the Telegram Desktop JSON export import later.",
+    "chat_connected": "⚽ I’m connected to this chat and ready to help with games.\n\nHow to create a game:\n• send an announcement with a date, time, place and tagged @players — I’ll recognize it and ask for confirmation;\n• reply to an existing announcement with /game;\n• or open the app with /open and create a game manually.\n\nWhen the match starts, I’ll remind participants to rate the players. Games, player cards and ratings stay available in one app even when the bot is used in several chats.\n\nDisable Privacy Mode in BotFather so I can see regular announcement messages. If recognition fails, reply to the announcement with /game.",
     "chat_id": "This chat ID: {{chatId}}\nUse it in DEFAULT_CHAT_ID and in the history import script.",
     "config_missing": "Set PUBLIC_BASE_URL first so ⚽ can open from Telegram.",
     "decline_missing_player": "Couldn’t find your player card",

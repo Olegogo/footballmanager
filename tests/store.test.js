@@ -1222,6 +1222,44 @@ test('updateSelfProfile lets rated player change position without resetting rati
   }
 });
 
+test('createManualGame rejects games in the past', async () => {
+  const { directory, store } = await createStore();
+
+  try {
+    const organizer = await store.rememberTelegramUser(777, {
+      id: 777,
+      username: 'organizer',
+      first_name: 'Org'
+    }, {
+      chatType: 'private'
+    });
+    await store.ensureChat({
+      id: '-1001',
+      title: 'Football Chat',
+      type: 'supergroup'
+    });
+
+    await assert.rejects(
+      store.createManualGame({
+        chatId: '-1001',
+        organizerPlayerId: organizer.id,
+        date: '2020-01-01',
+        time: '16:00',
+        location: 'Сокольники, поле 10',
+        playerIds: [organizer.id],
+        timezoneOffset: '+03:00'
+      }),
+      (error) => {
+        assert.equal(error.code, 'GAME_IN_PAST');
+        assert.equal(error.statusCode, 400);
+        return true;
+      }
+    );
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('createManualGame creates current game from selected players', async () => {
   const { directory, store } = await createStore();
 
