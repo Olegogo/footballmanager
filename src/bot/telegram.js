@@ -624,12 +624,12 @@ export class TelegramBot {
     const playerCount = announcement.playerRefs?.length || announcement.playerUsernames?.length || 0;
 
     return [
-      '⚽ <b>Анонс распознан</b>',
+      '⚽ <b>Анонс игры</b>',
       `${escapeTelegramHtml(announcement.dateLabel || announcement.date || '')} · ${escapeTelegramHtml(announcement.time || '')}`,
       escapeTelegramHtml(announcement.location || ''),
       `Игроков: <b>${playerCount}</b>`,
       '',
-      'Создать игру и опубликовать карточку?'
+      'Создать и опубликовать игру?'
     ].join('\n');
   }
 
@@ -1423,7 +1423,7 @@ export class TelegramBot {
         await this.editTextMessage(
           existingDraft.confirmationChatId || existingDraft.chatId,
           existingDraft.confirmationMessageId,
-          'Анонс изменён и больше не распознаётся. Черновик отменён.',
+          'Анонс изменён и больше не распознаётся. Анонс отменён.',
           { replyMarkup: { inline_keyboard: [] } }
         ).catch(() => {});
       }
@@ -1640,10 +1640,10 @@ export class TelegramBot {
         await this.editTextMessage(
           draft.confirmationChatId || draft.chatId,
           draft.confirmationMessageId,
-          '⚽ Черновик отменён',
+          '⚽ Анонс отменён',
           { replyMarkup: { inline_keyboard: [] } }
         ).catch(() => {});
-        await this.answerCallbackQuery(callbackQuery.id, 'Черновик отменён');
+        await this.answerCallbackQuery(callbackQuery.id, 'Анонс отменён');
         return;
       }
 

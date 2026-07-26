@@ -488,7 +488,8 @@ test('handleAnnouncement creates one editable confirmation draft', async () => {
   await bot.handleAnnouncement(message, { isEdited: false });
 
   assert.equal(sent.length, 1);
-  assert.match(sent[0].text, /Анонс распознан/);
+  assert.match(sent[0].text, /Анонс игры/);
+  assert.match(sent[0].text, /Создать и опубликовать игру\?/);
   assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Создать игру');
 
   await bot.handleAnnouncement(message, { isEdited: true });
@@ -1095,7 +1096,8 @@ test('handleAnnouncement asks for confirmation before publishing lineup image', 
   }, { isEdited: false });
 
   assert.equal(texts.length, 1);
-  assert.match(texts[0].text, /Анонс распознан/);
+  assert.match(texts[0].text, /Анонс игры/);
+  assert.match(texts[0].text, /Создать и опубликовать игру\?/);
   assert.equal(texts[0].options.replyMarkup.inline_keyboard[0][0].text, 'Создать игру');
   assert.equal(photos.length, 0);
 });
