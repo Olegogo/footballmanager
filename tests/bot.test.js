@@ -261,6 +261,48 @@ test('/start sends onboarding copy with app button', async () => {
   assert.equal(sent[1].text, '🎯 Мы уже создали тебе карточку игрока. Заполни её и получай оценки после матчей.');
   assert.equal(sent[2].text, '🤖 Добавь бота в чат с игроками. Он поможет собирать составы, балансировать команды и вести статистику.');
   assert.equal(sent[2].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть приложение');
+  assert.equal(sent[2].options.replyMarkup.inline_keyboard[1][0].text, 'Команды');
+  assert.equal(sent[2].options.replyMarkup.inline_keyboard[1][0].callback_data, 'show_commands');
+});
+
+test('commands button explains /game and other bot commands', async () => {
+  const { store } = createBotStore([]);
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+  const sent = [];
+  const answered = [];
+
+  bot.botUsername = 'football_test_bot';
+  bot.sendText = async (chatId, text, options = {}) => {
+    sent.push({ chatId, text, options });
+    return { message_id: 101 };
+  };
+  bot.answerCallbackQuery = async (callbackQueryId) => {
+    answered.push(callbackQueryId);
+  };
+
+  await bot.handleCallbackQuery({
+    id: 'callback_1',
+    data: 'show_commands',
+    from: {
+      id: 123,
+      language_code: 'ru'
+    },
+    message: {
+      chat: {
+        id: 123,
+        type: 'private'
+      }
+    }
+  });
+
+  assert.deepEqual(answered, ['callback_1']);
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].text, /\/game — создать игру из готового анонса/);
+  assert.match(sent[0].text, /\/open — открыть приложение/);
+  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть приложение');
 });
 
 test('/start uses the deployed web app URL in private chats', async () => {

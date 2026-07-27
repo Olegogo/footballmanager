@@ -274,13 +274,31 @@ export class TelegramBot {
     const locale = options.locale || 'ru';
     const primaryText = options.primaryText ?? BUTTON_ONLY_TEXT;
     const buttonText = options.buttonText ?? '⚽';
+    const additionalKeyboardRows = options.additionalKeyboardRows || [];
     const linkOptions = {
       initialView: options.initialView || '',
       gameId: options.gameId || ''
     };
-    const replyMarkup = this.buildMiniAppKeyboard(chatType, targetChatId, buttonText, linkOptions);
+    const appendKeyboardRows = (keyboard) => {
+      if (!keyboard || additionalKeyboardRows.length === 0) {
+        return keyboard;
+      }
+
+      return {
+        ...keyboard,
+        inline_keyboard: [
+          ...keyboard.inline_keyboard,
+          ...additionalKeyboardRows
+        ]
+      };
+    };
+    const replyMarkup = appendKeyboardRows(
+      this.buildMiniAppKeyboard(chatType, targetChatId, buttonText, linkOptions)
+    );
     const fallbackUrl = this.getMiniAppFallbackUrl(targetChatId, chatType, linkOptions);
-    const fallbackReplyMarkup = this.buildFallbackUrlKeyboard(targetChatId, chatType, buttonText, linkOptions);
+    const fallbackReplyMarkup = appendKeyboardRows(
+      this.buildFallbackUrlKeyboard(targetChatId, chatType, buttonText, linkOptions)
+    );
     const buttonOnly = options.buttonOnly ?? false;
     const parseMode = options.parseMode;
     const fallbackUrlText = parseMode === 'HTML' ? escapeTelegramHtml(fallbackUrl) : fallbackUrl;
@@ -1236,7 +1254,15 @@ export class TelegramBot {
       await this.sendMiniAppEntry(chatId, message.chat.type, '', {
         primaryText: lines.at(-1),
         buttonText: this.t(locale, 'common.buttons.open_app'),
-        locale
+        locale,
+        additionalKeyboardRows: [
+          [
+            {
+              text: this.t(locale, 'onboarding.commands_button'),
+              callback_data: 'show_commands'
+            }
+          ]
+        ]
       });
       return;
     }
@@ -1552,6 +1578,23 @@ export class TelegramBot {
 
   async handleCallbackQuery(callbackQuery) {
     const data = String(callbackQuery?.data ?? '');
+
+    if (data === 'show_commands') {
+      const chat = callbackQuery.message?.chat;
+      const locale = this.getMessageLocale({
+        ...callbackQuery.message,
+        chat,
+        from: callbackQuery.from
+      });
+
+      await this.answerCallbackQuery(callbackQuery.id);
+      await this.sendMiniAppEntry(chat.id, chat.type, '', {
+        primaryText: this.t(locale, 'onboarding.commands_help'),
+        buttonText: this.t(locale, 'common.buttons.open_app'),
+        locale
+      });
+      return;
+    }
 
     if (data.startsWith('set_locale:')) {
       const [, scope, rawLocale] = data.split(':');
