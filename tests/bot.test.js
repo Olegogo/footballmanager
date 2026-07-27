@@ -397,6 +397,99 @@ test('processPendingRatingPrompts sends private prompts when chat prompt fails',
   assert.deepEqual(marked, [{ gameId: 'game_3', messageId: null }]);
 });
 
+test('processPendingGameSummaries sends MVP result to the group and private participants', async () => {
+  const game = createRatingGame({
+    id: 'game_summary',
+    playerIds: ['player_1', 'player_2', 'player_3']
+  });
+  const marked = [];
+  const players = {
+    player_1: {
+      id: 'player_1',
+      privateChatId: '777001',
+      locale: 'ru'
+    },
+    player_2: {
+      id: 'player_2',
+      privateChatId: '777002',
+      locale: 'ru'
+    },
+    player_3: {
+      id: 'player_3'
+    }
+  };
+  const store = {
+    state: {
+      chats: {
+        '-1001': {
+          type: 'supergroup'
+        }
+      },
+      games: {}
+    },
+    listGamesRequiringSummary() {
+      return [game];
+    },
+    getPlayerById(playerId) {
+      return players[playerId] ?? null;
+    },
+    getSnapshot() {
+      return {
+        games: [
+          {
+            ...game,
+            averageOverall: 61,
+            mvp: {
+              displayName: 'Лучший игрок',
+              achievements: []
+            },
+            cards: {
+              yellow: 0,
+              red: 0
+            }
+          }
+        ]
+      };
+    },
+    async markRatingSummarySent(gameId, delivery) {
+      marked.push({ gameId, delivery });
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+  const sent = [];
+
+  bot.sendMiniAppEntry = async (chatId, chatType, targetChatId, options = {}) => {
+    sent.push({ chatId, chatType, targetChatId, options });
+    return { message_id: sent.length === 1 ? 501 : 600 + sent.length };
+  };
+
+  await bot.processPendingGameSummaries();
+
+  assert.deepEqual(sent.map((message) => message.chatId), ['-1001', '777001', '777002']);
+  assert.equal(sent[0].chatType, 'supergroup');
+  assert.equal(sent[1].chatType, 'private');
+  assert.equal(sent[2].chatType, 'private');
+
+  for (const message of sent) {
+    assert.match(message.options.primaryText, /MVP: Лучший игрок/);
+    assert.equal(message.options.gameId, 'game_summary');
+    assert.equal(message.options.initialView, 'game');
+  }
+
+  assert.deepEqual(marked, [
+    {
+      gameId: 'game_summary',
+      delivery: {
+        chatMessageId: 501,
+        privatePlayerIds: ['player_1', 'player_2']
+      }
+    }
+  ]);
+});
+
 test('/open falls back to plain link when Telegram rejects keyboard', async () => {
   const { store } = createBotStore([]);
   const bot = new TelegramBot({

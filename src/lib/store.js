@@ -391,7 +391,7 @@ function parseManualTimeInput(time) {
   return {
     start,
     end,
-    display: `${start}–${end}`,
+    display: explicitEnd ? `${start}–${end}` : start,
     hours: startHours,
     minutes: startMinutes
   };

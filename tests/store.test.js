@@ -674,7 +674,7 @@ test('recordGameFromAnnouncement lets announcement author edit the created game'
     });
 
     assert.equal(updated.updated, true);
-    assert.equal(updated.game.time, '17:00–18:30');
+    assert.equal(updated.game.time, '17:00');
     assert.equal(updated.game.location, 'Поле 11');
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
@@ -735,7 +735,7 @@ test('chat admin can manage announcement games in their chat', async () => {
     });
 
     assert.equal(updated.updated, true);
-    assert.equal(updated.game.time, '17:30–19:00');
+    assert.equal(updated.game.time, '17:30');
     assert.equal(updated.game.location, 'Поле 12');
 
     await assert.rejects(
@@ -1300,7 +1300,7 @@ test('createManualGame creates current game from selected players', async () => 
     assert.equal(result.created, true);
     assert.equal(result.game.source, 'manual');
     assert.equal(result.game.location, 'Сокольники, поле 10');
-    assert.equal(result.game.time, '16:00–17:30');
+    assert.equal(result.game.time, '16:00');
     assert.equal(result.game.scheduledAt, '2099-05-30T13:00:00.000Z');
     assert.deepEqual(result.game.playerIds, [organizer.id]);
     assert.deepEqual(result.game.invitedPlayerIds, [first.id, second.id]);
@@ -1647,7 +1647,7 @@ test('updateManualGame and deleteGame manage organizer games', async () => {
     });
 
     assert.equal(updated.game.dateLabel, '31 мая');
-    assert.equal(updated.game.time, '18:15–19:45');
+    assert.equal(updated.game.time, '18:15');
     assert.equal(updated.game.location, 'Полежаевская');
     assert.deepEqual(updated.game.playerIds, [organizer.id]);
     assert.deepEqual(updated.game.invitedPlayerIds, [first.id, third.id]);
@@ -1714,7 +1714,7 @@ test('super admin can update and delete any manual game', async () => {
     });
 
     assert.equal(updated.game.organizerPlayerId, organizer.id);
-    assert.equal(updated.game.time, '18:15–19:45');
+    assert.equal(updated.game.time, '18:15');
     assert.equal(updated.game.location, 'Полежаевская');
 
     const locked = await store.setGameRosterLocked({
