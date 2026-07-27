@@ -411,6 +411,13 @@ export class TelegramBot {
     });
   }
 
+  async deleteMessage(chatId, messageId) {
+    return this.callApi('deleteMessage', {
+      chat_id: chatId,
+      message_id: messageId
+    });
+  }
+
   async answerCallbackQuery(callbackQueryId, text = '') {
     return this.callApi('answerCallbackQuery', {
       callback_query_id: callbackQueryId,
@@ -520,8 +527,22 @@ export class TelegramBot {
     const snapshot = this.store.getSnapshot?.('global', null, { selectedGameId: game.id });
     const gameView = [snapshot?.currentGame, ...(snapshot?.gameDays ?? [])]
       .find((item) => item?.id === game.id);
-    const participants = gameView?.participants ?? [];
-    const ratedPlayers = participants.filter((player) => Number.isFinite(Number(player.overall)));
+    const playersById = new Map((snapshot?.players ?? []).map((player) => [player.id, player]));
+    const participants = gameView?.participants?.length
+      ? gameView.participants
+      : (game.playerIds ?? []).map((playerId) => playersById.get(playerId)).filter(Boolean);
+    const ratedPlayers = participants.filter(
+      (player) => Number(player?.ratedGames) > 0 && Number(player?.overall) > 0
+    );
+    const lineupReadyPlayers = participants.filter((player) => {
+      const position = player?.currentGameStats?.position || player?.position;
+      return (
+        Number(player?.ratedGames) > 0
+        && Number(player?.overall) > 0
+        && Boolean(position)
+        && position !== 'N/A'
+      );
+    });
     const averageRating = ratedPlayers.length
       ? Math.round(ratedPlayers.reduce((sum, player) => sum + Number(player.overall), 0) / ratedPlayers.length)
       : null;
@@ -529,8 +550,13 @@ export class TelegramBot {
     return {
       participants,
       playerCount: participants.length || game.playerIds?.length || 0,
-      averageRating
+      averageRating,
+      hasLineupMajority: participants.length > 0 && lineupReadyPlayers.length > participants.length / 2
     };
+  }
+
+  shouldShowGameLineup(game) {
+    return this.getGameAnnouncementView(game).hasLineupMajority;
   }
 
   formatGameAnnouncementCaption(game) {
@@ -548,6 +574,74 @@ export class TelegramBot {
     }
 
     return lines.filter((line, index) => line || index === 3).join('\n').trim();
+  }
+
+  formatRatingStartedCaption(game) {
+    const { playerCount, averageRating } = this.getGameAnnouncementView(game);
+    const lines = [
+      '⚽ <b>Игра стартовала</b>',
+      `${escapeTelegramHtml(game.dateLabel || game.date || '')} · ${escapeTelegramHtml(game.time || '')}`,
+      escapeTelegramHtml(game.location || ''),
+      '',
+      `Игроков: <b>${playerCount}</b>`
+    ];
+
+    if (averageRating !== null) {
+      lines.push(`Уровень игры: <b>${averageRating}</b>`);
+    }
+
+    lines.push(
+      '',
+      'Не забудьте раздать баллы самым заметным игрокам и выбрать MVP'
+    );
+
+    return lines.join('\n').trim();
+  }
+
+  buildRatingStartedKeyboard(game) {
+    const chat = this.store.state?.chats?.[String(game.chatId)];
+    const rateButton = this.buildMiniAppButton(
+      chat?.type || 'supergroup',
+      game.chatId,
+      'Оценить игроков',
+      { initialView: 'game', gameId: game.id }
+    );
+
+    return {
+      inline_keyboard: rateButton ? [[rateButton]] : []
+    };
+  }
+
+  async sendRatingStartedChatPrompt(game) {
+    const chat = this.store.state?.chats?.[String(game.chatId)];
+    const caption = this.formatRatingStartedCaption(game);
+    const replyMarkup = this.buildRatingStartedKeyboard(game);
+
+    if (this.shouldShowGameLineup(game)) {
+      try {
+        const lineupImage = await this.buildGameLineupImage(game.chatId, game.id);
+
+        if (lineupImage) {
+          return await this.sendPhoto(game.chatId, lineupImage, {
+            filename: `lineup-${game.id}.png`,
+            caption,
+            parseMode: 'HTML',
+            replyMarkup
+          });
+        }
+      } catch (error) {
+        console.error(`Unable to send rating lineup for ${game.id}:`, error.message);
+      }
+    }
+
+    return this.sendMiniAppEntry(game.chatId, chat?.type || 'supergroup', game.chatId, {
+      primaryText: caption,
+      buttonText: 'Оценить игроков',
+      parseMode: 'HTML',
+      locale: this.getGameLocale(game),
+      initialView: 'game',
+      gameId: game.id
+    });
   }
 
   buildGameAnnouncementKeyboard(game) {
@@ -600,26 +694,25 @@ export class TelegramBot {
       return null;
     }
 
-    const lineupImage = await this.buildGameLineupImage(chatId, game.id);
+    const caption = this.formatGameAnnouncementCaption(game);
+    const replyMarkup = this.buildGameAnnouncementKeyboard(game);
+    const lineupImage = this.shouldShowGameLineup(game)
+      ? await this.buildGameLineupImage(chatId, game.id)
+      : null;
+    const previousMessageId = game.botAnnouncementMessageId;
 
-    if (!lineupImage) {
-      return null;
-    }
-
-    const messageOptions = {
-      filename: `lineup-${game.id}.png`,
-      caption: this.formatGameAnnouncementCaption(game),
-      parseMode: 'HTML',
-      replyMarkup: this.buildGameAnnouncementKeyboard(game)
-    };
-
-    if (game.botAnnouncementMessageId) {
+    if (previousMessageId && lineupImage) {
       try {
         return await this.editPhotoMessage(
           chatId,
-          game.botAnnouncementMessageId,
+          previousMessageId,
           lineupImage,
-          messageOptions
+          {
+            filename: `lineup-${game.id}.png`,
+            caption,
+            parseMode: 'HTML',
+            replyMarkup
+          }
         );
       } catch (error) {
         if (/message is not modified/i.test(error.message || '')) {
@@ -629,11 +722,44 @@ export class TelegramBot {
       }
     }
 
-    const message = await this.sendPhoto(chatId, lineupImage, messageOptions);
+    if (previousMessageId && !lineupImage) {
+      try {
+        return await this.editTextMessage(
+          chatId,
+          previousMessageId,
+          caption,
+          { parseMode: 'HTML', replyMarkup }
+        );
+      } catch (error) {
+        if (/message is not modified/i.test(error.message || '')) {
+          return null;
+        }
+        console.error(`Unable to update game announcement ${game.id}:`, error.message);
+      }
+    }
+
+    const message = lineupImage
+      ? await this.sendPhoto(chatId, lineupImage, {
+        filename: `lineup-${game.id}.png`,
+        caption,
+        parseMode: 'HTML',
+        replyMarkup
+      })
+      : await this.sendText(chatId, caption, { parseMode: 'HTML', replyMarkup });
+
     await this.store.setGameBotAnnouncement?.(game.id, {
       chatId,
       messageId: message.message_id
     });
+
+    if (previousMessageId && String(previousMessageId) !== String(message.message_id)) {
+      try {
+        await this.deleteMessage(chatId, previousMessageId);
+      } catch (error) {
+        console.error(`Unable to remove replaced game announcement ${game.id}:`, error.message);
+      }
+    }
+
     return message;
   }
 
@@ -707,7 +833,9 @@ export class TelegramBot {
       gameId: game?.id || ''
     });
 
-    if (replyMarkup && game?.id) {
+    const storedGame = game?.id ? this.store.getGameById?.(game.id) ?? game : game;
+
+    if (replyMarkup && game?.id && this.shouldShowGameLineup(storedGame)) {
       try {
         const lineupImage = await this.buildGameLineupImage(targetChatId, game.id);
 
@@ -1882,18 +2010,9 @@ export class TelegramBot {
         let promptMessageId = null;
         let sentAnyPrompt = false;
 
-        if (game.botAnnouncementMessageId) {
-          promptMessageId = game.botAnnouncementMessageId;
-          sentAnyPrompt = true;
-        } else if (chat?.type !== 'global') {
+        if (chat?.type !== 'global') {
           try {
-            const message = await this.sendMiniAppEntry(game.chatId, chat?.type || 'supergroup', game.chatId, {
-              primaryText: this.t(chatLocale, 'rating.started_chat'),
-              buttonText: this.t(chatLocale, 'common.buttons.rate'),
-              locale: chatLocale,
-              initialView: 'game',
-              gameId: game.id
-            });
+            const message = await this.sendRatingStartedChatPrompt(game);
             promptMessageId = message?.message_id ?? null;
             sentAnyPrompt = true;
           } catch (error) {
@@ -1919,7 +2038,6 @@ export class TelegramBot {
 
         if (sentAnyPrompt || chat?.type === 'global') {
           await this.store.markRatingsPromptSent(game.id, promptMessageId);
-          await this.publishOrSyncGameAnnouncement(game.id);
           this.clearPromptTimer(game.id);
         }
       } catch (error) {

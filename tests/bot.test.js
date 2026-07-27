@@ -3,7 +3,28 @@ import assert from 'node:assert/strict';
 
 import { TelegramBot } from '../src/bot/telegram.js';
 
-const RATING_PROMPT_TEXT = 'Оценка стартовала!\nНе забудьте раздать баллы самым заметным игрокам и выбрать MVP...';
+const RATING_PROMPT_TEXT = [
+  '⚽ <b>Игра стартовала</b>',
+  '26 июля · 19:30',
+  'Сокольники, поле 2',
+  '',
+  'Игроков: <b>15</b>',
+  '',
+  'Не забудьте раздать баллы самым заметным игрокам и выбрать MVP'
+].join('\n');
+
+function createRatingGame(overrides = {}) {
+  return {
+    id: 'game_1',
+    chatId: '-1001',
+    dateLabel: '26 июля',
+    time: '19:30',
+    location: 'Сокольники, поле 2',
+    playerIds: Array.from({ length: 15 }, (_, index) => `player_${index + 1}`),
+    scheduledAt: '2099-05-19T16:30:00.000Z',
+    ...overrides
+  };
+}
 
 function createBotStore(games) {
   const marked = [];
@@ -25,11 +46,7 @@ function createBotStore(games) {
 
 test('processPendingRatingPrompts sends a rating prompt with miniapp link', async () => {
   const games = [
-    {
-      id: 'game_1',
-      chatId: '-1001',
-      scheduledAt: '2099-05-19T16:30:00.000Z'
-    }
+    createRatingGame()
   ];
   const { store, marked } = createBotStore(games);
   const bot = new TelegramBot({
@@ -49,7 +66,8 @@ test('processPendingRatingPrompts sends a rating prompt with miniapp link', asyn
   assert.equal(sent.length, 1);
   assert.equal(sent[0].chatId, '-1001');
   assert.equal(sent[0].text, RATING_PROMPT_TEXT);
-  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Оценить');
+  assert.equal(sent[0].options.parseMode, 'HTML');
+  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Оценить игроков');
   assert.equal(
     sent[0].options.replyMarkup.inline_keyboard[0][0].url,
     'https://t.me/football_test_bot?startapp=gameid_game_1'
@@ -57,13 +75,256 @@ test('processPendingRatingPrompts sends a rating prompt with miniapp link', asyn
   assert.deepEqual(marked, [{ gameId: 'game_1', messageId: 77 }]);
 });
 
+test('processPendingRatingPrompts sends one lineup message with level when majority is ready', async () => {
+  const games = [
+    createRatingGame({
+      playerIds: ['player_1', 'player_2', 'player_3']
+    })
+  ];
+  const { store, marked } = createBotStore(games);
+  const participants = [
+    {
+      id: 'player_1',
+      overall: 60,
+      position: 'LW',
+      ratedGames: 2
+    },
+    {
+      id: 'player_2',
+      overall: 56,
+      position: 'GK',
+      ratedGames: 1
+    },
+    {
+      id: 'player_3',
+      overall: 0,
+      position: null,
+      ratedGames: 0
+    }
+  ];
+  const sent = [];
+
+  store.state.chats['-1001'] = { type: 'supergroup' };
+  store.getSnapshot = () => ({
+    currentGame: {
+      ...games[0],
+      participants
+    },
+    gameDays: [],
+    players: participants
+  });
+
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+
+  bot.botUsername = 'football_test_bot';
+  bot.buildGameLineupImage = async () => Buffer.from('lineup');
+  bot.sendPhoto = async (chatId, photo, options = {}) => {
+    sent.push({ chatId, photo, options });
+    return { message_id: 120 };
+  };
+  bot.sendText = async () => {
+    throw new Error('A second chat message must not be sent');
+  };
+
+  await bot.processPendingRatingPrompts();
+
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].chatId, '-1001');
+  assert.equal(
+    sent[0].options.caption,
+    [
+      '⚽ <b>Игра стартовала</b>',
+      '26 июля · 19:30',
+      'Сокольники, поле 2',
+      '',
+      'Игроков: <b>3</b>',
+      'Уровень игры: <b>58</b>',
+      '',
+      'Не забудьте раздать баллы самым заметным игрокам и выбрать MVP'
+    ].join('\n')
+  );
+  assert.equal(sent[0].options.parseMode, 'HTML');
+  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Оценить игроков');
+  assert.deepEqual(marked, [{ gameId: 'game_1', messageId: 120 }]);
+});
+
+test('shouldShowGameLineup requires a strict majority with rating and position', () => {
+  const game = createRatingGame({
+    playerIds: ['player_1', 'player_2', 'player_3', 'player_4']
+  });
+  const players = [
+    { id: 'player_1', overall: 60, position: 'LW', ratedGames: 1 },
+    { id: 'player_2', overall: 58, position: 'GK', ratedGames: 1 },
+    { id: 'player_3', overall: 55, position: null, ratedGames: 1 },
+    { id: 'player_4', overall: 0, position: 'CB', ratedGames: 0 }
+  ];
+  const store = {
+    state: {
+      chats: {},
+      games: {}
+    },
+    getSnapshot() {
+      return {
+        currentGame: {
+          ...game,
+          participants: players
+        },
+        gameDays: [],
+        players
+      };
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+
+  assert.equal(bot.shouldShowGameLineup(game), false);
+
+  players[2].position = 'CM';
+  assert.equal(bot.shouldShowGameLineup(game), true);
+});
+
+test('publishOrSyncGameAnnouncement skips lineup without a ready majority', async () => {
+  const game = createRatingGame({
+    playerIds: ['player_1', 'player_2', 'player_3']
+  });
+  const players = [
+    { id: 'player_1', overall: 60, position: 'LW', ratedGames: 1 },
+    { id: 'player_2', overall: 58, position: null, ratedGames: 1 },
+    { id: 'player_3', overall: 0, position: 'GK', ratedGames: 0 }
+  ];
+  const sent = [];
+  let lineupBuilds = 0;
+  const store = {
+    state: {
+      chats: {
+        '-1001': { type: 'supergroup' }
+      },
+      games: {}
+    },
+    getGameById() {
+      return game;
+    },
+    getSnapshot() {
+      return {
+        currentGame: {
+          ...game,
+          participants: players
+        },
+        gameDays: [],
+        players
+      };
+    },
+    async setGameBotAnnouncement(gameId, announcement) {
+      sent.push({ gameId, announcement });
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+
+  bot.botUsername = 'football_test_bot';
+  bot.buildGameLineupImage = async () => {
+    lineupBuilds += 1;
+    return Buffer.from('lineup');
+  };
+  bot.sendText = async (chatId, text, options = {}) => {
+    sent.push({ chatId, text, options });
+    return { message_id: 140 };
+  };
+  bot.sendPhoto = async () => {
+    throw new Error('A lineup snapshot must not be sent without a ready majority');
+  };
+
+  await bot.publishOrSyncGameAnnouncement(game.id);
+
+  assert.equal(lineupBuilds, 0);
+  assert.equal(sent[0].chatId, '-1001');
+  assert.equal(sent[0].options.parseMode, 'HTML');
+  assert.deepEqual(sent[1], {
+    gameId: 'game_1',
+    announcement: {
+      chatId: '-1001',
+      messageId: 140
+    }
+  });
+});
+
+test('publishOrSyncGameAnnouncement replaces text with one lineup message when majority becomes ready', async () => {
+  const game = createRatingGame({
+    botAnnouncementMessageId: 140,
+    playerIds: ['player_1', 'player_2', 'player_3']
+  });
+  const players = [
+    { id: 'player_1', overall: 60, position: 'LW', ratedGames: 1 },
+    { id: 'player_2', overall: 56, position: 'GK', ratedGames: 1 },
+    { id: 'player_3', overall: 0, position: null, ratedGames: 0 }
+  ];
+  const saved = [];
+  const deleted = [];
+  const store = {
+    state: {
+      chats: {
+        '-1001': { type: 'supergroup' }
+      },
+      games: {}
+    },
+    getGameById() {
+      return game;
+    },
+    getSnapshot() {
+      return {
+        currentGame: {
+          ...game,
+          participants: players
+        },
+        gameDays: [],
+        players
+      };
+    },
+    async setGameBotAnnouncement(gameId, announcement) {
+      saved.push({ gameId, announcement });
+    }
+  };
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+
+  bot.botUsername = 'football_test_bot';
+  bot.buildGameLineupImage = async () => Buffer.from('lineup');
+  bot.editPhotoMessage = async () => {
+    throw new Error('message cannot be edited');
+  };
+  bot.sendPhoto = async () => ({ message_id: 141 });
+  bot.deleteMessage = async (chatId, messageId) => {
+    deleted.push({ chatId, messageId });
+  };
+
+  const message = await bot.publishOrSyncGameAnnouncement(game.id);
+
+  assert.equal(message.message_id, 141);
+  assert.deepEqual(saved, [{
+    gameId: 'game_1',
+    announcement: {
+      chatId: '-1001',
+      messageId: 141
+    }
+  }]);
+  assert.deepEqual(deleted, [{ chatId: '-1001', messageId: 140 }]);
+});
+
 test('processPendingRatingPrompts falls back to plain link when keyboard send fails', async () => {
   const games = [
-    {
+    createRatingGame({
       id: 'game_2',
-      chatId: '-1002',
-      scheduledAt: '2099-05-19T16:30:00.000Z'
-    }
+      chatId: '-1002'
+    })
   ];
   const { store, marked } = createBotStore(games);
   const bot = new TelegramBot({
@@ -96,12 +357,11 @@ test('processPendingRatingPrompts falls back to plain link when keyboard send fa
 
 test('processPendingRatingPrompts sends private prompts when chat prompt fails', async () => {
   const games = [
-    {
+    createRatingGame({
       id: 'game_3',
       chatId: '-1003',
       playerIds: ['player_1'],
-      scheduledAt: '2099-05-19T16:30:00.000Z'
-    }
+    })
   ];
   const { store, marked } = createBotStore(games);
   const sent = [];
