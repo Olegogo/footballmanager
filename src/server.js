@@ -713,6 +713,7 @@ const server = http.createServer(async (req, res) => {
         requesterPlayerId: session.playerId,
         name: body.name,
         city: body.city,
+        imageUrl: body.imageUrl,
         format: body.format,
         level: body.level,
         captainPlayerId: body.captainPlayerId,
@@ -721,6 +722,26 @@ const server = http.createServer(async (req, res) => {
       });
       sendJson(res, 200, {
         team: { id: result.team.id },
+        snapshot: getGlobalSnapshot(session.playerId)
+      });
+      return;
+    }
+
+    if (req.method === 'DELETE' && /^\/api\/teams\/[^/]+$/.test(url.pathname)) {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Требуется авторизация' });
+        return;
+      }
+
+      const teamId = decodeURIComponent(url.pathname.split('/')[3]);
+      await store.deleteTeam({
+        teamId,
+        requesterPlayerId: session.playerId
+      });
+      sendJson(res, 200, {
+        deleted: true,
         snapshot: getGlobalSnapshot(session.playerId)
       });
       return;
@@ -810,6 +831,26 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, {
         challenge: { id: result.challenge.id },
         game: result.game ? { id: result.game.id } : null,
+        snapshot: getGlobalSnapshot(session.playerId)
+      });
+      return;
+    }
+
+    if (req.method === 'DELETE' && /^\/api\/team-challenges\/[^/]+$/.test(url.pathname)) {
+      const session = getViewerSession(req);
+
+      if (!session) {
+        sendJson(res, 401, { error: 'Требуется авторизация' });
+        return;
+      }
+
+      const challengeId = decodeURIComponent(url.pathname.split('/')[3]);
+      await store.deleteTeamChallenge({
+        challengeId,
+        requesterPlayerId: session.playerId
+      });
+      sendJson(res, 200, {
+        deleted: true,
         snapshot: getGlobalSnapshot(session.playerId)
       });
       return;

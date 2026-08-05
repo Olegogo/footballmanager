@@ -53,6 +53,19 @@ function normalizeChoice(value, choices, fallback) {
   return choices.has(normalized) ? normalized : fallback;
 }
 
+function normalizeTeamImageUrl(value) {
+  const normalized = String(value ?? '').trim();
+
+  if (!normalized) return '';
+  if (normalized.length > 700_000) {
+    throw new Error('Изображение команды слишком большое');
+  }
+  if (!/^data:image\/(?:png|jpe?g|webp);base64,/i.test(normalized) && !/^https:\/\//i.test(normalized)) {
+    throw new Error('Некорректное изображение команды');
+  }
+  return normalized;
+}
+
 function assertCanManageTeam(state, team, requesterPlayerId) {
   const requester = findPlayerById(state, requesterPlayerId);
 
@@ -1771,6 +1784,7 @@ export class AppStore {
     requesterPlayerId,
     name,
     city,
+    imageUrl,
     format,
     level,
     captainPlayerId,
@@ -1804,6 +1818,7 @@ export class AppStore {
         id: teamId,
         name: normalizedName,
         city: normalizedCity,
+        imageUrl: normalizeTeamImageUrl(imageUrl),
         format: normalizeChoice(format, TEAM_FORMATS, '5x5'),
         level: normalizeChoice(level, TEAM_LEVELS, 'amateur'),
         captainPlayerId: selectedCaptainId,
@@ -1840,6 +1855,7 @@ export class AppStore {
 
       team.name = String(payload?.name ?? team.name).trim() || team.name;
       team.city = String(payload?.city ?? team.city).trim() || team.city;
+      team.imageUrl = normalizeTeamImageUrl(payload?.imageUrl ?? team.imageUrl);
       team.format = normalizeChoice(payload?.format, TEAM_FORMATS, team.format);
       team.level = normalizeChoice(payload?.level, TEAM_LEVELS, team.level);
       team.status = normalizeChoice(payload?.status, TEAM_STATUSES, team.status);
@@ -1849,6 +1865,27 @@ export class AppStore {
         : requesterPlayerId;
       team.updatedAt = new Date().toISOString();
       return { updated: true, team };
+    });
+  }
+
+  async deleteTeam({ teamId, requesterPlayerId }) {
+    return this.mutate((state) => {
+      const team = state.teams?.[teamId];
+
+      if (!team) {
+        throw new Error('Команда не найдена');
+      }
+
+      assertCanManageTeam(state, team, requesterPlayerId);
+      delete state.teams[teamId];
+
+      for (const [challengeId, challenge] of Object.entries(state.teamChallenges ?? {})) {
+        if ([challenge.challengerTeamId, challenge.opponentTeamId].includes(teamId)) {
+          delete state.teamChallenges[challengeId];
+        }
+      }
+
+      return { deleted: true, teamId };
     });
   }
 
@@ -1975,6 +2012,26 @@ export class AppStore {
       challenge.cancelledAt = new Date().toISOString();
       challenge.updatedAt = challenge.cancelledAt;
       return { challenge, game: null };
+    });
+  }
+
+  async deleteTeamChallenge({ challengeId, requesterPlayerId }) {
+    return this.mutate((state) => {
+      const challenge = state.teamChallenges?.[challengeId];
+
+      if (!challenge) {
+        throw new Error('Вызов не найден');
+      }
+
+      const challengerTeam = state.teams?.[challenge.challengerTeamId];
+
+      if (!challengerTeam) {
+        throw new Error('Команда не найдена');
+      }
+
+      assertCanManageTeam(state, challengerTeam, requesterPlayerId);
+      delete state.teamChallenges[challengeId];
+      return { deleted: true, challengeId };
     });
   }
 
