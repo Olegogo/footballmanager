@@ -1,53 +1,53 @@
 **Source visual truth**
 
-- `/Users/alfa/Downloads/Matchup Landing.pdf` — supplied one-page landing design, 1440 × 5053 pt.
-- Rendered source: `/private/tmp/matchup-landing-pdf/page-1.png`, 2400 × 8422 px.
-- State: public desktop landing page in the Matchup dark theme.
+- Figma file `JjQJV4aEd8dVEEE4i2HJrQ`, node `1201:2`.
+- Source screenshot: `/private/tmp/matchup-figma-1201-2.png`.
+- Natural frame: 1440 × 5053 px, desktop public landing state.
 
 **Implementation evidence**
 
-- Route: `http://127.0.0.1:3102/about`.
-- Desktop screenshot: `/private/tmp/matchup-landing-desktop.png`, 1440 CSS px viewport, device scale factor 2.
-- Desktop first-screen screenshot: `/private/tmp/matchup-landing-desktop-viewport.png`, 1440 × 1000 px.
-- Mobile screenshot: `/private/tmp/matchup-landing-mobile.png`, 390 × 844 px viewport.
-- Source and implementation were opened together for visual comparison after normalizing the implementation to the 1440 px design width.
-- Primary navigation tested: the «Команды» anchor opens `#teams`.
-- Seven Telegram CTA links are present and point to the server-owned `/telegram` redirect.
+- Local route: `http://127.0.0.1:3100/about`.
+- Desktop implementation screenshot: `/private/tmp/matchup-landing-figma-pass2.png`, 1440 × 5053 px.
+- Stable desktop first viewport: `/private/tmp/matchup-landing-figma-pass1.png`, 1440 × 1000 px.
+- Mobile implementation screenshot: `/private/tmp/matchup-landing-figma-mobile.png`, 390 × 844 px.
+- Source and implementation were opened in the same comparison input at equal 1440 px width.
+- Primary interaction tested: «Команды» navigation reaches `#teams`; seven Telegram CTA links remain present.
 - Console errors and warnings: none.
 
 **Findings**
 
 - No actionable P0/P1/P2 differences remain.
-- Typography: system Inter-compatible stack reproduces the source hierarchy, weights, line height and wrapping; the mobile hero was corrected so its heading remains within the card.
-- Spacing and layout: desktop follows the source's 1240 px content frame, large vertical section rhythm, three-column feature row and two-column smart-feature row. Mobile collapses every content grid without horizontal overflow.
-- Colors and tokens: near-black background, charcoal surfaces, muted gray copy and acid-green CTA treatment match the source.
-- Image quality: all nine supplied PDF-derived visual assets load at non-zero intrinsic resolution and use explicit crops inside their cards.
-- Copy: headings, descriptions and CTA labels match the supplied design.
+- Fonts and typography: Inter-compatible stack, 84 px hero title, 64 px section headings, 44 px feature headings, and source line heights/weights are reproduced.
+- Spacing and layout: all source anchors match exactly — header y=32, hero y=136, cards y=1096, team y=1648, smart cards y=2504, organizer y=3070, positioning statement y=3767, final CTA y=4200, document height=5053.
+- Colors and tokens: `#060807`, `#141716`, `#292e2b`, `#f5f7f2`, `#a3ada6`, and `#b8f229` map directly from Figma.
+- Image quality and assets: all product visuals, logo and rhythm markers use downloaded Figma exports; all assets loaded at non-zero intrinsic size.
+- Copy and content: source headings, descriptions and CTA labels are preserved.
+- Responsiveness: at 390 px the page has no horizontal overflow, all images load, hero content remains readable and CTA targets remain at least 40 px high.
+- Accessibility: semantic headings/nav/links, alt text, focus outlines and reduced-motion behavior remain in place.
 
 **Comparison history**
 
-- Pass 1: hero image retained its HTML height after CSS width scaling, making the first screen too tall; later full-page images loaded during capture and destabilized screenshot stitching.
-- Fix: normalized image height to auto and loaded the finite landing asset set eagerly.
-- Pass 2: mobile grid inherited a 450 px intrinsic track from the hero visual, widening the title block.
-- Fix: changed the mobile track to `minmax(0, 1fr)`, constrained the hero visual to the viewport and verified no horizontal overflow.
-- Post-fix evidence: desktop hero height 807 px, all images loaded, no horizontal overflow; mobile heading width 308 px inside a 362 px hero card.
+- Pass 1 found a 12 px cumulative offset before the first card row and another 12 px before the smart-feature row.
+- Fix: reduced the shared section-heading bottom gap from 64 px to 52 px.
+- Pass 2 matched every measured vertical anchor and the total 5053 px Figma frame height exactly.
+- The browser's stitched full-page preview can repeat regions despite a single DOM instance; DOM counts confirm one instance of every section, so geometry was validated by direct element bounds and stable viewport captures.
 
 **Focused region comparison**
 
-- Hero region compared at 1440 px: headline hierarchy, CTA pair, product composition, dark frame and top navigation align with the reference.
-- Mobile hero inspected separately because the source contains no mobile frame; responsive behavior preserves the same hierarchy and conversion path.
+- Hero: exact 1240 × 620 frame, 55 px inset, separately exported game/player visuals at Figma coordinates, 52 px controls and 14 px radii.
+- Feature cards: exact 500 px height, 32 px grid gap, 28 px padding and original Figma product exports.
+- Organizer/final CTA: exact 642 px and 753 px frames, original exported schedule and field visuals.
 
 **Implementation Checklist**
 
-- [x] Desktop composition follows the supplied visual.
-- [x] Mobile layout is readable and overflow-free.
-- [x] All visual assets load.
-- [x] Internal navigation works.
-- [x] Telegram conversion links use a stable first-party redirect.
-- [x] SEO title, description, canonical, Open Graph, structured data, robots and sitemap are present.
+- [x] Replace PDF crops with original Figma exports.
+- [x] Match desktop frame geometry and typography.
+- [x] Preserve responsive mobile behavior without overflow.
+- [x] Preserve navigation, Telegram CTAs and SEO.
+- [x] Verify all images and browser console.
 
 **Follow-up Polish**
 
-- A dedicated 1200 × 630 social preview can replace the current hero crop later; this is P3 and does not block launch.
+- The Figma source does not include a mobile frame; mobile stacking is a responsive interpretation of the approved desktop hierarchy.
 
 final result: passed

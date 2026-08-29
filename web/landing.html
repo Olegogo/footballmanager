@@ -11,7 +11,7 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="Matchup — найди свою игру рядом">
     <meta property="og:description" content="Любительский футбол в одном месте: игры, составы, команды, рейтинг и достижения.">
-    <meta property="og:image" content="/assets/landing/hero-product.png">
+    <meta property="og:image" content="/assets/landing/field-figma.png">
     <meta property="og:url" content="https://footballmanager-production-cafd.up.railway.app/about">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="stylesheet" href="/landing.css">
@@ -30,7 +30,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="#top" aria-label="Matchup — на главную">
-        <span class="brand-mark" aria-hidden="true">M</span>
+        <img class="brand-mark" src="/assets/landing/logo-mark.svg" alt="" width="40" height="40">
         <span>Matchup</span>
       </a>
       <nav class="desktop-nav" aria-label="Разделы страницы">
@@ -52,7 +52,10 @@
             <a class="button button--secondary" href="/telegram">Создать игру</a>
           </div>
         </div>
-        <img class="hero-product" src="/assets/landing/hero-product.png" alt="Матч, состав и карточка игрока в Matchup" width="962" height="1100">
+        <div class="hero-product" aria-label="Матч, состав и карточка игрока в Matchup">
+          <img class="hero-game" src="/assets/landing/hero-game.png" alt="Экран матча и состава" width="293" height="523">
+          <img class="hero-player" src="/assets/landing/player-card-figma.png" alt="Карточка игрока" width="279" height="502">
+        </div>
       </section>
 
       <section class="section shell" id="games" aria-labelledby="scenario-title">
@@ -65,19 +68,19 @@
             <span class="step">01</span>
             <h3>Найди игру</h3>
             <p>Дата, район, уровень, свободные места и стоимость.</p>
-            <div class="visual visual--game"><img src="/assets/landing/find-game.png" alt="Карточка ближайшей игры"></div>
+            <div class="visual visual--game"><img src="/assets/landing/find-game-figma.png" alt="Карточка ближайшей игры"></div>
           </article>
           <article class="feature-card">
             <span class="step">02</span>
             <h3>Собери состав</h3>
             <p>Приглашения, подтверждение участия, баланс команд и схема поля.</p>
-            <div class="visual visual--lineup"><img src="/assets/landing/build-lineup.png" alt="Состав участников матча"></div>
+            <div class="visual visual--lineup"><img src="/assets/landing/build-lineup-figma.png" alt="Состав участников матча"></div>
           </article>
           <article class="feature-card">
             <span class="step">03</span>
             <h3>Играй и развивайся</h3>
             <p>Рейтинг, MVP, достижения и история матчей.</p>
-            <div class="visual visual--achievement"><img src="/assets/landing/achievement.png" alt="Достижение игрока в Matchup"></div>
+            <div class="visual visual--achievement"><img src="/assets/landing/achievement-figma.png" alt="Достижение игрока в Matchup"></div>
           </article>
         </div>
 
@@ -88,7 +91,10 @@
             <p>Постоянный состав, командный рейтинг и вызовы соперникам.</p>
             <a class="button button--primary" href="/telegram">Создать команду</a>
           </div>
-          <div class="team-visual"><img src="/assets/landing/team.png" alt="Экран команды, игроки и вызовы"></div>
+          <div class="team-visual" aria-label="Экран команды, игроки и вызовы">
+            <img class="team-main" src="/assets/landing/team-main-figma.png" alt="Карточка команды">
+            <img class="team-side" src="/assets/landing/team-side-figma.png" alt="Игроки и вызовы команды">
+          </div>
         </article>
       </section>
 
@@ -101,12 +107,12 @@
           <article class="smart-card">
             <h3>Парсинг футбольных чатов</h3>
             <p>Бот распознаёт анонс игры и превращает его в понятную карточку с записью. Команда <strong>/game</strong> с опросом кто идёт.</p>
-            <div class="smart-visual smart-visual--parsing"><img src="/assets/landing/parsing.png" alt="Бот создаёт игру из сообщения в футбольном чате"></div>
+            <div class="smart-visual smart-visual--parsing"><img src="/assets/landing/parsing-figma.png" alt="Бот создаёт игру из сообщения в футбольном чате"></div>
           </article>
           <article class="smart-card">
             <h3>FIFA-карточка из реальных игр</h3>
             <p>Не создавай себя в игре — прокачивай себя на настоящем поле.</p>
-            <div class="smart-visual smart-visual--player"><img src="/assets/landing/player-card.png" alt="Персональная карточка футболиста"></div>
+            <div class="smart-visual smart-visual--player"><img src="/assets/landing/player-card-figma.png" alt="Персональная карточка футболиста"></div>
           </article>
         </div>
       </section>
@@ -118,7 +124,7 @@
           <p>Сбор игроков, подтверждения, оплата и управление бронированиями</p>
           <a class="button button--dark" href="/telegram">Подключить организацию</a>
         </div>
-        <div class="organizer-visual"><img src="/assets/landing/organizer.png" alt="Управление расписанием футбольных площадок"></div>
+        <div class="organizer-visual"><img src="/assets/landing/organizer-figma.png" alt="Управление расписанием футбольных площадок"></div>
       </section>
 
       <section class="manifesto shell">
@@ -128,11 +134,11 @@
           <p>Не ещё один чат. Не просто рейтинг.<br>А единый ритм игры — от первого поиска<br>до следующего матча.</p>
         </div>
         <ol class="loop">
-          <li>Найти игру</li>
-          <li>Подтвердить участие</li>
-          <li>Сыграть</li>
-          <li>Получить рейтинг</li>
-          <li>Вернуться снова</li>
+          <li><img src="/assets/landing/rhythm-dot.svg" alt="">Найти игру</li>
+          <li><img src="/assets/landing/rhythm-dot.svg" alt="">Подтвердить участие</li>
+          <li><img src="/assets/landing/rhythm-dot.svg" alt="">Сыграть</li>
+          <li><img src="/assets/landing/rhythm-dot.svg" alt="">Получить рейтинг</li>
+          <li><img src="/assets/landing/rhythm-dot-active.svg" alt="">Вернуться снова</li>
         </ol>
       </section>
 
@@ -143,7 +149,7 @@
           <a class="button button--primary" href="/telegram">Открыть в Telegram</a>
           <a class="button button--secondary" href="/telegram">Создать игру</a>
         </div>
-        <div class="field-visual"><img src="/assets/landing/field.png" alt="Состав футболистов на поле"></div>
+        <div class="field-visual"><img src="/assets/landing/field-figma.png" alt="Состав футболистов на поле"></div>
       </section>
     </main>
 
