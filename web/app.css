@@ -5183,6 +5183,11 @@ input[type="range"] {
   font-weight: 900;
 }
 
+.team-detail-island .team-player-row .game-player-rating strong {
+  color: inherit;
+  font: inherit;
+}
+
 .team-detail-island .team-player-row .game-player-main span {
   color: #aea995;
   font-size: 14px;
