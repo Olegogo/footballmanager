@@ -3062,6 +3062,24 @@ function renderGameActionsModal() {
   `;
 }
 
+function renderTeamActionsModal() {
+  const team = getSelectedTeam();
+
+  if (!state.teamActionsOpen || !team?.canManage) {
+    return '';
+  }
+
+  return `
+    <div class="modal-backdrop modal-backdrop--compact" data-team-actions-backdrop="true">
+      <section class="modal-card game-actions-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('teams.actions'))}">
+        <h2>${escapeHtml(t('teams.actions'))}</h2>
+        <button type="button" class="game-action-button" data-edit-team="${escapeHtml(team.id)}">${escapeHtml(t('common.buttons.edit'))}</button>
+        <button type="button" class="game-action-button game-action-button--danger" data-delete-team="${escapeHtml(team.id)}">${escapeHtml(t('common.buttons.delete'))}</button>
+      </section>
+    </div>
+  `;
+}
+
 function renderProfileActionsModal() {
   if (!state.profileActionsOpen) {
     return '';
@@ -3718,7 +3736,7 @@ function renderTeamsList() {
 }
 
 function renderTeamScreenHeader(title, actions = '') {
-  return `<header class="team-screen-header"><h1>${escapeHtml(title)}</h1><div class="team-screen-header-actions">${actions}<button type="button" class="game-top-button" data-close-team-screen aria-label="${escapeHtml(t('common.buttons.close'))}">×</button></div></header>`;
+  return `<header class="team-screen-header"><h1>${escapeHtml(title)}</h1><div class="game-top-actions team-screen-header-actions">${actions}<button type="button" class="game-top-button" data-close-team-screen aria-label="${escapeHtml(t('common.buttons.close'))}">×</button></div></header>`;
 }
 
 function renderTeamPlayerPicker(draft) {
@@ -3824,15 +3842,19 @@ function renderTeamDetail() {
   const team = getSelectedTeam();
   if (!team) return `<section class="empty-state"><h2>${escapeHtml(t('teams.not_found'))}</h2></section>`;
   const challenges = getTeamChallenges().filter((challenge) => [challenge.challengerTeamId, challenge.opponentTeamId].includes(team.id));
-  const teamActions = team.canManage ? `<div class="team-kebab-wrap"><button type="button" class="team-kebab-button" data-toggle-team-actions aria-label="${escapeHtml(t('teams.actions'))}" aria-expanded="${state.teamActionsOpen}">•••</button>${state.teamActionsOpen ? `<div class="team-kebab-menu"><button type="button" data-edit-team="${escapeHtml(team.id)}">${escapeHtml(t('common.buttons.edit'))}</button><button type="button" class="danger" data-delete-team="${escapeHtml(team.id)}">${escapeHtml(t('common.buttons.delete'))}</button></div>` : ''}</div>` : '';
+  const teamActions = team.canManage ? `<button type="button" class="game-top-button team-kebab-button" data-toggle-team-actions aria-label="${escapeHtml(t('teams.actions'))}" aria-expanded="${state.teamActionsOpen}">•••</button>` : '';
   return `<section class="team-fullscreen team-detail-screen">
     ${renderTeamScreenHeader('', teamActions)}
     <section class="team-detail-hero">${renderTeamAvatar(team)}<strong>${team.rating || '—'}</strong><div><h2>${escapeHtml(team.name)}</h2><p>${escapeHtml(team.city)}</p></div></section>
     <section class="team-detail-stats"><div><span>${escapeHtml(t('teams.format'))}</span><b>${escapeHtml(teamChoiceLabel('formats', team.format))}</b></div><div><span>${escapeHtml(t('teams.level'))}</span><b>${escapeHtml(teamChoiceLabel('levels', team.level))}</b></div><div><span>${escapeHtml(t('teams.games'))}</span><b>${team.gamesCount ?? 0}</b></div><div><span>${escapeHtml(t('teams.reputation'))}</span><b>${team.reputation ?? 100}</b></div></section>
     <section class="team-detail-island team-captain"><h2>${escapeHtml(t('teams.captain'))}</h2>${team.captain ? `<div class="team-player-row"><span class="team-player-avatar">${renderMiniAvatar(team.captain)}</span><span><strong>${escapeHtml(team.captain.displayName)}</strong><small>@${escapeHtml(team.captain.username || 'unknown')}</small></span></div>` : ''}</section>
     ${renderTeamRoster(team)}
-    <div class="team-primary-actions">${team.canManage ? `<button type="button" class="primary-button" data-open-open-challenge="${escapeHtml(team.id)}">${escapeHtml(t('teams.publish_open_challenge'))}</button>` : ''}${team.canChallenge ? `<button type="button" class="primary-button" data-open-team-challenge="${escapeHtml(team.id)}">${escapeHtml(t('teams.challenge'))}</button>` : ''}</div>
-    ${challenges.length ? `<section class="team-detail-island"><h2>${escapeHtml(t('teams.challenges'))}</h2>${challenges.map((challenge) => renderChallengeCard(challenge)).join('')}</section>` : ''}
+    <section class="team-detail-island team-challenges-block">
+      <h2>${escapeHtml(t('teams.challenges'))}</h2>
+      ${challenges.map((challenge) => renderChallengeCard(challenge)).join('')}
+      ${team.canManage ? `<button type="button" class="primary-button team-create-challenge-button" data-open-open-challenge="${escapeHtml(team.id)}">${escapeHtml(t('common.buttons.create'))}</button>` : ''}
+      ${team.canChallenge ? `<button type="button" class="primary-button team-create-challenge-button" data-open-team-challenge="${escapeHtml(team.id)}">${escapeHtml(t('teams.challenge'))}</button>` : ''}
+    </section>
   </section>`;
 }
 
@@ -4204,6 +4226,7 @@ function renderModal() {
   const gamePlayer = game?.participants?.find((item) => item.id === state.selectedPlayerId) ?? null;
   const createGameModal = renderCreateGameModal();
   const gameActionsModal = renderGameActionsModal();
+  const teamActionsModal = renderTeamActionsModal();
   const profileActionsModal = renderProfileActionsModal();
   const mapChoiceModal = renderMapChoiceModal();
   const achievementAwardModal = renderAchievementAwardModal();
@@ -4214,6 +4237,7 @@ function renderModal() {
     modalRoot.innerHTML = [
       createGameModal,
       gameActionsModal,
+      teamActionsModal,
       profileActionsModal,
       mapChoiceModal,
       achievementDetailModal,
@@ -4245,6 +4269,7 @@ function renderModal() {
     renderEditorScreen(player, gamePlayer, editable, defaults, game),
     createGameModal,
     gameActionsModal,
+    teamActionsModal,
     profileActionsModal,
     mapChoiceModal,
     achievementDetailModal,
@@ -5253,6 +5278,12 @@ document.addEventListener('click', async (event) => {
 
   if (gameActionsBackdrop) {
     state.gameActionsOpen = false;
+    renderModal();
+    return;
+  }
+
+  if (event.target.matches('[data-team-actions-backdrop]')) {
+    state.teamActionsOpen = false;
     renderModal();
     return;
   }

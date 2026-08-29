@@ -1133,6 +1133,19 @@ p {
   border-radius: 0;
 }
 
+.game-roster-panel .join-request-card {
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  grid-template-areas: "avatar main meta";
+  align-items: center;
+}
+
+.game-roster-panel .join-request-card .game-player-avatar { grid-area: avatar; }
+.game-roster-panel .join-request-card .game-player-main { grid-area: main; }
+.game-roster-panel .join-request-card .join-request-meta {
+  grid-area: meta;
+  align-self: center;
+}
+
 .game-player-avatar {
   width: 46px;
   height: 46px;
@@ -4851,48 +4864,14 @@ input[type="range"] {
 
 .team-screen-header-actions {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  margin-left: auto;
 }
 
 .team-kebab-button {
-  width: 54px;
-  height: 44px;
-  border: 0;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text);
   font-size: 18px;
-  letter-spacing: 2px;
+  letter-spacing: 0;
 }
 
-.team-kebab-menu {
-  position: absolute;
-  top: 52px;
-  right: 50px;
-  z-index: 20;
-  width: 190px;
-  display: grid;
-  padding: 6px;
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: 18px;
-  background: #17271d;
-  box-shadow: 0 16px 40px rgba(0,0,0,.45);
-}
-
-.team-kebab-menu button {
-  min-height: 46px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 13px;
-  background: transparent;
-  color: var(--text);
-  text-align: left;
-  font-weight: 800;
-}
-
-.team-kebab-menu button.danger,
 .danger-button { color: #ff8f87; }
 
 .team-avatar-editor {
@@ -4933,11 +4912,6 @@ input[type="range"] {
 
 .team-screen-header .game-top-button {
   flex: 0 0 auto;
-  width: 46px;
-  height: 46px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.09);
-  font-size: 32px;
 }
 
 .team-editor-island,
@@ -5119,8 +5093,8 @@ input[type="range"] {
 
 .team-detail-hero > strong {
   position: absolute;
-  top: -10px;
-  right: calc(50% - 68px);
+  top: -12px;
+  left: calc(50% + 42px);
   padding: 4px 9px;
   border-radius: 50px;
   background: #0a170f;
@@ -5157,6 +5131,32 @@ input[type="range"] {
 .team-challenge-card {
   display: grid;
   gap: 12px;
+}
+
+.team-challenges-block {
+  gap: 14px;
+  padding: 16px;
+  border: 0;
+  background: #0a170f;
+}
+
+.team-challenges-block > h2 {
+  margin-bottom: 2px;
+}
+
+.team-challenges-block .team-challenge-card {
+  padding: 12px;
+  border: 0;
+  border-radius: 20px;
+  background: #232e27;
+}
+
+.team-create-challenge-button {
+  width: 100%;
+  min-height: 60px;
+  margin-top: 2px;
+  border: 0;
+  border-radius: 24px;
 }
 
 .team-challenge-card[role="button"] { cursor: pointer; }
