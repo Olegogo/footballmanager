@@ -3812,11 +3812,21 @@ function renderTeamEditor() {
   `;
 }
 
+function renderTeamPlayerRow(player, { captain = false } = {}) {
+  const subtitle = captain
+    ? `@${player.username || 'unknown'}`
+    : getPositionLabel(player.position, 'short') || t('common.labels.position');
+  const rating = hasVisibleRating(player) ? getPlayerOverallLabel(player) : '—';
+
+  return `<button type="button" class="game-player-row team-player-row is-clickable" data-open-player="${escapeHtml(player.id)}">
+    <span class="game-player-avatar">${renderMiniAvatar(player)}</span>
+    <span class="game-player-main"><strong>${escapeHtml(player.displayName)}</strong><span>${escapeHtml(subtitle)}</span></span>
+    ${renderRatingValue(rating, player.ratingDelta, 'game-player-rating')}
+  </button>`;
+}
+
 function renderTeamRoster(team) {
-  return `<section class="team-detail-island"><h2>${escapeHtml(t('teams.players'))}</h2><div class="team-roster">${(team.players ?? []).map((player) => `
-    <button type="button" class="team-player-row" data-open-player="${escapeHtml(player.id)}">
-      <span class="team-player-avatar">${renderMiniAvatar(player)}</span><span><strong>${escapeHtml(player.displayName)}</strong><small>${escapeHtml(getPositionLabel(player.position, 'short') || t('common.labels.position'))}</small></span><b>${hasVisibleRating(player) ? escapeHtml(getPlayerOverallLabel(player)) : '—'}</b>
-    </button>`).join('')}</div></section>`;
+  return `<section class="team-detail-island"><h2>${escapeHtml(t('teams.players'))}</h2><div class="team-roster">${(team.players ?? []).map((player) => renderTeamPlayerRow(player)).join('')}</div></section>`;
 }
 
 function challengeStatusLabel(status) {
@@ -3847,7 +3857,7 @@ function renderTeamDetail() {
     ${renderTeamScreenHeader('', teamActions)}
     <section class="team-detail-hero">${renderTeamAvatar(team)}<strong>${team.rating || '—'}</strong><div><h2>${escapeHtml(team.name)}</h2><p>${escapeHtml(team.city)}</p></div></section>
     <section class="team-detail-stats"><div><span>${escapeHtml(t('teams.format'))}</span><b>${escapeHtml(teamChoiceLabel('formats', team.format))}</b></div><div><span>${escapeHtml(t('teams.level'))}</span><b>${escapeHtml(teamChoiceLabel('levels', team.level))}</b></div><div><span>${escapeHtml(t('teams.games'))}</span><b>${team.gamesCount ?? 0}</b></div><div><span>${escapeHtml(t('teams.reputation'))}</span><b>${team.reputation ?? 100}</b></div></section>
-    <section class="team-detail-island team-captain"><h2>${escapeHtml(t('teams.captain'))}</h2>${team.captain ? `<div class="team-player-row"><span class="team-player-avatar">${renderMiniAvatar(team.captain)}</span><span><strong>${escapeHtml(team.captain.displayName)}</strong><small>@${escapeHtml(team.captain.username || 'unknown')}</small></span></div>` : ''}</section>
+    <section class="team-detail-island team-captain"><h2>${escapeHtml(t('teams.captain'))}</h2>${team.captain ? renderTeamPlayerRow(team.captain, { captain: true }) : ''}</section>
     ${renderTeamRoster(team)}
     <section class="team-detail-island team-challenges-block">
       <h2>${escapeHtml(t('teams.challenges'))}</h2>

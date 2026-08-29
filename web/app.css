@@ -5064,6 +5064,29 @@ input[type="range"] {
   font-size: 25px;
 }
 
+.team-detail-island .team-player-row {
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.team-detail-island .team-player-row .game-player-main {
+  gap: 4px;
+}
+
+.team-detail-island .team-player-row .game-player-main strong {
+  font-size: 17px;
+  line-height: 1.1;
+}
+
+.team-detail-island .team-player-row .game-player-main span {
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .team-save-button {
   position: fixed;
   left: calc(var(--app-shell-left) + var(--page-gutter));
