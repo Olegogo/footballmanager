@@ -4698,10 +4698,10 @@ input[type="range"] {
 .team-card {
   width: 100%;
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) auto;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
   align-items: center;
-  gap: 8px 16px;
+  gap: 12px;
   min-height: 104px;
   padding: 15px 16px;
   border: 1px solid #31382d;
@@ -4715,10 +4715,10 @@ input[type="range"] {
 
 .team-card > .team-avatar {
   grid-row: 1;
-  width: 72px;
-  height: 72px;
-  border-radius: 18px;
-  font-size: 23px;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  font-size: 17px;
 }
 
 .team-avatar {
@@ -4761,7 +4761,7 @@ input[type="range"] {
 }
 
 .team-card-identity {
-  align-self: end;
+  align-self: start;
   gap: 4px;
 }
 
@@ -5282,22 +5282,22 @@ input[type="range"] {
   }
 
   .team-card > .team-avatar {
-    width: 72px;
-    height: 72px;
+    width: 46px;
+    height: 46px;
   }
 }
 
 @media (max-width: 380px) {
   .team-card {
-    grid-template-columns: 64px minmax(0, 1fr) auto;
-    gap: 7px 12px;
+    grid-template-columns: 46px minmax(0, 1fr) auto;
+    gap: 12px;
     padding-inline: 13px;
   }
 
   .team-card > .team-avatar {
-    width: 64px;
-    height: 64px;
-    border-radius: 16px;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
   }
 
   .team-card-meta { gap: 5px; }

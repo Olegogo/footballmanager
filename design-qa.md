@@ -4,6 +4,7 @@
 - `/var/folders/k8/lnn01fy54g10_kxzrblpjmpw0000gn/T/TemporaryItems/NSIRD_screencaptureui_2t0Mwo/Screenshot 2026-08-29 at 12.32.22.png` — team-card reference, 842 × 288.
 - `/var/folders/k8/lnn01fy54g10_kxzrblpjmpw0000gn/T/TemporaryItems/NSIRD_screencaptureui_1htvJS/Screenshot 2026-08-29 at 12.47.18.png` — corrected team-card chip alignment reference, 986 × 350.
 - `/var/folders/k8/lnn01fy54g10_kxzrblpjmpw0000gn/T/TemporaryItems/NSIRD_screencaptureui_uzJ9W9/Screenshot 2026-08-29 at 12.51.29.png` — latest exported state for Figma node `1195:24982`, 1002 × 346.
+- `/var/folders/k8/lnn01fy54g10_kxzrblpjmpw0000gn/T/TemporaryItems/NSIRD_screencaptureui_T0b4R5/Screenshot 2026-08-29 at 15.57.38.png` — annotated team-card spacing reference: 46 px avatar, 12 px row gap, top-aligned title block.
 - `/var/folders/k8/lnn01fy54g10_kxzrblpjmpw0000gn/T/TemporaryItems/NSIRD_screencaptureui_lH9mcL/Screenshot 2026-08-29 at 12.32.52.png` — team-detail hero reference, 960 × 956.
 - `/var/folders/k8/lnn01fy54g10_kxzrblpjmpw0000gn/T/TemporaryItems/NSIRD_screencaptureui_qhdtob/Screenshot 2026-08-29 at 12.34.16.png` — challenges-block reference, 952 × 656.
 - State: populated team and game screens in the dark green theme.
@@ -36,6 +37,7 @@
 - Challenges and create action now share one block; the team rating overhangs the avatar.
 - Team-card chips now span the full card width and align with the avatar's left edge.
 - Captain and player rows now reuse the game-screen player row structure and its 28 px rating typography.
+- Team card now uses the annotated 46 px avatar, 12 px gap, and top-aligned title/subtitle block at every mobile breakpoint.
 - No post-fix browser comparison is available in this session.
 
 **Focused region comparison**
