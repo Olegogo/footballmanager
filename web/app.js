@@ -165,6 +165,8 @@ const state = {
   teamSearch: '',
   teamSort: 'rating',
   selectedTeamId: '',
+  selectedChallengeId: '',
+  teamActionsOpen: false,
   teamEditingId: '',
   teamPlayerSearch: '',
   teamDraft: null,
@@ -3632,6 +3634,7 @@ function renderProfileTab() {
 function renderTeamsTab() {
   if (state.teamScreen === 'editor') return renderTeamEditor();
   if (state.teamScreen === 'detail') return renderTeamDetail();
+  if (state.teamScreen === 'challenge-detail') return renderTeamChallengeDetail();
   if (state.teamScreen === 'challenge') return renderTeamChallengeEditor();
   return renderTeamsList();
 }
@@ -3658,20 +3661,18 @@ function teamChoiceLabel(group, value) {
 
 function renderTeamAvatar(team) {
   const initials = String(team?.name || '?').split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
-  return `<span class="team-avatar">${escapeHtml(initials)}</span>`;
+  return `<span class="team-avatar">${team?.imageUrl ? `<img src="${escapeHtml(team.imageUrl)}" alt="">` : escapeHtml(initials)}</span>`;
 }
 
 function renderTeamCard(team) {
   return `
     <button type="button" class="team-card" data-open-team="${escapeHtml(team.id)}">
-      <span class="team-card-head">
-        ${renderTeamAvatar(team)}
-        <span class="team-card-identity">
-          <strong>${escapeHtml(team.name)}</strong>
-          <span>${escapeHtml(team.city)}</span>
-        </span>
-        <span class="team-card-rating"><small>${escapeHtml(t('teams.rating'))}</small>${team.rating || '—'}</span>
+      ${renderTeamAvatar(team)}
+      <span class="team-card-identity">
+        <strong>${escapeHtml(team.name)}</strong>
+        <span>${escapeHtml(team.city)}</span>
       </span>
+      <span class="team-card-rating">${renderRatingValue(team.rating || '—', team.rating ? 1 : null, 'team-card-rating-value')}</span>
       <span class="team-card-meta">
         <span>${escapeHtml(teamChoiceLabel('formats', team.format))}</span>
         <span>${escapeHtml(teamChoiceLabel('levels', team.level))}</span>
@@ -3716,8 +3717,8 @@ function renderTeamsList() {
   `;
 }
 
-function renderTeamScreenHeader(title) {
-  return `<header class="team-screen-header"><h1>${escapeHtml(title)}</h1><button type="button" class="game-top-button" data-close-team-screen aria-label="${escapeHtml(t('common.buttons.close'))}">×</button></header>`;
+function renderTeamScreenHeader(title, actions = '') {
+  return `<header class="team-screen-header"><h1>${escapeHtml(title)}</h1><div class="team-screen-header-actions">${actions}<button type="button" class="game-top-button" data-close-team-screen aria-label="${escapeHtml(t('common.buttons.close'))}">×</button></div></header>`;
 }
 
 function renderTeamPlayerPicker(draft) {
@@ -3769,6 +3770,11 @@ function renderTeamEditor() {
     <section class="team-fullscreen team-editor-screen">
       ${renderTeamScreenHeader(state.teamEditingId ? t('teams.edit_title') : t('teams.new_title'))}
       <form id="teamForm" class="team-editor-form">
+        <section class="team-avatar-editor">
+          ${renderTeamAvatar({ name: draft.name, imageUrl: draft.imageUrl })}
+          <label class="team-avatar-upload"><input type="file" accept="image/png,image/jpeg,image/webp" data-team-avatar-input><span>${escapeHtml(t('teams.change_avatar'))}</span></label>
+          ${draft.imageUrl ? `<button type="button" data-remove-team-avatar>${escapeHtml(t('teams.remove_avatar'))}</button>` : ''}
+        </section>
         <section class="team-editor-island">
           <h2>${escapeHtml(t('teams.information'))}</h2>
           <label class="team-form-field"><span>${escapeHtml(t('teams.name'))}</span><input name="name" value="${escapeHtml(draft.name || '')}" required placeholder="${escapeHtml(t('teams.name_placeholder'))}"></label>
@@ -3803,7 +3809,7 @@ function renderChallengeCard(challenge, compact = false) {
   const opponent = challenge.opponent || null;
   const title = opponent ? `${challenge.challenger?.name || '—'} → ${opponent.name}` : challenge.challenger?.name || '—';
   const managedTeams = getManagedTeams().filter((team) => team.id !== challenge.challengerTeamId);
-  return `<article class="team-challenge-card ${compact ? 'team-challenge-card--compact' : ''}">
+  return `<article class="team-challenge-card ${compact ? 'team-challenge-card--compact' : ''}" data-open-team-challenge-detail="${escapeHtml(challenge.id)}" role="button" tabindex="0">
     <div class="team-challenge-head"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(challengeStatusLabel(challenge.status))}</span></div>
     <p>${escapeHtml(challenge.date)} · ${escapeHtml(challenge.time)} · ${escapeHtml(challenge.location)}</p>
     <div class="team-challenge-meta"><span>${escapeHtml(teamChoiceLabel('formats', challenge.format))}</span><span>${escapeHtml(teamChoiceLabel('modes', challenge.mode))}</span>${opponent ? `<span>${escapeHtml(t(`teams.compatibility.${challenge.compatibility}`))}</span>` : ''}</div>
@@ -3818,14 +3824,32 @@ function renderTeamDetail() {
   const team = getSelectedTeam();
   if (!team) return `<section class="empty-state"><h2>${escapeHtml(t('teams.not_found'))}</h2></section>`;
   const challenges = getTeamChallenges().filter((challenge) => [challenge.challengerTeamId, challenge.opponentTeamId].includes(team.id));
+  const teamActions = team.canManage ? `<div class="team-kebab-wrap"><button type="button" class="team-kebab-button" data-toggle-team-actions aria-label="${escapeHtml(t('teams.actions'))}" aria-expanded="${state.teamActionsOpen}">•••</button>${state.teamActionsOpen ? `<div class="team-kebab-menu"><button type="button" data-edit-team="${escapeHtml(team.id)}">${escapeHtml(t('common.buttons.edit'))}</button><button type="button" class="danger" data-delete-team="${escapeHtml(team.id)}">${escapeHtml(t('common.buttons.delete'))}</button></div>` : ''}</div>` : '';
   return `<section class="team-fullscreen team-detail-screen">
-    ${renderTeamScreenHeader(team.name)}
-    <section class="team-detail-hero">${renderTeamAvatar(team)}<div><h2>${escapeHtml(team.name)}</h2><p>${escapeHtml(team.city)}</p></div><strong>${team.rating || '—'}</strong></section>
+    ${renderTeamScreenHeader('', teamActions)}
+    <section class="team-detail-hero">${renderTeamAvatar(team)}<strong>${team.rating || '—'}</strong><div><h2>${escapeHtml(team.name)}</h2><p>${escapeHtml(team.city)}</p></div></section>
     <section class="team-detail-stats"><div><span>${escapeHtml(t('teams.format'))}</span><b>${escapeHtml(teamChoiceLabel('formats', team.format))}</b></div><div><span>${escapeHtml(t('teams.level'))}</span><b>${escapeHtml(teamChoiceLabel('levels', team.level))}</b></div><div><span>${escapeHtml(t('teams.games'))}</span><b>${team.gamesCount ?? 0}</b></div><div><span>${escapeHtml(t('teams.reputation'))}</span><b>${team.reputation ?? 100}</b></div></section>
     <section class="team-detail-island team-captain"><h2>${escapeHtml(t('teams.captain'))}</h2>${team.captain ? `<div class="team-player-row"><span class="team-player-avatar">${renderMiniAvatar(team.captain)}</span><span><strong>${escapeHtml(team.captain.displayName)}</strong><small>@${escapeHtml(team.captain.username || 'unknown')}</small></span></div>` : ''}</section>
     ${renderTeamRoster(team)}
-    <div class="team-primary-actions">${team.canManage ? `<button type="button" data-edit-team="${escapeHtml(team.id)}">${escapeHtml(t('common.buttons.edit'))}</button><button type="button" class="primary-button" data-open-open-challenge="${escapeHtml(team.id)}">${escapeHtml(t('teams.publish_open_challenge'))}</button>` : ''}${team.canChallenge ? `<button type="button" class="primary-button" data-open-team-challenge="${escapeHtml(team.id)}">${escapeHtml(t('teams.challenge'))}</button>` : ''}</div>
+    <div class="team-primary-actions">${team.canManage ? `<button type="button" class="primary-button" data-open-open-challenge="${escapeHtml(team.id)}">${escapeHtml(t('teams.publish_open_challenge'))}</button>` : ''}${team.canChallenge ? `<button type="button" class="primary-button" data-open-team-challenge="${escapeHtml(team.id)}">${escapeHtml(t('teams.challenge'))}</button>` : ''}</div>
     ${challenges.length ? `<section class="team-detail-island"><h2>${escapeHtml(t('teams.challenges'))}</h2>${challenges.map((challenge) => renderChallengeCard(challenge)).join('')}</section>` : ''}
+  </section>`;
+}
+
+function renderTeamChallengeDetail() {
+  const challenge = getTeamChallenges().find((item) => item.id === state.selectedChallengeId);
+  if (!challenge) return `<section class="empty-state"><h2>${escapeHtml(t('teams.challenge_not_found'))}</h2></section>`;
+  const title = challenge.opponent
+    ? `${challenge.challenger?.name || '—'} → ${challenge.opponent.name}`
+    : challenge.challenger?.name || '—';
+  return `<section class="team-fullscreen team-challenge-detail-screen">
+    ${renderTeamScreenHeader(t('teams.challenge_details'))}
+    <section class="team-detail-island team-challenge-detail">
+      <div class="team-challenge-head"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(challengeStatusLabel(challenge.status))}</span></div>
+      <dl><div><dt>${escapeHtml(t('common.labels.date'))}</dt><dd>${escapeHtml(challenge.date)}</dd></div><div><dt>${escapeHtml(t('common.labels.time'))}</dt><dd>${escapeHtml(challenge.time)}</dd></div><div><dt>${escapeHtml(t('common.labels.location'))}</dt><dd>${escapeHtml(challenge.location)}</dd></div><div><dt>${escapeHtml(t('teams.format'))}</dt><dd>${escapeHtml(teamChoiceLabel('formats', challenge.format))}</dd></div><div><dt>${escapeHtml(t('teams.mode'))}</dt><dd>${escapeHtml(teamChoiceLabel('modes', challenge.mode))}</dd></div></dl>
+      ${challenge.comment ? `<p>${escapeHtml(challenge.comment)}</p>` : ''}
+    </section>
+    <div class="team-primary-actions">${challenge.gameId ? `<button type="button" class="primary-button" data-open-game-id="${escapeHtml(challenge.gameId)}">${escapeHtml(t('common.buttons.open_game'))}</button>` : ''}${challenge.canEdit ? `<button type="button" data-edit-team-challenge="${escapeHtml(challenge.id)}">${escapeHtml(t('common.buttons.edit'))}</button>` : ''}${challenge.canManage ? `<button type="button" class="danger-button" data-delete-team-challenge="${escapeHtml(challenge.id)}">${escapeHtml(t('common.buttons.delete'))}</button>` : ''}</div>
   </section>`;
 }
 
@@ -3857,6 +3881,7 @@ function getDefaultTeamDraft(team = null) {
 
   return {
     name: team?.name || '',
+    imageUrl: team?.imageUrl || '',
     city: team?.city || '',
     format: team?.format || '5x5',
     level: team?.level || 'amateur',
@@ -3908,6 +3933,28 @@ function saveTeamFormDraft(form) {
   if (form) state.teamDraft = readTeamForm(form);
 }
 
+async function readTeamAvatarFile(file) {
+  if (!file?.type?.match(/^image\/(png|jpeg|webp)$/)) throw new Error(t('teams.avatar_invalid'));
+  const source = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error(t('teams.avatar_invalid')));
+    reader.readAsDataURL(file);
+  });
+  const image = await new Promise((resolve, reject) => {
+    const node = new Image();
+    node.onload = () => resolve(node);
+    node.onerror = () => reject(new Error(t('teams.avatar_invalid')));
+    node.src = source;
+  });
+  const size = Math.min(image.naturalWidth, image.naturalHeight);
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  canvas.getContext('2d').drawImage(image, (image.naturalWidth - size) / 2, (image.naturalHeight - size) / 2, size, size, 0, 0, 512, 512);
+  return canvas.toDataURL('image/jpeg', 0.82);
+}
+
 function readTeamChallengeForm(form) {
   const formData = new FormData(form);
   return {
@@ -3930,6 +3977,7 @@ function saveTeamChallengeDraft(form) {
 
 function openTeamEditor(team = null) {
   hideCreateTeamTooltip();
+  state.teamActionsOpen = false;
   state.teamEditingId = team?.id || '';
   state.teamDraft = getDefaultTeamDraft(team);
   state.teamPlayerSearch = '';
@@ -3944,7 +3992,7 @@ function openTeamChallengeEditor({ challengerTeamId, opponentTeamId = '', challe
 }
 
 function closeTeamScreen() {
-  if (state.teamScreen === 'challenge' && state.selectedTeamId) {
+  if (['challenge', 'challenge-detail'].includes(state.teamScreen) && state.selectedTeamId) {
     state.teamScreen = 'detail';
   } else {
     state.teamScreen = 'list';
@@ -3954,6 +4002,8 @@ function closeTeamScreen() {
   state.teamEditingId = '';
   state.teamDraft = null;
   state.challengeDraft = null;
+  state.selectedChallengeId = '';
+  state.teamActionsOpen = false;
   state.teamPlayerSearch = '';
   render();
 }
@@ -4016,6 +4066,29 @@ async function cancelTeamChallenge(challengeId) {
   state.snapshot = data.snapshot;
   render();
   showToast(t('teams.challenge_cancelled'));
+}
+
+async function deleteTeam(teamId) {
+  if (!(await ensureAuthorizedForAction())) return;
+  if (!window.confirm(t('teams.delete_team_confirm'))) return;
+  const data = await api(`/api/teams/${encodeURIComponent(teamId)}`, { method: 'DELETE' });
+  state.snapshot = data.snapshot;
+  state.selectedTeamId = '';
+  state.teamScreen = 'list';
+  state.teamActionsOpen = false;
+  render();
+  showToast(t('teams.team_deleted'));
+}
+
+async function deleteTeamChallenge(challengeId) {
+  if (!(await ensureAuthorizedForAction())) return;
+  if (!window.confirm(t('teams.delete_challenge_confirm'))) return;
+  const data = await api(`/api/team-challenges/${encodeURIComponent(challengeId)}`, { method: 'DELETE' });
+  state.snapshot = data.snapshot;
+  state.selectedChallengeId = '';
+  state.teamScreen = state.selectedTeamId ? 'detail' : 'list';
+  render();
+  showToast(t('teams.challenge_deleted'));
 }
 
 async function respondToTeamChallenge(challengeId, action, responderTeamId = '') {
@@ -4910,6 +4983,28 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
+  if (event.target.closest('[data-toggle-team-actions]')) {
+    state.teamActionsOpen = !state.teamActionsOpen;
+    render();
+    return;
+  }
+
+  const deleteTeamButton = event.target.closest('[data-delete-team]');
+
+  if (deleteTeamButton) {
+    deleteTeam(deleteTeamButton.dataset.deleteTeam).catch((error) => showToast(error.message));
+    return;
+  }
+
+  const removeTeamAvatarButton = event.target.closest('[data-remove-team-avatar]');
+
+  if (removeTeamAvatarButton) {
+    saveTeamFormDraft(document.getElementById('teamForm'));
+    state.teamDraft.imageUrl = '';
+    render();
+    return;
+  }
+
   const editTeamButton = event.target.closest('[data-edit-team]');
 
   if (editTeamButton) {
@@ -5008,6 +5103,14 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
+  const deleteChallengeButton = event.target.closest('[data-delete-team-challenge]');
+
+  if (deleteChallengeButton) {
+    deleteTeamChallenge(deleteChallengeButton.dataset.deleteTeamChallenge)
+      .catch((error) => showToast(error.message));
+    return;
+  }
+
   const challengeActionButton = event.target.closest('[data-team-challenge-action]');
 
   if (challengeActionButton) {
@@ -5027,6 +5130,15 @@ document.addEventListener('click', async (event) => {
     state.selectedGameId = openChallengeGameButton.dataset.openGameId;
     state.activeTab = 'game';
     state.teamScreen = 'list';
+    render();
+    return;
+  }
+
+  const openChallengeDetail = event.target.closest('[data-open-team-challenge-detail]');
+
+  if (openChallengeDetail && !event.target.closest('button, select, label')) {
+    state.selectedChallengeId = openChallengeDetail.dataset.openTeamChallengeDetail || '';
+    state.teamScreen = 'challenge-detail';
     render();
     return;
   }
@@ -5570,7 +5682,28 @@ document.addEventListener('click', async (event) => {
   }
 });
 
+document.addEventListener('keydown', (event) => {
+  const challengeCard = event.target.closest?.('[data-open-team-challenge-detail]');
+  if (!challengeCard || !['Enter', ' '].includes(event.key)) return;
+  event.preventDefault();
+  state.selectedChallengeId = challengeCard.dataset.openTeamChallengeDetail || '';
+  state.teamScreen = 'challenge-detail';
+  render();
+});
+
 document.addEventListener('change', (event) => {
+  if (event.target.matches('[data-team-avatar-input]')) {
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file) return;
+    saveTeamFormDraft(input.closest('#teamForm'));
+    readTeamAvatarFile(file).then((imageUrl) => {
+      state.teamDraft.imageUrl = imageUrl;
+      render();
+    }).catch((error) => showToast(error.message));
+    return;
+  }
+
   if (event.target.matches('[data-locale-select]')) {
     state.profileActionsOpen = false;
     updateLocale(event.target.value).catch((error) => {

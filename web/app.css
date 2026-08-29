@@ -4685,24 +4685,27 @@ input[type="range"] {
 .team-card {
   width: 100%;
   display: grid;
-  gap: 16px;
-  padding: 18px;
-  border: 1px solid var(--card-border);
-  border-radius: 28px;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(116, 159, 101, 0.14), transparent 42%),
-    var(--card);
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 8px 16px;
+  min-height: 104px;
+  padding: 15px 16px;
+  border: 1px solid #31382d;
+  border-radius: 22px;
+  background: #151e19;
   color: var(--text);
   text-align: left;
-  box-shadow: var(--shadow);
+  box-shadow: none;
   cursor: pointer;
 }
 
-.team-card-head {
-  display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
+.team-card > .team-avatar {
+  grid-row: 1 / 3;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  font-size: 23px;
 }
 
 .team-avatar {
@@ -4717,6 +4720,14 @@ input[type="range"] {
   font-size: 19px;
   font-weight: 900;
   letter-spacing: -0.04em;
+  overflow: hidden;
+}
+
+.team-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .team-card-identity,
@@ -4736,6 +4747,20 @@ input[type="range"] {
   white-space: nowrap;
 }
 
+.team-card-identity {
+  align-self: end;
+  gap: 4px;
+}
+
+.team-card-identity strong {
+  font-size: 17px;
+  line-height: 1.15;
+}
+
+.team-card-identity span {
+  font-size: 14px;
+}
+
 .team-card-identity span,
 .team-detail-hero p,
 .team-player-row small,
@@ -4749,6 +4774,7 @@ input[type="range"] {
 }
 
 .team-card-rating {
+  align-self: start;
   justify-items: end;
   color: var(--rating-gold);
   font-size: 28px;
@@ -4756,16 +4782,26 @@ input[type="range"] {
   line-height: 1;
 }
 
-.team-card-rating small {
-  color: var(--field-label);
-  font-size: 11px;
-  text-transform: uppercase;
+.team-card-rating-value {
+  flex-direction: row-reverse;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.team-card-rating-value .rating-trend-arrow {
+  width: 22px;
+  height: 22px;
 }
 
 .team-card-meta,
 .team-challenge-meta {
   flex-wrap: wrap;
   overflow: visible;
+}
+
+.team-card-meta {
+  align-self: start;
+  gap: 8px;
 }
 
 .team-card-meta span,
@@ -4778,6 +4814,13 @@ input[type="range"] {
   font-size: 13px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.team-card-meta span {
+  padding: 6px 9px;
+  background: #303733;
+  font-size: 14px;
+  line-height: 1;
 }
 
 .team-open-challenges {
@@ -4804,6 +4847,80 @@ input[type="range"] {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.team-screen-header-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-kebab-button {
+  width: 54px;
+  height: 44px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  font-size: 18px;
+  letter-spacing: 2px;
+}
+
+.team-kebab-menu {
+  position: absolute;
+  top: 52px;
+  right: 50px;
+  z-index: 20;
+  width: 190px;
+  display: grid;
+  padding: 6px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 18px;
+  background: #17271d;
+  box-shadow: 0 16px 40px rgba(0,0,0,.45);
+}
+
+.team-kebab-menu button {
+  min-height: 46px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-weight: 800;
+}
+
+.team-kebab-menu button.danger,
+.danger-button { color: #ff8f87; }
+
+.team-avatar-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 4px;
+}
+
+.team-avatar-editor .team-avatar {
+  width: 112px;
+  height: 112px;
+  border-radius: 30px;
+  font-size: 32px;
+}
+
+.team-avatar-upload input { position: absolute; opacity: 0; pointer-events: none; }
+.team-avatar-upload span,
+.team-avatar-editor > button {
+  display: inline-flex;
+  padding: 9px 13px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(255,255,255,.1);
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .team-screen-header h1 {
@@ -4983,22 +5100,43 @@ input[type="range"] {
 }
 
 .team-detail-hero {
-  display: grid;
-  grid-template-columns: 70px minmax(0, 1fr) auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
+  padding: 2px 18px 0;
+  border: 0;
+  background: transparent;
 }
 
 .team-detail-hero .team-avatar {
-  width: 70px;
-  height: 70px;
-  border-radius: 23px;
-  font-size: 23px;
+  width: 138px;
+  height: 138px;
+  border-radius: 32px;
+  font-size: 38px;
 }
 
 .team-detail-hero > strong {
+  position: absolute;
+  top: -10px;
+  right: calc(50% - 68px);
+  padding: 4px 9px;
+  border-radius: 50px;
+  background: #0a170f;
   color: var(--rating-gold);
-  font-size: 36px;
+  font-size: 22px;
+}
+
+.team-detail-hero > div { text-align: center; }
+.team-detail-hero h2 { margin: 0; font-size: 23px; }
+.team-detail-hero p { margin: 4px 0 0; }
+
+.team-detail-stats {
+  padding: 16px;
+  border: 0;
+  border-radius: 28px;
+  background: #0a170f;
 }
 
 .team-detail-stats > div {
@@ -5020,6 +5158,12 @@ input[type="range"] {
   display: grid;
   gap: 12px;
 }
+
+.team-challenge-card[role="button"] { cursor: pointer; }
+.team-challenge-detail dl { display: grid; gap: 8px; margin: 0; }
+.team-challenge-detail dl > div { display: flex; justify-content: space-between; gap: 16px; padding: 11px 12px; border-radius: 14px; background: var(--field-surface); }
+.team-challenge-detail dt { color: var(--muted); }
+.team-challenge-detail dd { margin: 0; color: var(--text); font-weight: 800; text-align: right; }
 
 .team-primary-actions {
   display: grid;
@@ -5110,15 +5254,30 @@ input[type="range"] {
   }
 
   .team-card {
-    padding: 16px;
+    padding: 15px 16px;
   }
 
-  .team-card-head {
-    grid-template-columns: 52px minmax(0, 1fr) auto;
+  .team-card > .team-avatar {
+    width: 72px;
+    height: 72px;
+  }
+}
+
+@media (max-width: 380px) {
+  .team-card {
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    gap: 7px 12px;
+    padding-inline: 13px;
   }
 
-  .team-avatar {
-    width: 52px;
-    height: 52px;
+  .team-card > .team-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
   }
+
+  .team-card-meta { gap: 5px; }
+  .team-card-meta span { padding-inline: 7px; font-size: 12px; }
+  .team-card-rating { font-size: 25px; }
+  .team-card-rating-value .rating-trend-arrow { width: 19px; height: 19px; }
 }
