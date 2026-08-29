@@ -5115,6 +5115,33 @@ input[type="range"] {
   font-size: 38px;
 }
 
+.team-detail-avatar-wrap {
+  position: relative;
+  display: block;
+}
+
+.team-avatar-edit-button {
+  position: absolute;
+  right: -6px;
+  bottom: 0;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+
+.team-avatar-edit-button img {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
 .team-detail-hero > strong {
   position: absolute;
   top: -12px;
@@ -5129,6 +5156,37 @@ input[type="range"] {
 .team-detail-hero > div { text-align: center; }
 .team-detail-hero h2 { margin: 0; font-size: 23px; }
 .team-detail-hero p { margin: 4px 0 0; }
+
+.team-avatar-action-upload {
+  position: relative;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.team-avatar-action-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.team-avatar-action-upload span {
+  pointer-events: none;
+}
+
+.team-detail-island .team-player-row .game-player-rating {
+  width: auto;
+  min-width: 60px;
+  color: #fae397;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.team-detail-island .team-player-row .game-player-main span {
+  color: #aea995;
+  font-size: 14px;
+}
 
 .team-detail-stats {
   padding: 16px;
@@ -5154,6 +5212,20 @@ input[type="range"] {
 .team-detail-island,
 .team-challenge-card {
   display: grid;
+  gap: 12px;
+}
+
+.team-detail-island {
+  padding: 16px;
+  border: 0;
+  background: #0a170f;
+}
+
+.team-detail-island > h2 {
+  font-size: 23px;
+}
+
+.team-detail-island .team-roster {
   gap: 12px;
 }
 

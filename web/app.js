@@ -167,6 +167,7 @@ const state = {
   selectedTeamId: '',
   selectedChallengeId: '',
   teamActionsOpen: false,
+  teamAvatarActionsOpen: false,
   teamEditingId: '',
   teamPlayerSearch: '',
   teamDraft: null,
@@ -3080,6 +3081,27 @@ function renderTeamActionsModal() {
   `;
 }
 
+function renderTeamAvatarActionsModal() {
+  const team = getSelectedTeam();
+
+  if (!state.teamAvatarActionsOpen || !team?.canManage) {
+    return '';
+  }
+
+  return `
+    <div class="modal-backdrop modal-backdrop--compact" data-team-avatar-actions-backdrop="true">
+      <section class="modal-card game-actions-card team-avatar-actions-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('teams.logo_actions'))}">
+        <h2>${escapeHtml(t('teams.logo_actions'))}</h2>
+        <label class="game-action-button team-avatar-action-upload">
+          <input type="file" accept="image/png,image/jpeg,image/webp" data-team-logo-input>
+          <span>${escapeHtml(t(team.imageUrl ? 'teams.change_avatar' : 'teams.upload_avatar'))}</span>
+        </label>
+        ${team.imageUrl ? `<button type="button" class="game-action-button game-action-button--danger" data-delete-team-logo>${escapeHtml(t('teams.remove_avatar'))}</button>` : ''}
+      </section>
+    </div>
+  `;
+}
+
 function renderProfileActionsModal() {
   if (!state.profileActionsOpen) {
     return '';
@@ -3855,7 +3877,13 @@ function renderTeamDetail() {
   const teamActions = team.canManage ? `<button type="button" class="game-top-button team-kebab-button" data-toggle-team-actions aria-label="${escapeHtml(t('teams.actions'))}" aria-expanded="${state.teamActionsOpen}">•••</button>` : '';
   return `<section class="team-fullscreen team-detail-screen">
     ${renderTeamScreenHeader('', teamActions)}
-    <section class="team-detail-hero">${renderTeamAvatar(team)}<strong>${team.rating || '—'}</strong><div><h2>${escapeHtml(team.name)}</h2><p>${escapeHtml(team.city)}</p></div></section>
+    <section class="team-detail-hero">
+      <span class="team-detail-avatar-wrap">
+        ${renderTeamAvatar(team)}
+        ${team.canManage ? `<button type="button" class="team-avatar-edit-button" data-edit-team-avatar aria-label="${escapeHtml(t('teams.logo_actions'))}"><img src="/assets/icons/team-edit.png" alt=""></button>` : ''}
+      </span>
+      <strong>${team.rating || '—'}</strong><div><h2>${escapeHtml(team.name)}</h2><p>${escapeHtml(team.city)}</p></div>
+    </section>
     <section class="team-detail-stats"><div><span>${escapeHtml(t('teams.format'))}</span><b>${escapeHtml(teamChoiceLabel('formats', team.format))}</b></div><div><span>${escapeHtml(t('teams.level'))}</span><b>${escapeHtml(teamChoiceLabel('levels', team.level))}</b></div><div><span>${escapeHtml(t('teams.games'))}</span><b>${team.gamesCount ?? 0}</b></div><div><span>${escapeHtml(t('teams.reputation'))}</span><b>${team.reputation ?? 100}</b></div></section>
     <section class="team-detail-island team-captain"><h2>${escapeHtml(t('teams.captain'))}</h2>${team.captain ? renderTeamPlayerRow(team.captain, { captain: true }) : ''}</section>
     ${renderTeamRoster(team)}
@@ -4036,6 +4064,7 @@ function closeTeamScreen() {
   state.challengeDraft = null;
   state.selectedChallengeId = '';
   state.teamActionsOpen = false;
+  state.teamAvatarActionsOpen = false;
   state.teamPlayerSearch = '';
   render();
 }
@@ -4059,6 +4088,20 @@ async function submitTeam(form) {
   state.teamScreen = 'detail';
   render();
   showToast(t('teams.saved'));
+}
+
+async function updateTeamLogo(imageUrl) {
+  if (!(await ensureAuthorizedForAction())) return;
+  const team = getSelectedTeam();
+  if (!team?.canManage) return;
+  const data = await api(`/api/teams/${encodeURIComponent(team.id)}`, {
+    method: 'PUT',
+    body: { imageUrl }
+  });
+  state.snapshot = data.snapshot;
+  state.teamAvatarActionsOpen = false;
+  render();
+  showToast(t(imageUrl ? 'teams.avatar_saved' : 'teams.avatar_removed'));
 }
 
 async function submitTeamChallenge(form) {
@@ -4237,6 +4280,7 @@ function renderModal() {
   const createGameModal = renderCreateGameModal();
   const gameActionsModal = renderGameActionsModal();
   const teamActionsModal = renderTeamActionsModal();
+  const teamAvatarActionsModal = renderTeamAvatarActionsModal();
   const profileActionsModal = renderProfileActionsModal();
   const mapChoiceModal = renderMapChoiceModal();
   const achievementAwardModal = renderAchievementAwardModal();
@@ -4248,6 +4292,7 @@ function renderModal() {
       createGameModal,
       gameActionsModal,
       teamActionsModal,
+      teamAvatarActionsModal,
       profileActionsModal,
       mapChoiceModal,
       achievementDetailModal,
@@ -4280,6 +4325,7 @@ function renderModal() {
     createGameModal,
     gameActionsModal,
     teamActionsModal,
+    teamAvatarActionsModal,
     profileActionsModal,
     mapChoiceModal,
     achievementDetailModal,
@@ -5024,6 +5070,17 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
+  if (event.target.closest('[data-edit-team-avatar]')) {
+    state.teamAvatarActionsOpen = true;
+    renderModal();
+    return;
+  }
+
+  if (event.target.closest('[data-delete-team-logo]')) {
+    updateTeamLogo('').catch((error) => showToast(error.message));
+    return;
+  }
+
   const deleteTeamButton = event.target.closest('[data-delete-team]');
 
   if (deleteTeamButton) {
@@ -5294,6 +5351,12 @@ document.addEventListener('click', async (event) => {
 
   if (event.target.matches('[data-team-actions-backdrop]')) {
     state.teamActionsOpen = false;
+    renderModal();
+    return;
+  }
+
+  if (event.target.matches('[data-team-avatar-actions-backdrop]')) {
+    state.teamAvatarActionsOpen = false;
     renderModal();
     return;
   }
@@ -5733,6 +5796,15 @@ document.addEventListener('keydown', (event) => {
 });
 
 document.addEventListener('change', (event) => {
+  if (event.target.matches('[data-team-logo-input]')) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    readTeamAvatarFile(file)
+      .then(updateTeamLogo)
+      .catch((error) => showToast(error.message));
+    return;
+  }
+
   if (event.target.matches('[data-team-avatar-input]')) {
     const input = event.target;
     const file = input.files?.[0];
