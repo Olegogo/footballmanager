@@ -614,8 +614,10 @@ test('/start sends onboarding copy with app button', async () => {
   assert.equal(sent[1].text, '🎯 Мы уже создали тебе карточку игрока. Заполни её и получай оценки после матчей.');
   assert.equal(sent[2].text, '🤖 Добавь бота в чат с игроками. Он поможет собирать составы, балансировать команды и вести статистику.');
   assert.equal(sent[2].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть приложение');
-  assert.equal(sent[2].options.replyMarkup.inline_keyboard[1][0].text, 'Команды');
-  assert.equal(sent[2].options.replyMarkup.inline_keyboard[1][0].callback_data, 'show_commands');
+  assert.equal(sent[2].options.replyMarkup.inline_keyboard[1][0].text, 'О проекте');
+  assert.equal(sent[2].options.replyMarkup.inline_keyboard[1][0].url, 'https://app.example/about');
+  assert.equal(sent[2].options.replyMarkup.inline_keyboard[2][0].text, 'Команды');
+  assert.equal(sent[2].options.replyMarkup.inline_keyboard[2][0].callback_data, 'show_commands');
 });
 
 test('commands button explains /game and other bot commands', async () => {

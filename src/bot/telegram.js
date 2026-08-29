@@ -160,6 +160,11 @@ export class TelegramBot {
     return url.toString();
   }
 
+  buildAboutUrl() {
+    const baseUrl = normalizeHttpUrl(this.config.publicBaseUrl);
+    return baseUrl ? new URL('/about', baseUrl).toString() : '';
+  }
+
   buildTelegramLoginUrl(chatId = '', options = {}) {
     const baseUrl = normalizeHttpUrl(this.config.publicBaseUrl);
 
@@ -1384,6 +1389,12 @@ export class TelegramBot {
         buttonText: this.t(locale, 'common.buttons.open_app'),
         locale,
         additionalKeyboardRows: [
+          ...(this.buildAboutUrl() ? [[
+            {
+              text: this.t(locale, 'onboarding.about_button'),
+              url: this.buildAboutUrl()
+            }
+          ]] : []),
           [
             {
               text: this.t(locale, 'onboarding.commands_button'),

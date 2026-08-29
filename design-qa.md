@@ -1,47 +1,53 @@
 **Source visual truth**
 
-- `/Users/alfa/Downloads/photo_2026-08-29 12.28.59.jpeg` — waiting-player alignment reference, 588 × 1280.
-- `/var/folders/k8/lnn01fy54g10_kxzrblpjmpw0000gn/T/TemporaryItems/NSIRD_screencaptureui_2t0Mwo/Screenshot 2026-08-29 at 12.32.22.png` — team-card reference, 842 × 288.
-- `/var/folders/k8/lnn01fy54g10_kxzrblpjmpw0000gn/T/TemporaryItems/NSIRD_screencaptureui_1htvJS/Screenshot 2026-08-29 at 12.47.18.png` — corrected team-card chip alignment reference, 986 × 350.
-- `/var/folders/k8/lnn01fy54g10_kxzrblpjmpw0000gn/T/TemporaryItems/NSIRD_screencaptureui_uzJ9W9/Screenshot 2026-08-29 at 12.51.29.png` — latest exported state for Figma node `1195:24982`, 1002 × 346.
-- `/var/folders/k8/lnn01fy54g10_kxzrblpjmpw0000gn/T/TemporaryItems/NSIRD_screencaptureui_T0b4R5/Screenshot 2026-08-29 at 15.57.38.png` — annotated team-card spacing reference: 46 px avatar, 12 px row gap, top-aligned title block.
-- `/var/folders/k8/lnn01fy54g10_kxzrblpjmpw0000gn/T/TemporaryItems/NSIRD_screencaptureui_lH9mcL/Screenshot 2026-08-29 at 12.32.52.png` — team-detail hero reference, 960 × 956.
-- `/var/folders/k8/lnn01fy54g10_kxzrblpjmpw0000gn/T/TemporaryItems/NSIRD_screencaptureui_qhdtob/Screenshot 2026-08-29 at 12.34.16.png` — challenges-block reference, 952 × 656.
-- State: populated team and game screens in the dark green theme.
+- `/Users/alfa/Downloads/Matchup Landing.pdf` — supplied one-page landing design, 1440 × 5053 pt.
+- Rendered source: `/private/tmp/matchup-landing-pdf/page-1.png`, 2400 × 8422 px.
+- State: public desktop landing page in the Matchup dark theme.
 
 **Implementation evidence**
 
-- Components: `.join-request-card`, `.team-card`, `.team-detail-hero`, `.team-screen-header-actions`, `.team-challenges-block`.
-- Intended mobile viewport: 390 CSS px wide, device scale factor 1.
-- Implementation screenshot: unavailable because the in-app browser control surface is not exposed in this session.
-- Console and primary interaction verification: blocked for the same reason.
+- Route: `http://127.0.0.1:3102/about`.
+- Desktop screenshot: `/private/tmp/matchup-landing-desktop.png`, 1440 CSS px viewport, device scale factor 2.
+- Desktop first-screen screenshot: `/private/tmp/matchup-landing-desktop-viewport.png`, 1440 × 1000 px.
+- Mobile screenshot: `/private/tmp/matchup-landing-mobile.png`, 390 × 844 px viewport.
+- Source and implementation were opened together for visual comparison after normalizing the implementation to the 1440 px design width.
+- Primary navigation tested: the «Команды» anchor opens `#teams`.
+- Seven Telegram CTA links are present and point to the server-owned `/telegram` redirect.
+- Console errors and warnings: none.
 
 **Findings**
 
-- [P2] Browser-rendered post-change comparison is unavailable.
-  Location: waiting players, team list, team detail, team actions, challenges block.
-  Evidence: all four source images were opened at original resolution, but no browser-rendered screenshot can be captured in this session.
-  Impact: final typography and pixel alignment cannot be signed off automatically.
-  Fix: capture the deployed screens at the same mobile viewport and compare them to the supplied references.
-
-**Implementation Checklist**
-
-- Capture the deployed waiting-player row and team list/detail screens at a 390 px mobile viewport.
-- Compare rating alignment, avatar crop/overhang, combined top actions, card padding and challenge-block grouping.
-- Correct any visible P1/P2 drift before final visual sign-off.
+- No actionable P0/P1/P2 differences remain.
+- Typography: system Inter-compatible stack reproduces the source hierarchy, weights, line height and wrapping; the mobile hero was corrected so its heading remains within the card.
+- Spacing and layout: desktop follows the source's 1240 px content frame, large vertical section rhythm, three-column feature row and two-column smart-feature row. Mobile collapses every content grid without horizontal overflow.
+- Colors and tokens: near-black background, charcoal surfaces, muted gray copy and acid-green CTA treatment match the source.
+- Image quality: all nine supplied PDF-derived visual assets load at non-zero intrinsic resolution and use explicit crops inside their cards.
+- Copy: headings, descriptions and CTA labels match the supplied design.
 
 **Comparison history**
 
-- Waiting rows now use the same explicit avatar/name/rating grid as roster rows.
-- Team actions now reuse the game action-sheet and top-action container.
-- Challenges and create action now share one block; the team rating overhangs the avatar.
-- Team-card chips now span the full card width and align with the avatar's left edge.
-- Captain and player rows now reuse the game-screen player row structure and its 28 px rating typography.
-- Team card now uses the annotated 46 px avatar, 12 px gap, and top-aligned title/subtitle block at every mobile breakpoint.
-- No post-fix browser comparison is available in this session.
+- Pass 1: hero image retained its HTML height after CSS width scaling, making the first screen too tall; later full-page images loaded during capture and destabilized screenshot stitching.
+- Fix: normalized image height to auto and loaded the finite landing asset set eagerly.
+- Pass 2: mobile grid inherited a 450 px intrinsic track from the hero visual, widening the title block.
+- Fix: changed the mobile track to `minmax(0, 1fr)`, constrained the hero visual to the viewport and verified no horizontal overflow.
+- Post-fix evidence: desktop hero height 807 px, all images loaded, no horizontal overflow; mobile heading width 308 px inside a 362 px hero card.
 
 **Focused region comparison**
 
-- Blocked: implementation capture unavailable.
+- Hero region compared at 1440 px: headline hierarchy, CTA pair, product composition, dark frame and top navigation align with the reference.
+- Mobile hero inspected separately because the source contains no mobile frame; responsive behavior preserves the same hierarchy and conversion path.
 
-final result: blocked
+**Implementation Checklist**
+
+- [x] Desktop composition follows the supplied visual.
+- [x] Mobile layout is readable and overflow-free.
+- [x] All visual assets load.
+- [x] Internal navigation works.
+- [x] Telegram conversion links use a stable first-party redirect.
+- [x] SEO title, description, canonical, Open Graph, structured data, robots and sitemap are present.
+
+**Follow-up Polish**
+
+- A dedicated 1200 × 630 social preview can replace the current hero crop later; this is P3 and does not block launch.
+
+final result: passed

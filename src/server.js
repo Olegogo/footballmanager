@@ -237,6 +237,20 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'GET' && (url.pathname === '/about' || url.pathname === '/about/')) {
+      serveStaticFile(res, path.join(config.webDir, 'landing.html'));
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/telegram') {
+      const telegramUrl = bot.buildMainMiniAppLink('', {
+        initialView: url.searchParams.get('view') || 'app'
+      });
+
+      redirect(res, telegramUrl || buildAppUrl(req));
+      return;
+    }
+
     if (req.method === 'GET' && /^\/api\/share-images\/players\/[^/]+\.png$/.test(url.pathname)) {
       const session = getViewerSession(req);
       const locale = getRequestLocale(req, url, session);
@@ -309,14 +323,14 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === 'GET' && (url.pathname === '/app.js' || url.pathname === '/app.css' || url.pathname === '/config.js')) {
+    if (req.method === 'GET' && (url.pathname === '/app.js' || url.pathname === '/app.css' || url.pathname === '/config.js' || url.pathname === '/landing.css')) {
       serveStaticFile(res, path.join(config.webDir, url.pathname.slice(1)));
       return;
     }
 
     if (
       req.method === 'GET' &&
-      /^\/assets\/(?:achievements|field|icons)\/[a-z0-9_.-]+\.(?:svg|png|webp)$/i.test(url.pathname)
+      /^\/assets\/(?:achievements|field|icons|landing)\/[a-z0-9_.-]+\.(?:svg|png|webp)$/i.test(url.pathname)
     ) {
       serveStaticFile(res, path.join(config.webDir, url.pathname.slice(1)));
       return;
@@ -1172,7 +1186,17 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/robots.txt') {
-      sendText(res, 200, 'User-agent: *\nDisallow:');
+      sendText(res, 200, `User-agent: *\nAllow: /about\nDisallow: /api/\nSitemap: ${buildAbsoluteUrl(req, '/sitemap.xml')}`);
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/sitemap.xml') {
+      const aboutUrl = buildAbsoluteUrl(req, '/about');
+      res.writeHead(200, {
+        'Content-Type': 'application/xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=3600'
+      });
+      res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${aboutUrl}</loc><changefreq>weekly</changefreq><priority>1.0</priority></url></urlset>`);
       return;
     }
 
