@@ -6,6 +6,7 @@ import {
   getEffectiveOverall,
   getEffectivePosition,
   getInitials,
+  getMaximumTeamCount,
   getPositionMeta,
   getSortPosition,
   splitBalancedTeams
@@ -158,6 +159,7 @@ const state = {
   achievementFilter: '',
   skillFilter: '',
   fieldTeamFilter: 'top',
+  fieldTeamCount: 2,
   playerSearch: '',
   showCreateGameTooltip: false,
   showCreateTeamTooltip: false,
@@ -2384,7 +2386,7 @@ function renderQuickRatingPanel(game) {
 }
 
 function getFieldTeams(game) {
-  return splitBalancedTeams(game.participants ?? []);
+  return splitBalancedTeams(game.participants ?? [], state.fieldTeamCount);
 }
 
 function getSelectedFieldTeam(game) {
@@ -2394,15 +2396,31 @@ function getSelectedFieldTeam(game) {
   return requestedTeam || teams.find((team) => team.players.length) || teams[0] || { key: 'top', players: [] };
 }
 
-function renderFieldTeamControl(activeTeamKey) {
+function renderFieldTeamControl(activeTeamKey, game) {
+  const teamCount = Math.min(state.fieldTeamCount, getMaximumTeamCount(game.participants?.length ?? 0));
+  const teamMeta = [
+    { key: 'top', asset: 'shirt-white-44.svg' },
+    { key: 'bottom', asset: 'shirt-red-44.svg' },
+    { key: 'green', asset: 'shirt-green-44.svg' },
+    { key: 'blue', asset: 'shirt-blue-44.svg' }
+  ].slice(0, teamCount);
+  const canChangeTeamCount = Boolean(game.canViewerEditTeamCount);
+  const canAddTeam = canChangeTeamCount && teamCount < getMaximumTeamCount(game.participants?.length ?? 0);
+  const canResetTeams = canChangeTeamCount && teamCount === 4;
+  const countAction = canResetTeams
+    ? `<button type="button" class="field-team-count-button" data-field-team-count-action="reset" aria-label="${escapeHtml(t('match.reset_teams'))}">&times;</button>`
+    : canAddTeam
+      ? `<button type="button" class="field-team-count-button" data-field-team-count-action="add" aria-label="${escapeHtml(t('match.add_team'))}">+</button>`
+      : '';
+
   return `
     <div class="field-team-control" aria-label="${escapeHtml(t('match.teams'))}">
-      <button type="button" class="${activeTeamKey === 'top' ? 'active' : ''}" data-field-team-filter="top" aria-label="${escapeHtml(t('match.team_white'))}">
-        <img src="/assets/field/shirt-white-44.svg" alt="">
-      </button>
-      <button type="button" class="${activeTeamKey === 'bottom' ? 'active' : ''}" data-field-team-filter="bottom" aria-label="${escapeHtml(t('match.team_red'))}">
-        <img src="/assets/field/shirt-red-44.svg" alt="">
-      </button>
+      ${teamMeta.map((team, index) => `
+        <button type="button" class="${activeTeamKey === team.key ? 'active' : ''}" data-field-team-filter="${team.key}" aria-label="${escapeHtml(`${t('match.teams')} ${index + 1}`)}">
+          <img src="/assets/field/${team.asset}" alt="">
+        </button>
+      `).join('')}
+      ${countAction}
     </div>
   `;
 }
@@ -2413,7 +2431,8 @@ function renderField(game, options = {}) {
   const fieldPlayers = options.singleField || !options.showTeamControl
     ? participants
     : selectedTeam.players;
-  const shouldMirrorTeam = Boolean(options.showTeamControl && !options.singleField && selectedTeam?.key === 'bottom');
+  const selectedTeamIndex = getFieldTeams(game).findIndex((team) => team.key === selectedTeam?.key);
+  const shouldMirrorTeam = Boolean(options.showTeamControl && !options.singleField && selectedTeamIndex % 2 === 1);
   const assignments = buildFullFieldAssignments(fieldPlayers).map(({ player, slot }) => ({
     player,
     slot: shouldMirrorTeam ? { ...slot, x: 100 - slot.x } : slot
@@ -4416,7 +4435,7 @@ function render() {
     );
     gameTeamControlsNode.hidden = !canShowTeamControls;
     gameTeamControlsNode.innerHTML = canShowTeamControls
-      ? renderFieldTeamControl(getSelectedFieldTeam(currentGame).key)
+      ? renderFieldTeamControl(getSelectedFieldTeam(currentGame).key, currentGame)
       : '';
   }
   if (gameTopActionsNode) {
@@ -5043,7 +5062,22 @@ document.addEventListener('click', async (event) => {
   const fieldTeamButton = event.target.closest('[data-field-team-filter]');
 
   if (fieldTeamButton) {
-    state.fieldTeamFilter = fieldTeamButton.dataset.fieldTeamFilter === 'bottom' ? 'bottom' : 'top';
+    state.fieldTeamFilter = fieldTeamButton.dataset.fieldTeamFilter || 'top';
+    render();
+    return;
+  }
+
+  const fieldTeamCountButton = event.target.closest('[data-field-team-count-action]');
+
+  if (fieldTeamCountButton) {
+    const game = getCurrentGame();
+    if (!game?.canViewerEditTeamCount) return;
+
+    const maximumTeamCount = getMaximumTeamCount(game.participants?.length ?? 0);
+    state.fieldTeamCount = fieldTeamCountButton.dataset.fieldTeamCountAction === 'reset'
+      ? 2
+      : Math.min(maximumTeamCount, state.fieldTeamCount + 1);
+    state.fieldTeamFilter = 'top';
     render();
     return;
   }

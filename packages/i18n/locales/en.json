@@ -109,6 +109,7 @@
   },
   "match": {
     "actions": "Game actions",
+    "add_team": "Add team",
     "additional_placeholder": "For example: price, phone, bank",
     "already_exists": "This game already exists or can no longer be updated after kickoff.",
     "created": "Game created",
@@ -156,6 +157,7 @@
     "picker_empty": "No one found. Try another search.",
     "roster_lock_closed": "Squad full",
     "roster_lock_open": "Reopen recruiting",
+    "reset_teams": "Reset to two teams",
     "saved": "Game saved",
     "soon": "Soon",
     "level": "Game level",

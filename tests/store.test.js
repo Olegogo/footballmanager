@@ -722,6 +722,7 @@ test('chat admin can manage announcement games in their chat', async () => {
     });
 
     assert.equal(snapshot.currentGame.canViewerManage, true);
+    assert.equal(snapshot.currentGame.canViewerEditTeamCount, false);
 
     const updated = await store.updateManualGame({
       chatId: '-1001',

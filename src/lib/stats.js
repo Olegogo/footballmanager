@@ -1715,6 +1715,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
         isSuperAdminPlayer(viewerPlayer)
       )
     );
+    const canViewerEditTeamCount = canViewerToggleRosterLock;
     const viewerRatings = new Map(
       Object.values(state.ratings)
         .filter((rating) => rating.gameId === game.id && rating.raterPlayerId === viewerPlayerId)
@@ -1772,6 +1773,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
       },
       organizerPlayerId: game.organizerPlayerId ?? null,
       canViewerManage,
+      canViewerEditTeamCount,
       canViewerToggleRosterLock,
       pendingJoinPlayers: pendingJoinPlayerIds
         .map((playerId) => {

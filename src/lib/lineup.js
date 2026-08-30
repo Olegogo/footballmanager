@@ -219,58 +219,49 @@ export function buildFullFieldAssignments(players) {
   });
 }
 
-export function splitBalancedTeams(players) {
+export function getMaximumTeamCount(playerCount) {
+  return clamp(Math.floor((Number(playerCount) || 0) / 5), 2, 4);
+}
+
+export function splitBalancedTeams(players, requestedTeamCount = 2) {
+  const teamCount = Math.min(
+    clamp(Math.trunc(Number(requestedTeamCount)) || 2, 2, 4),
+    getMaximumTeamCount(players.length)
+  );
   const sorted = [...players].sort(
     (left, right) => getEffectiveOverall(right) - getEffectiveOverall(left)
   );
-  const maxTopCount = Math.ceil(sorted.length / 2);
-  const maxBottomCount = Math.floor(sorted.length / 2);
-  const top = [];
-  const bottom = [];
-  let topScore = 0;
-  let bottomScore = 0;
+  const keys = ['top', 'bottom', 'green', 'blue'].slice(0, teamCount);
+  const teams = keys.map((key, index) => ({
+    key,
+    players: [],
+    total: 0,
+    capacity: Math.floor(sorted.length / teamCount) + (index < sorted.length % teamCount ? 1 : 0)
+  }));
 
-  const assignToTeam = (player, preferred = '') => {
+  const assignToTeam = (player, preferredIndex = -1) => {
     const rating = getEffectiveOverall(player);
+    const preferredTeam = teams[preferredIndex];
+    const availableTeams = teams.filter((team) => team.players.length < team.capacity);
+    const team = preferredTeam?.players.length < preferredTeam?.capacity
+      ? preferredTeam
+      : availableTeams.sort((left, right) => left.total - right.total || left.players.length - right.players.length)[0];
 
-    if (preferred === 'top' && top.length < maxTopCount) {
-      top.push(player);
-      topScore += rating;
-      return true;
-    }
-
-    if (preferred === 'bottom' && bottom.length < maxBottomCount) {
-      bottom.push(player);
-      bottomScore += rating;
-      return true;
-    }
-
-    const shouldGoTop = (topScore <= bottomScore && top.length < maxTopCount) || bottom.length >= maxBottomCount;
-
-    if (shouldGoTop) {
-      top.push(player);
-      topScore += rating;
-    } else {
-      bottom.push(player);
-      bottomScore += rating;
-    }
-
-    return true;
+    if (!team) return;
+    team.players.push(player);
+    team.total += rating;
   };
 
   const goalkeepers = sorted.filter((player) => getEffectivePosition(player) === 'GK');
   const rest = sorted.filter((player) => getEffectivePosition(player) !== 'GK');
 
   goalkeepers.forEach((player, index) => {
-    assignToTeam(player, index % 2 === 0 ? 'top' : 'bottom');
+    assignToTeam(player, index % teamCount);
   });
 
   for (const player of rest) {
     assignToTeam(player);
   }
 
-  return [
-    { key: 'top', players: top, total: topScore },
-    { key: 'bottom', players: bottom, total: bottomScore }
-  ];
+  return teams.map(({ key, players: teamPlayers, total }) => ({ key, players: teamPlayers, total }));
 }
