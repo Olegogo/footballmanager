@@ -95,7 +95,7 @@ h1 { width: 657px; margin-bottom: 20px; font-size: 84px; font-weight: 700; line-
 .visual--game { width: 354px; height: 204px; align-self: center; border: 1px solid #272d29; border-radius: 20px; }
 .visual--game img { border-radius: 20px; }
 .visual--lineup { width: 298px; height: 310px; align-self: center; margin-bottom: -28px; }
-.visual--achievement { width: 322px; height: 256px; align-self: center; }
+.visual--achievement { width: 322px; height: 256px; align-self: center; border-radius: 24px; }
 
 .team-feature {
   height: 580px;
@@ -160,8 +160,8 @@ h1 { width: 657px; margin-bottom: 20px; font-size: 84px; font-weight: 700; line-
 .manifesto .eyebrow { margin-bottom: 12px; padding: 0; background: none; }
 .manifesto h2 { width: 626px; margin-bottom: 18px; font-size: 44px; font-weight: 700; line-height: 1.1; }
 .manifesto p:last-child { width: 568px; margin-bottom: 0; color: var(--muted); font-size: 20px; line-height: 1.2; }
-.loop { height: 269px; margin: 0; padding: 20px 0; list-style: none; border-radius: 28px; background: var(--surface); }
-.loop li { width: 250px; height: 50px; margin-inline: auto; position: relative; display: flex; align-items: center; gap: 16px; color: var(--text); font-size: 15px; font-weight: 500; line-height: 1.2; }
+.loop { height: 269px; margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: center; list-style: none; border-radius: 28px; background: var(--surface); }
+.loop li { width: 250px; height: 50px; margin-inline: auto; position: relative; flex: 0 0 50px; display: flex; align-items: center; gap: 16px; color: var(--text); font-size: 15px; font-weight: 500; line-height: 1.2; }
 .loop li:not(:last-child)::after { content: ""; width: 2px; height: 30px; position: absolute; left: 7px; top: 35px; background: var(--line); }
 .loop li img { width: 16px; height: 16px; flex: 0 0 16px; }
 .loop li:last-child { color: var(--accent); font-weight: 600; }
@@ -219,7 +219,7 @@ h1 { width: 657px; margin-bottom: 20px; font-size: 84px; font-weight: 700; line-
   .team-main { left: 50%; top: 300px; width: 280px; height: auto; transform: translateX(-50%); }
   .team-side { display: none; }
   .smart-card { height: 510px; }
-  .organizer { height: auto; min-height: 0; margin-top: 24px; padding: 34px 26px 0; }
+  .organizer { height: auto; min-height: 0; margin-top: 24px; padding: 34px 26px 26px; }
   .organizer-copy, .organizer h2, .organizer-copy > p:not(.organizer-label) { width: 100%; }
   .organizer h2 { font-size: 42px; }
   .organizer-copy > p:not(.organizer-label) { font-size: 17px; }
