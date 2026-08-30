@@ -124,7 +124,7 @@ h1 { width: 657px; margin-bottom: 20px; font-size: 84px; font-weight: 700; line-
 .smart-card strong { color: var(--accent); font-weight: 400; }
 .smart-visual { margin-top: auto; overflow: hidden; }
 .smart-visual img { width: 100%; height: 100%; object-fit: contain; }
-.smart-visual--parsing { width: 216px; height: 442px; margin-bottom: -28px; }
+.smart-visual--parsing { width: 216px; height: 442px; margin-bottom: -44px; }
 .smart-visual--player { width: 218px; height: 392px; margin-bottom: -28px; }
 
 .organizer {
@@ -160,8 +160,8 @@ h1 { width: 657px; margin-bottom: 20px; font-size: 84px; font-weight: 700; line-
 .manifesto .eyebrow { margin-bottom: 12px; padding: 0; background: none; }
 .manifesto h2 { width: 626px; margin-bottom: 18px; font-size: 44px; font-weight: 700; line-height: 1.1; }
 .manifesto p:last-child { width: 568px; margin-bottom: 0; color: var(--muted); font-size: 20px; line-height: 1.2; }
-.loop { height: 269px; margin: 0; padding: 20px 28px; list-style: none; border-radius: 28px; background: var(--surface); }
-.loop li { height: 50px; position: relative; display: flex; align-items: center; gap: 16px; color: var(--text); font-size: 15px; font-weight: 500; line-height: 1.2; }
+.loop { height: 269px; margin: 0; padding: 20px 0; list-style: none; border-radius: 28px; background: var(--surface); }
+.loop li { width: 250px; height: 50px; margin-inline: auto; position: relative; display: flex; align-items: center; gap: 16px; color: var(--text); font-size: 15px; font-weight: 500; line-height: 1.2; }
 .loop li:not(:last-child)::after { content: ""; width: 2px; height: 30px; position: absolute; left: 7px; top: 35px; background: var(--line); }
 .loop li img { width: 16px; height: 16px; flex: 0 0 16px; }
 .loop li:last-child { color: var(--accent); font-weight: 600; }
@@ -181,7 +181,7 @@ h1 { width: 657px; margin-bottom: 20px; font-size: 84px; font-weight: 700; line-
 .actions--center { justify-content: center; margin-top: 46px; }
 .final-cta .button--primary { width: 220px; padding: 0; }
 .final-cta .button--secondary { width: 170px; padding: 0; }
-.field-visual { width: 823px; height: 480px; margin: 9px auto 0; overflow: hidden; }
+.field-visual { width: min(823px, 100%); aspect-ratio: 1200 / 699; margin: 9px auto 0; overflow: hidden; }
 .field-visual img { width: 100%; height: 100%; object-fit: contain; }
 
 .site-footer { height: 100px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; color: var(--muted); font-size: 13px; font-weight: 500; }
@@ -216,15 +216,15 @@ h1 { width: 657px; margin-bottom: 20px; font-size: 84px; font-weight: 700; line-
   .team-feature h3 { font-size: 40px; }
   .team-feature p { width: 100%; font-size: 17px; }
   .team-feature .button { margin-top: 28px; }
-  .team-main { left: 26px; top: 300px; width: 260px; height: auto; }
-  .team-side { left: 220px; top: 220px; width: 250px; height: auto; }
+  .team-main { left: 50%; top: 300px; width: 280px; height: auto; transform: translateX(-50%); }
+  .team-side { display: none; }
   .smart-card { height: 510px; }
-  .organizer { height: 840px; margin-top: 24px; padding: 34px 26px; }
+  .organizer { height: auto; min-height: 0; margin-top: 24px; padding: 34px 26px 0; }
   .organizer-copy, .organizer h2, .organizer-copy > p:not(.organizer-label) { width: 100%; }
   .organizer h2 { font-size: 42px; }
   .organizer-copy > p:not(.organizer-label) { font-size: 17px; }
   .organizer-copy .button { margin-top: 28px; }
-  .organizer-visual { left: 26px; right: 26px; top: 390px; width: auto; height: 420px; }
+  .organizer-visual { width: 100%; height: auto; aspect-ratio: 451 / 530; margin-top: 32px; position: relative; inset: auto; }
   .manifesto { height: auto; min-height: 640px; margin-top: 24px; padding: 34px 26px; grid-template-columns: 1fr; gap: 28px; }
   .manifesto h2, .manifesto p:last-child { width: 100%; }
   .manifesto h2 { font-size: 38px; }
@@ -235,7 +235,7 @@ h1 { width: 657px; margin-bottom: 20px; font-size: 84px; font-weight: 700; line-
   .final-cta > p { width: 100%; font-size: 17px; }
   .actions--center { flex-direction: column; margin-top: 30px; }
   .final-cta .button { width: 100%; }
-  .field-visual { width: 620px; max-width: none; height: auto; margin: 22px 0 0 50%; transform: translateX(-50%); }
+  .field-visual { width: 100%; height: auto; margin: 22px auto 0; transform: none; }
   .field-visual img { height: auto; }
 }
 
@@ -246,10 +246,8 @@ h1 { width: 657px; margin-bottom: 20px; font-size: 84px; font-weight: 700; line-
   .feature-card, .smart-card, .team-feature, .organizer, .manifesto, .final-cta { border-radius: 24px; }
   .feature-card { padding: 24px; }
   .visual--lineup { max-width: 100%; }
-  .team-main { left: 20px; width: 230px; }
-  .team-side { left: 188px; width: 220px; }
+  .team-main { left: 50%; width: 250px; }
   .organizer-label { white-space: nowrap; font-size: 10px; }
-  .organizer-visual { top: 400px; }
   .final-cta h2 { font-size: 44px; }
   .site-footer { height: 80px; }
 }
