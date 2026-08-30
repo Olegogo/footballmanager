@@ -1,5 +1,6 @@
 import { parseAnnouncementText } from '../lib/parser.js';
 import { renderLineupPng } from '../lib/lineup-image.js';
+import { isSuperAdminUsername } from '../lib/admins.js';
 import { LOCALE_LABELS, SUPPORTED_LOCALES, createTranslator, normalizeLocale } from '../../packages/i18n/index.js';
 
 function delay(ms) {
@@ -1808,11 +1809,12 @@ export class TelegramBot {
       }
 
       const isAuthor = String(draft.authorTelegramUserId ?? '') === String(callbackQuery.from?.id ?? '');
-      const isAdmin = isAuthor
+      const isSuperAdmin = isSuperAdminUsername(callbackQuery.from?.username);
+      const isAdmin = isAuthor || isSuperAdmin
         ? false
         : await this.isUserAdminOfChat(draft.chatId, callbackQuery.from?.id);
 
-      if (!isAuthor && !isAdmin) {
+      if (!isAuthor && !isSuperAdmin && !isAdmin) {
         await this.answerCallbackQuery(callbackQuery.id, 'Подтвердить может автор или администратор');
         return;
       }

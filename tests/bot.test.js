@@ -1769,3 +1769,101 @@ test('handleCallbackQuery removes declined player and notifies organizer', async
   assert.equal(calls[1].chatId, '111');
   assert.match(calls[1].text, /Invited не сможет сыграть/);
 });
+
+test('super admin can cancel another author announcement without being a chat admin', async () => {
+  const calls = [];
+  const draft = {
+    id: 'announcement_draft_1',
+    chatId: '-1001',
+    authorTelegramUserId: 111,
+    confirmationMessageId: 55
+  };
+  const store = {
+    getAnnouncementDraftById(id) {
+      assert.equal(id, draft.id);
+      return draft;
+    },
+    async deleteAnnouncementDraft(id) {
+      calls.push({ type: 'delete', id });
+    }
+  };
+  const bot = new TelegramBot({ telegramBotToken: 'token' }, store);
+
+  bot.isUserAdminOfChat = async () => {
+    assert.fail('Super admin should not require Telegram chat admin lookup');
+  };
+  bot.editTextMessage = async (chatId, messageId, text) => {
+    calls.push({ type: 'edit', chatId, messageId, text });
+  };
+  bot.answerCallbackQuery = async (id, text) => {
+    calls.push({ type: 'answer', id, text });
+  };
+
+  await bot.handleCallbackQuery({
+    id: 'callback_cancel',
+    data: `cancel_announcement:${draft.id}`,
+    from: { id: 999, username: 'O_Legacy' }
+  });
+
+  assert.deepEqual(calls[0], { type: 'delete', id: draft.id });
+  assert.equal(calls[1].type, 'edit');
+  assert.deepEqual(calls[2], { type: 'answer', id: 'callback_cancel', text: 'Анонс отменён' });
+});
+
+test('super admin can create a game from another author announcement without being a chat admin', async () => {
+  const calls = [];
+  const draft = {
+    id: 'announcement_draft_2',
+    chatId: '-1001',
+    chatTitle: 'Football',
+    chatType: 'supergroup',
+    authorTelegramUserId: 111,
+    confirmationMessageId: 56,
+    sourceMessageId: 44,
+    rawText: 'Анонс',
+    sourceDate: '2099-05-01T12:00:00.000Z',
+    announcement: { scheduledAt: '2099-05-30T13:00:00.000Z' }
+  };
+  const game = {
+    id: 'game_99',
+    chatId: draft.chatId,
+    scheduledAt: draft.announcement.scheduledAt
+  };
+  const store = {
+    getAnnouncementDraftById() {
+      return draft;
+    },
+    async recordGameFromAnnouncement(payload) {
+      calls.push({ type: 'record', payload });
+      return { game };
+    },
+    async deleteAnnouncementDraft(id) {
+      calls.push({ type: 'delete', id });
+    }
+  };
+  const bot = new TelegramBot({ telegramBotToken: 'token' }, store);
+
+  bot.isUserAdminOfChat = async () => {
+    assert.fail('Super admin should not require Telegram chat admin lookup');
+  };
+  bot.schedulePromptForGame = () => {};
+  bot.publishOrSyncGameAnnouncement = async (gameId, options) => {
+    calls.push({ type: 'publish', gameId, options });
+  };
+  bot.editTextMessage = async () => {};
+  bot.answerCallbackQuery = async (id, text) => {
+    calls.push({ type: 'answer', id, text });
+  };
+
+  await bot.handleCallbackQuery({
+    id: 'callback_confirm',
+    data: `confirm_announcement:${draft.id}`,
+    from: { id: 999, username: '@o_legacy' }
+  });
+
+  assert.equal(calls[0].type, 'record');
+  assert.equal(calls[0].payload.chatId, draft.chatId);
+  assert.deepEqual(calls[1], { type: 'publish', gameId: game.id, options: { chatId: draft.chatId } });
+  assert.deepEqual(calls[2], { type: 'delete', id: draft.id });
+  assert.deepEqual(calls[3], { type: 'answer', id: 'callback_confirm', text: 'Игра создана' });
+});
