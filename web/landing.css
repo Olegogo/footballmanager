@@ -141,7 +141,7 @@ h1 { width: 657px; margin-bottom: 20px; font-size: 84px; font-weight: 700; line-
 .organizer-label { display: inline-flex; margin-bottom: 20px; padding: 8px 12px; border-radius: 80px; background: #fff; color: #000; font-size: 13px; font-weight: 700; line-height: 1.2; text-transform: uppercase; }
 .organizer h2 { width: 555px; margin-bottom: 20px; font-size: 44px; font-weight: 700; line-height: 1.1; }
 .organizer-copy > p:not(.organizer-label) { width: 590px; margin-bottom: 0; color: #262e14; font-size: 20px; line-height: 1.2; }
-.organizer-copy .button { width: 230px; margin-top: 64px; padding: 0; }
+.organizer-copy .button { width: 230px; margin-top: 20px; padding: 0; }
 .organizer-visual { position: absolute; left: 733px; top: 56px; width: 451px; height: 530px; overflow: hidden; border-radius: 36px; }
 .organizer-visual img { width: 100%; height: 100%; object-fit: cover; border-radius: 36px; }
 
