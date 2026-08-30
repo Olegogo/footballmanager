@@ -531,6 +531,10 @@ function showToast(message) {
   }, 2200);
 }
 
+function trackAnalyticsEvent(eventName) {
+  window.umami?.track(eventName);
+}
+
 function hideCreateGameTooltip() {
   state.showCreateGameTooltip = false;
   clearTimeout(createGameTooltipTimer);
@@ -4591,6 +4595,9 @@ async function submitManualGame(notifyPlayers) {
   state.snapshot = data.snapshot;
   state.selectedGameId = data.game?.id || '';
   state.activeTab = 'game';
+  if (!isEditing) {
+    trackAnalyticsEvent('create_game');
+  }
   resetManualGameState();
   render();
   showToast(isEditing ? t('match.saved') : notifyPlayers ? t('match.created_invites') : t('match.created'));
