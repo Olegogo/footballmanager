@@ -1136,6 +1136,7 @@ const server = http.createServer(async (req, res) => {
         payload: body
       });
       await bot.publishOrSyncGameAnnouncement?.(gameId);
+      await bot.processPendingGameSummaries?.();
       const snapshot = getGlobalSnapshot(session.playerId);
       sendJson(res, 200, { snapshot });
       return;
@@ -1159,6 +1160,7 @@ const server = http.createServer(async (req, res) => {
         payload: body
       });
       await bot.publishOrSyncGameAnnouncement?.(gameId);
+      await bot.processPendingGameSummaries?.();
 
       const snapshot = getGlobalSnapshot(session.playerId, { selectedGameId: gameId });
       sendJson(res, 200, { snapshot });
