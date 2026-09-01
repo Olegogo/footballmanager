@@ -4,7 +4,7 @@ import { round } from './utils.js';
 export const STAT_KEYS = ['pace', 'dribbling', 'shooting', 'defense', 'passing', 'physical'];
 export const POSITION_OPTIONS = ['N/A', 'GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST'];
 export const DEFAULT_GAME_DURATION_MS = 90 * 60 * 1000;
-export const RATING_WINDOW_AFTER_GAME_MS = 24 * 60 * 60 * 1000;
+export const RATING_WINDOW_AFTER_GAME_MS = 15 * 60 * 60 * 1000;
 export const MAX_YELLOW_CARDS = 2;
 export const MAX_RED_CARDS = 1;
 export const QUICK_RATING_POINTS = 3;

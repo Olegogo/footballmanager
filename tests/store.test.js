@@ -846,7 +846,7 @@ test('submitRating stores goalkeeper goals and assists as zero', async () => {
   }
 });
 
-test('submitRating rejects ratings after the fixed 24 hour rating deadline', async () => {
+test('submitRating rejects ratings after the fixed 15 hour rating deadline', async () => {
   const { directory, store } = await createStore();
 
   try {
@@ -932,7 +932,7 @@ test('submitRating rejects ratings after the fixed 24 hour rating deadline', asy
   }
 });
 
-test('listGamesRequiringSummary waits for 24 hours after the game ends', async () => {
+test('listGamesRequiringSummary waits for 15 hours after the game ends', async () => {
   const { directory, store } = await createStore();
 
   try {
@@ -1008,11 +1008,11 @@ test('listGamesRequiringSummary waits for 24 hours after the game ends', async (
     });
 
     assert.deepEqual(
-      store.listGamesRequiringSummary(new Date('2026-05-11T20:29:00.000Z')).map((game) => game.id),
+      store.listGamesRequiringSummary(new Date('2026-05-11T11:29:00.000Z')).map((game) => game.id),
       []
     );
     assert.deepEqual(
-      store.listGamesRequiringSummary(new Date('2026-05-11T20:30:00.000Z')).map((game) => game.id),
+      store.listGamesRequiringSummary(new Date('2026-05-11T11:30:00.000Z')).map((game) => game.id),
       ['game_1']
     );
   } finally {

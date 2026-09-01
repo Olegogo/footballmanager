@@ -677,7 +677,7 @@ test('buildGameBoostAggregation keeps negative achievements without rating penal
   assert.equal(aggregation.raterCount, 1);
 });
 
-test('buildChatSnapshot keeps rating window open for 24 hours after the default 90 minute game', () => {
+test('buildChatSnapshot keeps rating window open for 15 hours after the default 90 minute game', () => {
   const state = {
     version: 1,
     meta: {},
@@ -742,11 +742,11 @@ test('buildChatSnapshot keeps rating window open for 24 hours after the default 
     }
   };
 
-  const openSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T20:29:00.000Z'));
-  const laterSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T20:30:00.000Z'));
+  const openSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T11:29:00.000Z'));
+  const laterSnapshot = buildChatSnapshot(state, '-1001', 'player_1', new Date('2026-05-11T11:30:00.000Z'));
 
   assert.equal(openSnapshot.currentGame.canViewerRate, true);
-  assert.equal(openSnapshot.currentGame.ratingWindowEndsAt, '2026-05-11T20:30:00.000Z');
+  assert.equal(openSnapshot.currentGame.ratingWindowEndsAt, '2026-05-11T11:30:00.000Z');
   assert.equal(laterSnapshot.currentGame.canViewerRate, false);
 });
 
@@ -767,7 +767,7 @@ test('rating deadline uses an explicit game end and is not extended by rating ac
   };
 
   assert.equal(getGameEndAt(game).toISOString(), '2026-05-10T20:30:00.000Z');
-  assert.equal(getRatingWindowEnd(state, game).toISOString(), '2026-05-11T20:30:00.000Z');
+  assert.equal(getRatingWindowEnd(state, game).toISOString(), '2026-05-11T11:30:00.000Z');
 });
 
 test('buildChatSnapshot merges viewer games and career ratings across football chats', () => {
