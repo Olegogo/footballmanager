@@ -3616,7 +3616,7 @@ function renderSelfProfileForm(player, defaults, options = {}) {
   return `
     <form id="selfProfileForm" class="profile-form">
       <label class="editor-select">
-        <span>${escapeHtml(t('common.labels.position').toLowerCase())}</span>
+        <span>${escapeHtml(t('common.labels.position'))}</span>
         <select name="position">
           ${POSITION_CHOICES
             .map((position) => `
