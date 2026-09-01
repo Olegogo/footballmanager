@@ -3455,6 +3455,7 @@ function renderAchievementIcon(type) {
     cat: '/assets/achievements/cat.svg',
     no_toxic: '/assets/achievements/no-toxic.svg',
     maguire_day: '/assets/achievements/maguire-day.svg',
+    planned_it: '/assets/achievements/planned-it.svg',
     woodworker: '/assets/achievements/woodworker.svg',
     debutant: '/assets/achievements/debutant.svg',
     stable_guy: '/assets/achievements/stable-guy.svg',
