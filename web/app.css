@@ -4363,6 +4363,17 @@ input[type="range"] {
   white-space: nowrap;
 }
 
+.toast--benchmark {
+  top: 24px;
+  padding: 9px 18px;
+  background: #000;
+  border-color: transparent;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
 .hidden {
   display: none;
 }

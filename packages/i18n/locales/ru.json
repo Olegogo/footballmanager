@@ -288,6 +288,13 @@
     "achievements": "Достижения",
     "card_title": "Карточка игрока",
     "card_saved": "Карточка сохранена",
+    "benchmark": {
+      "above_average": "Выше среднего",
+      "average": "Средний уровень",
+      "below_average": "Ниже среднего",
+      "insufficient_data": "Пока мало данных",
+      "top": "Топ {{percent}}%"
+    },
     "empty_achievements": "Тут будут твои достижения",
     "filters": {
       "achievements": "Ачивки",

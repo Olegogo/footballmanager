@@ -11,6 +11,7 @@ import {
   getSortPosition,
   splitBalancedTeams
 } from '/lib/lineup.js';
+import { getProfileStatBenchmark } from '/lib/profile-benchmark.js';
 
 const STAT_META = [
   ['pace', 'Pace'],
@@ -524,13 +525,36 @@ function openExternalLink(url) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-function showToast(message) {
+function showToast(message, options = {}) {
   toastNode.textContent = message;
+  toastNode.classList.toggle('toast--benchmark', options.variant === 'benchmark');
   toastNode.classList.remove('hidden');
   clearTimeout(showToast.timer);
   showToast.timer = setTimeout(() => {
     toastNode.classList.add('hidden');
-  }, 2200);
+  }, options.duration ?? 2200);
+}
+
+function getProfileBenchmarkLabel(form, statKey, value) {
+  const benchmark = getProfileStatBenchmark(getPlayers(), {
+    viewerPlayerId: getViewerPlayerId(),
+    position: String(form?.elements?.position?.value || 'N/A'),
+    statKey,
+    value
+  });
+
+  if (benchmark.kind === 'top') {
+    return t('players.benchmark.top', { percent: benchmark.topPercent });
+  }
+
+  return t(`players.benchmark.${benchmark.kind}`);
+}
+
+function showProfileBenchmark(form, statKey, value) {
+  showToast(getProfileBenchmarkLabel(form, statKey, value), {
+    variant: 'benchmark',
+    duration: 1800
+  });
 }
 
 function trackAnalyticsEvent(eventName) {
@@ -4902,6 +4926,7 @@ function updateStepper(form, name, delta) {
 
   if (form.id === 'selfProfileForm') {
     saveSelfProfileDraft(form);
+    showProfileBenchmark(form, name, nextValue);
   } else {
     saveRatingFormDraft(form);
   }

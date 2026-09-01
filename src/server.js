@@ -341,6 +341,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'GET' && url.pathname === '/lib/profile-benchmark.js') {
+      serveStaticFile(res, path.join(config.rootDir, 'src/lib/profile-benchmark.js'));
+      return;
+    }
+
     if (req.method === 'GET' && url.pathname === '/api/bootstrap') {
       const session = getViewerSession(req);
       const bootstrapChatId = String(url.searchParams.get('chatId') || '');

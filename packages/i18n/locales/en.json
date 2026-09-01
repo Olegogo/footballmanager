@@ -288,6 +288,13 @@
     "achievements": "Achievements",
     "card_title": "Player card",
     "card_saved": "Card saved",
+    "benchmark": {
+      "above_average": "Above average",
+      "average": "Average",
+      "below_average": "Below average",
+      "insufficient_data": "Not enough data yet",
+      "top": "Top {{percent}}%"
+    },
     "empty_achievements": "Your achievements will appear here",
     "filters": {
       "achievements": "Achievements",
