@@ -181,7 +181,6 @@ const state = {
   profileReturnTab: 'games',
   selfProfileDraft: null,
   selfProfileEditing: false,
-  selfProfilePromptDismissedFor: '',
   profileActionsOpen: false,
   gameActionsOpen: false,
   mapChoice: null,
@@ -3272,39 +3271,6 @@ function hasAchievementAwardModalOpen() {
   return state.achievementAwardQueue.length > 0;
 }
 
-function shouldShowSelfProfilePrompt() {
-  const player = getViewerPlayer();
-
-  return Boolean(
-    player &&
-    state.selfProfilePromptDismissedFor !== player.id &&
-    isPlayerCardUnfilled(player) &&
-    !state.selfProfileEditing &&
-    !state.manualGameOpen &&
-    !state.selectedPlayerId &&
-    !state.achievementDetailKey &&
-    !hasAchievementAwardModalOpen() &&
-    !state.profileActionsOpen
-  );
-}
-
-function renderSelfProfilePromptModal() {
-  if (!shouldShowSelfProfilePrompt()) {
-    return '';
-  }
-
-  return `
-    <div class="modal-backdrop modal-backdrop--center" data-self-profile-prompt-backdrop="true">
-      <section class="modal-card self-profile-prompt" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('players.self_profile_prompt_title'))}">
-        <button class="modal-close" type="button" data-dismiss-self-profile-prompt="true">×</button>
-        <h2>${escapeHtml(t('players.self_profile_prompt_title'))}</h2>
-        <p>${escapeHtml(t('players.self_profile_prompt_description'))}</p>
-        <button type="button" class="primary-button" data-start-self-profile="true">${escapeHtml(t('common.buttons.enter'))}</button>
-      </section>
-    </div>
-  `;
-}
-
 function renderGamesTab() {
   const games = getFilteredGames();
 
@@ -4351,7 +4317,6 @@ function renderModal() {
   const mapChoiceModal = renderMapChoiceModal();
   const achievementAwardModal = renderAchievementAwardModal();
   const achievementDetailModal = achievementAwardModal ? '' : renderAchievementDetailModal();
-  const selfProfilePromptModal = achievementAwardModal ? '' : renderSelfProfilePromptModal();
 
   if (!player) {
     modalRoot.innerHTML = [
@@ -4362,8 +4327,7 @@ function renderModal() {
       profileActionsModal,
       mapChoiceModal,
       achievementDetailModal,
-      achievementAwardModal,
-      selfProfilePromptModal
+      achievementAwardModal
     ].join('');
     return;
   }
@@ -4395,8 +4359,7 @@ function renderModal() {
     profileActionsModal,
     mapChoiceModal,
     achievementDetailModal,
-    achievementAwardModal,
-    selfProfilePromptModal
+    achievementAwardModal
   ].join('');
 }
 
@@ -5488,18 +5451,9 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
-  if (event.target.matches('[data-self-profile-prompt-backdrop]') || event.target.closest('[data-dismiss-self-profile-prompt]')) {
-    const player = getViewerPlayer();
-    state.selfProfilePromptDismissedFor = player?.id || 'dismissed';
-    renderModal();
-    return;
-  }
-
   const startSelfProfileButton = event.target.closest('[data-start-self-profile]');
 
   if (startSelfProfileButton) {
-    const player = getViewerPlayer();
-    state.selfProfilePromptDismissedFor = player?.id || 'started';
     state.profileActionsOpen = false;
     state.profileReturnTab = ['games', 'players', 'teams'].includes(state.activeTab) ? state.activeTab : 'games';
     state.activeTab = 'profile';

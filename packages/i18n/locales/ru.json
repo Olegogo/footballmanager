@@ -337,8 +337,6 @@
     "profile_unavailable_description": "Открой ⚽ из Telegram или войди через dev-вход, чтобы увидеть свою карточку игрока.",
     "search": "Поиск по игрокам",
     "search_clear": "Очистить поиск",
-    "self_profile_prompt_title": "Твоя карточка игрока не заполнена",
-    "self_profile_prompt_description": "Пройди самооценку, чтобы лучше подобрать игру и помочь командам распределяться честнее.",
     "self_profile_rating_hint": "Рейтинг появится после первой игры",
     "self_profile_fill": "Заполнить",
     "self_profile_edit": "Редактировать",

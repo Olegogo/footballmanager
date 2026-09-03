@@ -4252,29 +4252,6 @@ input[type="range"] {
   line-height: 1.35;
 }
 
-.self-profile-prompt {
-  display: grid;
-  gap: 16px;
-  padding: 26px;
-}
-
-.self-profile-prompt h2 {
-  margin-right: 42px;
-  font-size: 28px;
-  line-height: 1.05;
-}
-
-.self-profile-prompt p {
-  color: rgba(255, 240, 209, 0.72);
-  font-weight: 800;
-  line-height: 1.4;
-}
-
-.self-profile-prompt .primary-button {
-  min-height: 54px;
-  border-radius: 20px;
-}
-
 .profile-achievements {
   display: grid;
   gap: 16px;
