@@ -1594,7 +1594,9 @@ function renderFifaCard(player, options = {}) {
             ? `
               <div class="self-profile-callout">
                 <span>${escapeHtml(t('players.self_profile_rating_hint'))}</span>
-                <button type="button" data-start-self-profile="true">${escapeHtml(t('players.self_profile_fill'))}</button>
+                <button type="button" data-start-self-profile="true">${escapeHtml(
+                  t(player.hasSelfProfile ? 'players.self_profile_edit' : 'players.self_profile_fill')
+                )}</button>
               </div>
             `
             : ''
@@ -3724,7 +3726,7 @@ function renderProfileTab() {
               clickable: false,
               showPositionSelector: true,
               editablePosition: canEditOwnProfile,
-              showSelfProfileCallout: canEditOwnProfile && !hasCareerRatings && !player.hasSelfProfile
+              showSelfProfileCallout: canEditOwnProfile && !hasCareerRatings
             })
       }
     </section>
