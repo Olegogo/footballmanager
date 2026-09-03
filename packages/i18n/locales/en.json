@@ -340,8 +340,8 @@
     "self_profile_prompt_title": "Your player card is not filled in",
     "self_profile_prompt_description": "Complete a quick self-assessment so we can match games better and balance teams more fairly.",
     "self_profile_rating_hint": "Your rating will appear after your first match",
-    "self_profile_fill": "Complete player card",
-    "self_profile_edit": "Edit player card",
+    "self_profile_fill": "Complete",
+    "self_profile_edit": "Edit",
     "settings": "Settings",
     "unknown_player": "Player",
     "view_only_description": "This player is view-only right now. Rating opens after kickoff and only for other participants in the current match."

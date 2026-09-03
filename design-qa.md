@@ -55,3 +55,52 @@
 - None required for this scoped reference.
 
 final result: passed
+
+---
+
+## Unrated profile callout — 2026-09-03
+
+**Evidence**
+
+- Source visual truth: `/Users/alfa/Downloads/Group 2136142384.png`.
+- Source pixels: 371 × 847; the callout occupies approximately 339 × 73 px.
+- Browser-rendered implementation: `/private/tmp/profile-callout-implementation.png`.
+- Implementation capture: 371 px CSS viewport at device scale factor 1; full-page output is 371 × 883 px.
+- State: own profile, no career rating, previously completed self-profile, Russian locale.
+- Primary interaction tested: `Редактировать` opens `#selfProfileForm`.
+- Browser console errors and warnings: none.
+
+**Full-view and focused comparison evidence**
+
+- The source and implementation captures were opened together in one comparison input.
+- The focused callout preserves the reference hierarchy: warm yellow 72 px surface, two-line 14 px message, and a white 128 × 40 px capsule action.
+- Focused-region evidence: `/private/tmp/profile-callout-crop.png`.
+
+**Findings**
+
+- No actionable P0/P1/P2 differences remain for the scoped callout.
+- Fonts and typography: existing app font stack retained; message and action use 14 px bold weights and the reference two-line wrapping.
+- Spacing and layout rhythm: 72 px height, 22 px radius, asymmetric 24/17 px horizontal padding, 12 px gap, and responsive compression below 360 px.
+- Colors and visual tokens: inferred source palette mapped to `#f0cb69`, `#4b3b18`, white, and `#17120a`.
+- Image quality and asset fidelity: no new raster or icon asset is required for this UI-only component; existing player imagery remains untouched.
+- Copy and content: `Рейтинг появится после первой игры`; context-sensitive action is shortened to `Заполнить` or `Редактировать`.
+
+**Comparison history**
+
+- Pass 1 found a P2 visual mismatch: the existing callout was a translucent dark 48 px panel with a gold-gradient compact button.
+- Fix: matched the reference yellow fill, 72 px height, 22 px radius, text treatment, and white capsule button.
+- Pass 2 found no remaining actionable P0/P1/P2 differences in the scoped component.
+
+**Implementation Checklist**
+
+- [x] Match callout geometry and colors.
+- [x] Match button geometry and short labels.
+- [x] Preserve both filled and unfilled profile states.
+- [x] Verify narrow-screen fallback.
+- [x] Verify the primary action and browser console.
+
+**Follow-up Polish**
+
+- Recheck optical color matching on a physical phone display after production deploy.
+
+final result: passed

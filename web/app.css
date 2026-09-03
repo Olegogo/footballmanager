@@ -2847,32 +2847,64 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 48px;
-  padding: 8px 8px 8px 12px;
-  border: 1px solid rgba(255, 236, 194, 0.18);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.08);
+  min-height: 72px;
+  padding: 12px 17px 12px 24px;
+  border: 0;
+  border-radius: 22px;
+  background: #f0cb69;
 }
 
 .self-profile-callout span {
-  color: rgba(255, 244, 220, 0.88);
-  font-size: 13px;
-  font-weight: 700;
+  max-width: 150px;
+  color: #4b3b18;
+  font-size: 14px;
+  font-weight: 800;
   line-height: 1.25;
 }
 
 .self-profile-callout button {
   flex: 0 0 auto;
-  min-height: 32px;
-  padding: 6px 12px;
+  min-height: 40px;
+  padding: 9px 14px;
   border: 0;
-  border-radius: 11px;
-  background: linear-gradient(135deg, #ffe495, #d89d18);
-  color: #281800;
+  border-radius: 999px;
+  background: #fff;
+  color: #17120a;
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 900;
+  line-height: 1;
   cursor: pointer;
+}
+
+.self-profile-callout-action--fill {
+  width: 102px;
+}
+
+.self-profile-callout-action--edit {
+  width: 128px;
+}
+
+@media (max-width: 359px) {
+  .self-profile-callout {
+    gap: 8px;
+    padding-right: 12px;
+    padding-left: 16px;
+  }
+
+  .self-profile-callout .self-profile-callout-action {
+    min-width: 104px;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .self-profile-callout-action--fill {
+    width: 104px;
+  }
+
+  .self-profile-callout-action--edit {
+    width: 118px;
+  }
 }
 
 .position-selector {
