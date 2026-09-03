@@ -1565,6 +1565,7 @@ function renderFifaCard(player, options = {}) {
   const openAttribute = clickable ? ` data-open-player="${escapeHtml(player.id)}"` : '';
   const actionNote = isRatingCard && ratingsCount > 0 ? t('rating.already_rated', { count: ratingsCount }) : '';
   const achievements = getUnlockedPlayerAchievements(player, currentStats);
+  const showSelfProfileCallout = Boolean(options.showSelfProfileCallout);
 
   return `
     <article class="fifa-card fifa-card--${escapeHtml(variant)} ${player.isMvp ? 'is-mvp' : ''} ${clickable ? 'is-clickable' : ''}" data-player-card-id="${escapeHtml(player.id)}"${openAttribute}>
@@ -1588,6 +1589,16 @@ function renderFifaCard(player, options = {}) {
           <div class="card-name">${escapeHtml(player.displayName)}</div>
           <div class="card-nick">@${escapeHtml(player.username || 'unknown')}</div>
         </div>
+        ${
+          showSelfProfileCallout
+            ? `
+              <div class="self-profile-callout">
+                <span>${escapeHtml(t('players.self_profile_rating_hint'))}</span>
+                <button type="button" data-start-self-profile="true">${escapeHtml(t('players.self_profile_fill'))}</button>
+              </div>
+            `
+            : ''
+        }
         ${
           showPositionSelector
             ? editablePosition
@@ -3712,7 +3723,8 @@ function renderProfileTab() {
               variant: 'profile',
               clickable: false,
               showPositionSelector: true,
-              editablePosition: canEditOwnProfile
+              editablePosition: canEditOwnProfile,
+              showSelfProfileCallout: canEditOwnProfile && !hasCareerRatings && !player.hasSelfProfile
             })
       }
     </section>
