@@ -102,6 +102,8 @@
   "onboarding": {
     "commands_button": "Commands",
     "about_button": "About",
+    "support_button": "Support",
+    "help_message": "For support and feedback, contact @olejooo",
     "commands_help": "⚽ Matchup commands\n\n/game — create a game from an existing announcement. Reply with this command to a message containing the date, time, place and player list.\n/open — open the app.\n/language — choose a language.\n/chatid — show the chat ID.",
     "message_1": "⚽ Create games, build teams and find new players nearby.",
     "message_2": "🎯 We’ve already created your player card. Fill it in and get ratings after matches.",

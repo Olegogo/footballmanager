@@ -618,6 +618,33 @@ test('/start sends onboarding copy with app button', async () => {
   assert.equal(sent[2].options.replyMarkup.inline_keyboard[1][0].url, 'https://app.example/about');
   assert.equal(sent[2].options.replyMarkup.inline_keyboard[2][0].text, 'Команды');
   assert.equal(sent[2].options.replyMarkup.inline_keyboard[2][0].callback_data, 'show_commands');
+  assert.equal(sent[2].options.replyMarkup.inline_keyboard[3][0].text, 'Поддержка');
+  assert.equal(sent[2].options.replyMarkup.inline_keyboard[3][0].url, 'https://t.me/olejooo');
+});
+
+test('/help sends support contact', async () => {
+  const { store } = createBotStore([]);
+  const bot = new TelegramBot({ telegramBotToken: 'token' }, store);
+  const sent = [];
+
+  bot.sendText = async (chatId, text, options = {}) => {
+    sent.push({ chatId, text, options });
+    return { message_id: 100 };
+  };
+
+  await bot.handleCommand({
+    text: '/help',
+    chat: {
+      id: 123,
+      type: 'private'
+    },
+    from: {
+      language_code: 'ru'
+    }
+  });
+
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].text, 'По вопросам поддержки и обратной связи напишите @olejooo');
 });
 
 test('commands button explains /game and other bot commands', async () => {

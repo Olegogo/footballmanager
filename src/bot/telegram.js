@@ -1374,7 +1374,7 @@ export class TelegramBot {
       message.chat.type === 'private' ? this.config.defaultChatId || chatId : chatId;
     const locale = this.getMessageLocale(message);
 
-    if (command === '/start' || command === '/help') {
+    if (command === '/start') {
       const lines = [
         this.t(locale, 'onboarding.message_1'),
         this.t(locale, 'onboarding.message_2'),
@@ -1401,9 +1401,20 @@ export class TelegramBot {
               text: this.t(locale, 'onboarding.commands_button'),
               callback_data: 'show_commands'
             }
+          ],
+          [
+            {
+              text: this.t(locale, 'onboarding.support_button'),
+              url: 'https://t.me/olejooo'
+            }
           ]
         ]
       });
+      return;
+    }
+
+    if (command === '/help') {
+      await this.sendText(chatId, this.t(locale, 'onboarding.help_message'));
       return;
     }
 
