@@ -764,6 +764,19 @@ test('buildMainMiniAppLink uses configured bot username before getMe resolves', 
   );
 });
 
+test('buildBotStartLink opens the bot chat without launching the mini app', () => {
+  const { store } = createBotStore([]);
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    telegramBotUsername: '@football_test_bot'
+  }, store);
+
+  assert.equal(
+    bot.buildBotStartLink('landing'),
+    'https://t.me/football_test_bot?start=landing'
+  );
+});
+
 test('/open uses the active deployment login URL in group chats', async () => {
   const { store } = createBotStore([]);
   const bot = new TelegramBot({

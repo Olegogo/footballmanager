@@ -243,9 +243,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/telegram') {
-      const telegramUrl = bot.buildMainMiniAppLink('', {
-        initialView: url.searchParams.get('view') || 'app'
-      });
+      const telegramUrl = url.searchParams.get('mode') === 'bot'
+        ? bot.buildBotStartLink('landing')
+        : bot.buildMainMiniAppLink('', {
+            initialView: url.searchParams.get('view') || 'app'
+          });
 
       redirect(res, telegramUrl || buildAppUrl(req));
       return;
@@ -323,7 +325,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === 'GET' && (url.pathname === '/app.js' || url.pathname === '/app.css' || url.pathname === '/config.js' || url.pathname === '/landing.css')) {
+    if (req.method === 'GET' && (url.pathname === '/app.js' || url.pathname === '/app.css' || url.pathname === '/config.js' || url.pathname === '/landing.css' || url.pathname === '/landing.js')) {
       serveStaticFile(res, path.join(config.webDir, url.pathname.slice(1)));
       return;
     }

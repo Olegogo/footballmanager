@@ -161,6 +161,16 @@ export class TelegramBot {
     return url.toString();
   }
 
+  buildBotStartLink(payload = 'landing') {
+    if (!this.botUsername) {
+      return '';
+    }
+
+    const url = new URL(`https://t.me/${this.botUsername}`);
+    url.searchParams.set('start', payload);
+    return url.toString();
+  }
+
   buildAboutUrl() {
     const baseUrl = normalizeHttpUrl(this.config.publicBaseUrl);
     return baseUrl ? new URL('/about', baseUrl).toString() : '';
