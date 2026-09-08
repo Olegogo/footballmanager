@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { isDevLoginEnabled } from './lib/dev-login.js';
 
 function env(name, fallback = '') {
   return process.env[name] ?? fallback;
@@ -58,7 +59,7 @@ export const config = {
   telegramBotToken: env('TELEGRAM_BOT_TOKEN', ''),
   telegramBotUsername: env('TELEGRAM_BOT_USERNAME', '').replace(/^@/, ''),
   defaultChatId: env('DEFAULT_CHAT_ID', ''),
-  allowDevLogin: ['1', 'true', 'yes'].includes(env('ALLOW_DEV_LOGIN', 'false').toLowerCase()),
+  allowDevLogin: isDevLoginEnabled(),
   adminImportToken: env('ADMIN_IMPORT_TOKEN', ''),
   chatTimezoneOffset: env('CHAT_TIMEZONE_OFFSET', '+03:00'),
   schedulerIntervalMs: Number(env('SCHEDULER_INTERVAL_MS', '60000')),

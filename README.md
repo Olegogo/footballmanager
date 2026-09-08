@@ -120,7 +120,7 @@ PUBLIC_BASE_URL=https://your-project.pages.dev
 CORS_ALLOWED_ORIGINS=https://your-project.pages.dev,http://localhost:3000
 TELEGRAM_BOT_TOKEN=123456:replace_me
 DEFAULT_CHAT_ID=
-ALLOW_DEV_LOGIN=true
+ALLOW_DEV_LOGIN=false
 ADMIN_IMPORT_TOKEN=replace_with_long_secret
 CHAT_TIMEZONE_OFFSET=+03:00
 SCHEDULER_INTERVAL_MS=60000
@@ -358,13 +358,21 @@ API_BASE_URL=https://your-backend.example
 
 ## Локальная проверка без Telegram
 
-Если включен `ALLOW_DEV_LOGIN=true`, miniapp можно открыть прямо в браузере:
+Для локальной проверки запусти сервер явно на loopback:
+
+```bash
+HOST=127.0.0.1 ALLOW_DEV_LOGIN=true PUBLIC_BASE_URL= CANONICAL_BASE_URL= TELEGRAM_BOT_TOKEN= npm start
+```
+
+Miniapp можно открыть прямо в браузере:
 
 ```text
 http://localhost:3000/?chatId=-1001234567890
 ```
 
-Там появится `Dev-вход`, через который можно войти как любой `username` и проверить интерфейс.
+Там появится `Dev-вход`, через который можно войти как любой `username` и проверить интерфейс. Он недоступен при `NODE_ENV=production`, публичном HOST/URL и запросах через прокси. На публичном сервере оставляй `ALLOW_DEV_LOGIN=false`.
+
+Сессии теперь содержат способ авторизации. При первом запуске обновленной версии старые сессии без этой отметки отзываются: понадобится повторный вход через Telegram. На публичном сервере также отзываются dev-сессии.
 
 Если хочешь отдельно проверить только фронт с backend на другом домене, можно локально сгенерировать конфиг так:
 
@@ -386,3 +394,16 @@ npm test
 - добавить экспорт красивых PNG-карточек
 - научить бот закреплять текущую игру и обновлять ее по кнопке
 - сделать локальный кэш аватаров
+
+## Проверка распознавания без изменения данных
+
+```bash
+node scripts/check-announcements.js data/db.json
+node scripts/check-announcements.js /path/to/telegram-export.json
+```
+
+Отчет показывает нераспознанные записи, изменения даты/времени/места и возможные дубли. Совпадение расписания само по себе не разрешает объединять игры. Для отдельного анонса можно передать `.txt`.
+
+## Продуктовая аналитика
+
+События, воронки и ограничения описаны в [docs/product-analytics.md](docs/product-analytics.md).

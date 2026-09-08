@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { TelegramBot } from './bot/telegram.js';
 import { config } from './config.js';
+import { canUseDevLogin } from './lib/dev-login.js';
 import { verifyTelegramInitData, verifyTelegramLoginData } from './lib/auth.js';
 import { renderLineupPng } from './lib/lineup-image.js';
 import { renderPlayerShareCardPng } from './lib/player-card-image.js';
@@ -12,7 +13,7 @@ import { getDictionary, normalizeLocale, translate } from '../packages/i18n/inde
 
 const GLOBAL_SNAPSHOT_CHAT_ID = 'global';
 
-const store = new AppStore(config.dataFile);
+const store = new AppStore(config.dataFile, { allowDevSessions: config.allowDevLogin });
 await store.init();
 await store.ensureChat({
   id: GLOBAL_SNAPSHOT_CHAT_ID,
@@ -35,7 +36,9 @@ setInterval(() => {
 
 function getViewerSession(req) {
   const token = getBearerToken(req);
-  return store.getSession(token);
+  const session = store.getSession(token);
+  if (session?.authMethod === 'dev' && !canUseDevLogin(req, config.allowDevLogin)) return null;
+  return session;
 }
 
 function getGlobalSnapshot(viewerPlayerId = null, options = {}) {
@@ -325,7 +328,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === 'GET' && (url.pathname === '/app.js' || url.pathname === '/app.css' || url.pathname === '/config.js' || url.pathname === '/landing.css' || url.pathname === '/landing.js')) {
+    if (req.method === 'GET' && (url.pathname === '/analytics.js' || url.pathname === '/app.js' || url.pathname === '/app.css' || url.pathname === '/config.js' || url.pathname === '/landing.css' || url.pathname === '/landing.js')) {
       serveStaticFile(res, path.join(config.webDir, url.pathname.slice(1)));
       return;
     }
@@ -362,7 +365,7 @@ const server = http.createServer(async (req, res) => {
       });
       sendJson(res, 200, {
         snapshot,
-        allowDevLogin: config.allowDevLogin,
+        allowDevLogin: canUseDevLogin(req, config.allowDevLogin),
         ...getLocalePayload(locale)
       });
       return;
@@ -541,7 +544,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/auth/dev') {
-      if (!config.allowDevLogin) {
+      if (!canUseDevLogin(req, config.allowDevLogin)) {
         sendJson(res, 403, { error: 'Dev login is disabled' });
         return;
       }

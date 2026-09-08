@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 import { isSuperAdminPlayer } from './admins.js';
 import { createSessionToken } from './auth.js';
@@ -160,6 +161,10 @@ function ensureLocaleFields(state) {
   }
 
   for (const player of Object.values(state.players ?? {})) {
+    if (!player.analyticsId) {
+      player.analyticsId = randomUUID();
+      changed = true;
+    }
     const nextLocale = normalizeLocale(player.locale || DEFAULT_LOCALE);
     const nextSource = player.localeSource || 'fallback';
 
@@ -196,11 +201,12 @@ function findPlayerByUsername(state, username) {
   return Object.values(state.players).find((player) => player.username === normalized) ?? null;
 }
 
-function createSessionRecord(token, playerId, chatId) {
+function createSessionRecord(token, playerId, chatId, authMethod = 'telegram') {
   return {
     token,
     playerId,
     chatId: String(chatId),
+    authMethod,
     expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000
   };
 }
@@ -241,6 +247,7 @@ function createPlayerRecord(state, username = '') {
   const now = new Date().toISOString();
   const player = {
     id,
+    analyticsId: randomUUID(),
     telegramUserId: null,
     username: normalizeUsername(username),
     displayName: username ? `@${normalizeUsername(username)}` : 'Игрок',
@@ -1238,8 +1245,9 @@ function mergeImportedAnnouncements(state, {
 }
 
 export class AppStore {
-  constructor(filePath) {
+  constructor(filePath, { allowDevSessions = false } = {}) {
     this.filePath = filePath;
+    this.allowDevSessions = allowDevSessions;
     this.state = defaultState();
     this.writeQueue = Promise.resolve();
     this.sessions = new Map();
@@ -1262,11 +1270,12 @@ export class AppStore {
       };
       this.sessions = new Map(
         Object.entries(this.state.sessions)
-          .filter(([, session]) => isSessionValid(session))
+          .filter(([, session]) => isSessionValid(session) && this.isSessionAllowed(session))
           .map(([token, session]) => [token, session])
       );
+      const sessionsRemoved = this.sessions.size !== Object.keys(this.state.sessions).length;
       this.state.sessions = Object.fromEntries(this.sessions);
-      if (ensureLocaleFields(this.state)) {
+      if (ensureLocaleFields(this.state) || sessionsRemoved) {
         await this.persist();
       }
     } catch (error) {
@@ -3101,6 +3110,11 @@ export class AppStore {
     });
   }
 
+  isSessionAllowed(session) {
+    return session?.authMethod === 'telegram' ||
+      (this.allowDevSessions && session?.authMethod === 'dev');
+  }
+
   getSession(token) {
     if (!token) {
       return null;
@@ -3108,7 +3122,7 @@ export class AppStore {
 
     const session = this.sessions.get(token);
 
-    if (!session) {
+    if (!session || !this.isSessionAllowed(session)) {
       return null;
     }
 
@@ -3139,6 +3153,7 @@ export class AppStore {
   }
 
   loginDevUser(chatId, username, displayName = '') {
+    if (!this.allowDevSessions) throw new Error('Dev login is disabled');
     return this.mutate((state) => {
       ensureChatState(state, { id: chatId, title: '', type: 'supergroup' });
       let player = findPlayerByUsername(state, username);
@@ -3152,7 +3167,7 @@ export class AppStore {
       attachPlayerToChat(state, chatId, player.id);
       const token = createSessionToken();
 
-      const session = createSessionRecord(token, player.id, chatId);
+      const session = createSessionRecord(token, player.id, chatId, 'dev');
       state.sessions[token] = session;
       this.sessions.set(token, session);
 
@@ -3164,6 +3179,7 @@ export class AppStore {
     const snapshot = buildChatSnapshot(this.state, String(chatId), viewerPlayerId, new Date(), options);
     return {
       ...snapshot,
+      viewerAnalyticsId: viewerPlayerId ? this.state.players[viewerPlayerId]?.analyticsId || '' : '',
       ...buildTeamViews(this.state, snapshot.players, viewerPlayerId)
     };
   }

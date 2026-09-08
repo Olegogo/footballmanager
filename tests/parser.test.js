@@ -3,6 +3,40 @@ import assert from 'node:assert/strict';
 
 import { parseAnnouncementText, parseAnnouncementTextLog, parseTelegramExportGames } from '../src/lib/parser.js';
 
+function announcementWithHeader(header) {
+  return `${header}\n1. @alpha\n2. @bravo\n3. @charlie\n4. @delta\n5. @echoo\n${requiredPaymentBlock()}`;
+}
+
+test('weekday lines and date/time labels do not become the venue', () => {
+  for (const header of [
+    'Воскресенье\n22 марта\nСокольники, поле 2\n20:00',
+    'Воскресенье 22 марта, Сокольники, поле 2\n20:00',
+    '22 марта\nВоскресенье\n20:00–22:00, Сокольники, поле 2',
+    'Дата: 22 марта\nМесто: Сокольники, поле 2\nВремя: 20:00',
+    '22 марта\n- Сокольники, поле 2\n20:00'
+  ]) {
+    const parsed = parseAnnouncementText(announcementWithHeader(header), '2026-03-20T10:00:00Z');
+    assert.equal(parsed?.location, 'Сокольники, поле 2', header);
+    assert.equal(parsed.playerUsernames.length, 5);
+    assert.equal(parsed.time, '20:00');
+  }
+});
+
+test('rejects impossible calendar dates and a missing venue', () => {
+  for (const header of ['31 февраля\nПоле 2\n20:00', '31 апреля\nПоле 2\n20:00', '0 мая\nПоле 2\n20:00', '22 марта\nВоскресенье\n20:00']) {
+    assert.equal(parseAnnouncementText(announcementWithHeader(header), '2026-03-20T10:00:00Z'), null);
+  }
+});
+
+test('preserves explicit year and local date for midnight games and year rollover', () => {
+  const parsed = parseAnnouncementText(announcementWithHeader('1 января 2027\nПоле 2\n00:30'), '2026-03-20T10:00:00Z');
+  assert.equal(parsed.date, '2027-01-01');
+  assert.equal(parsed.scheduledAt, '2026-12-31T21:30:00.000Z');
+  assert.equal(parseAnnouncementText(announcementWithHeader('1 января\nПоле 2\n00:30'), '2026-12-30T10:00:00Z').date, '2027-01-01');
+  assert.equal(parseAnnouncementText(announcementWithHeader('29 февраля 2024\nПоле 2\n20:00'), '2026-03-20T10:00:00Z').date, '2024-02-29');
+  assert.equal(parseAnnouncementText(announcementWithHeader('29 февраля 2026\nПоле 2\n20:00'), '2026-03-20T10:00:00Z'), null);
+});
+
 function requiredPaymentBlock() {
   return `
 1000р

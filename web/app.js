@@ -12,6 +12,7 @@ import {
   splitBalancedTeams
 } from '/lib/lineup.js';
 import { getProfileStatBenchmark } from '/lib/profile-benchmark.js';
+import { createProductAnalytics } from '/analytics.js';
 
 const STAT_META = [
   ['pace', 'Pace'],
@@ -556,8 +557,50 @@ function showProfileBenchmark(form, statKey, value) {
   });
 }
 
-function trackAnalyticsEvent(eventName) {
-  window.umami?.track(eventName);
+const productAnalytics = createProductAnalytics({
+  getTracker: () => window.umami,
+  isEnabled: () => !state.allowDevLogin && !['localhost', '127.0.0.1', '[::1]', '::1'].includes(window.location.hostname),
+  getIdentity: () => state.snapshot?.viewerAnalyticsId || ''
+});
+document.querySelector('script[data-website-id]')?.addEventListener('load', () => { void productAnalytics.flush().catch(() => {}); });
+let analyticsReady = false;
+let lastAnalyticsScreen = '';
+
+function trackAnalyticsEvent(eventName, data = {}, onceKey = '') {
+  productAnalytics.track(eventName, {
+    source: tg?.initData ? 'telegram' : 'web',
+    authenticated: Boolean(state.snapshot?.viewerPlayerId),
+    ...data
+  }, onceKey);
+}
+
+function gameAnalyticsData(gameId) {
+  const game = getGameById(gameId);
+  return { game_id: gameId, game_status: game?.status || 'unknown', join_status: game?.viewerJoinStatus || 'anonymous' };
+}
+
+function hasViewerRatedGame(game) {
+  const quick = game?.viewerQuickRating;
+  return Boolean(quick?.mvpPlayerId || quick?.boosts?.length || quick?.achievements?.length ||
+    game?.participants?.some((player) => player.viewerRating));
+}
+
+function trackScreenView() {
+  if (!analyticsReady) return;
+  const screen = state.manualGameOpen ? 'game_editor' : state.activeTab;
+  if (screen === 'games' && getFilteredGames().length === 0) {
+    trackAnalyticsEvent('games_empty', { filter: state.gamesFilter }, `games_empty:${state.gamesFilter}`);
+  }
+  const key = `${screen}:${screen === 'game' ? state.selectedGameId : ''}:${screen === 'teams' ? state.teamScreen : ''}`;
+  if (key === lastAnalyticsScreen) return;
+  lastAnalyticsScreen = key;
+  trackAnalyticsEvent('screen_view', { screen });
+  if (screen === 'game') {
+    const game = getCurrentGame();
+    if (!game) return;
+    trackAnalyticsEvent('game_view', gameAnalyticsData(game.id));
+    if (game.canViewerRate) trackAnalyticsEvent('rating_available', gameAnalyticsData(game.id), `rating_available:${game.id}`);
+  }
 }
 
 function hideCreateGameTooltip() {
@@ -666,6 +709,7 @@ async function authenticateTelegram() {
   state.chatId = state.chatId || data.snapshot?.chat?.id || '';
   localStorage.setItem(storageKey(), state.token);
   lastAuthError = '';
+  if (analyticsReady) trackAnalyticsEvent('auth_success', { method: 'telegram' }, 'auth_success');
   return true;
 }
 
@@ -4414,6 +4458,7 @@ function syncStaticLabels() {
 }
 
 function render() {
+  trackScreenView();
   syncAchievementAwards();
   syncStaticLabels();
   appShellNode?.classList.remove('app-shell--loading');
@@ -4497,6 +4542,8 @@ async function submitRating(form) {
   saveRatingFormDraft(form);
   const gameId = form.dataset.gameId;
   const targetPlayerId = form.dataset.playerId;
+  const hadGameRating = hasViewerRatedGame(getGameById(gameId));
+  const previouslyRated = Boolean(getGameById(gameId)?.participants?.find((player) => player.id === targetPlayerId)?.viewerRating);
   const formData = new FormData(form);
   const cardsEnabled = formData.get('cardsEnabled') === 'on';
   const payload = {
@@ -4519,6 +4566,8 @@ async function submitRating(form) {
 
   state.snapshot = data.snapshot;
   delete state.ratingDrafts[getRatingDraftKey(gameId, targetPlayerId)];
+  trackAnalyticsEvent('rating_saved', { ...gameAnalyticsData(gameId), rating_mode: 'detailed', mode: previouslyRated ? 'update' : 'first' });
+  if (!hadGameRating) trackAnalyticsEvent('rating_completed', { ...gameAnalyticsData(gameId), rating_mode: 'detailed' }, `rating_completed:${gameId}`);
   state.selectedPlayerId = null;
   render();
   showToast(t('rating.saved'));
@@ -4532,6 +4581,10 @@ async function submitQuickRating(gameId) {
   }
 
   const draft = getQuickRatingDraft(game);
+
+  const previous = game.viewerQuickRating;
+  const hadGameRating = hasViewerRatedGame(game);
+  const previouslyRated = Boolean(previous?.mvpPlayerId || previous?.boosts?.length || previous?.achievements?.length);
 
   if (!isQuickRatingDraftChanged(game, draft)) {
     return;
@@ -4550,6 +4603,10 @@ async function submitQuickRating(gameId) {
 
   state.snapshot = data.snapshot;
   delete state.quickRatingDrafts[getQuickRatingDraftKey(gameId)];
+  trackAnalyticsEvent('rating_saved', { ...gameAnalyticsData(gameId), rating_mode: 'quick', mode: previouslyRated ? 'update' : 'first' });
+  if (!hadGameRating && (payload.mvpPlayerId || payload.boosts.length || payload.achievements.length)) {
+    trackAnalyticsEvent('rating_completed', { ...gameAnalyticsData(gameId), rating_mode: 'quick' }, `rating_completed:${gameId}`);
+  }
   state.selectedPlayerId = null;
   render();
   showToast(t('rating.saved'));
@@ -4566,6 +4623,7 @@ async function submitSelfProfile(form) {
   state.snapshot = data.snapshot;
   state.selfProfileDraft = null;
   state.selfProfileEditing = false;
+  trackAnalyticsEvent('profile_saved');
   render();
   showToast(t('players.card_saved'));
 }
@@ -4621,7 +4679,7 @@ async function submitManualGame(notifyPlayers) {
   state.selectedGameId = data.game?.id || '';
   state.activeTab = 'game';
   if (!isEditing) {
-    trackAnalyticsEvent('create_game');
+    trackAnalyticsEvent('create_game', gameAnalyticsData(state.selectedGameId));
   }
   resetManualGameState();
   render();
@@ -4656,6 +4714,7 @@ async function ensureAuthorizedForAction() {
   const authenticated = await authenticateTelegram().catch(() => false);
 
   if (!authenticated) {
+    trackAnalyticsEvent('auth_required', { screen: state.activeTab });
     showToast(lastAuthError || t('auth.open_from_telegram'));
     return false;
   }
@@ -4668,10 +4727,12 @@ async function requestJoinGame(gameId) {
     return;
   }
 
+  const previousStatus = getGameById(gameId)?.viewerJoinStatus;
   const data = await api(`/api/games/${encodeURIComponent(gameId)}/join-request`, {
     method: 'POST'
   });
   state.snapshot = data.snapshot;
+  if (previousStatus !== 'pending' && previousStatus !== 'participant') trackAnalyticsEvent('join_requested', gameAnalyticsData(gameId));
   render();
   showToast(t('match.join_requested'));
 }
@@ -4686,6 +4747,7 @@ async function cancelJoinRequest(gameId, playerId = '') {
     body: playerId ? { playerId } : null
   });
   state.snapshot = data.snapshot;
+  trackAnalyticsEvent('join_cancelled', { ...gameAnalyticsData(gameId), actor: playerId && playerId !== getViewerPlayerId() ? 'organizer' : 'self' });
   render();
   showToast(t('match.join_cancelled'));
 }
@@ -4699,6 +4761,7 @@ async function approveJoinRequest(gameId, playerId) {
     method: 'POST'
   });
   state.snapshot = data.snapshot;
+  trackAnalyticsEvent('join_approved', { ...gameAnalyticsData(gameId), actor: 'organizer' });
   render();
   showToast(t('match.player_added'));
 }
@@ -4722,10 +4785,12 @@ async function acceptGameInvite(gameId) {
     return;
   }
 
+  const previousStatus = getGameById(gameId)?.viewerJoinStatus;
   const data = await api(`/api/games/${encodeURIComponent(gameId)}/invite/accept`, {
     method: 'POST'
   });
   state.snapshot = data.snapshot;
+  if (previousStatus !== 'participant') trackAnalyticsEvent('invite_accepted', gameAnalyticsData(gameId));
   render();
   showToast(t('match.joined'));
 }
@@ -4739,6 +4804,7 @@ async function declineGameInvite(gameId) {
     method: 'DELETE'
   });
   state.snapshot = data.snapshot;
+  trackAnalyticsEvent('invite_declined', gameAnalyticsData(gameId));
   render();
   showToast(t('common.buttons.decline'));
 }
@@ -6158,6 +6224,11 @@ async function init() {
     return;
   }
 
+  analyticsReady = true;
+  trackAnalyticsEvent('app_open', { screen: state.activeTab }, 'app_open');
+  if (state.snapshot?.viewerPlayerId) {
+    trackAnalyticsEvent('auth_success', { method: sessionToken ? 'telegram_web' : tg?.initData ? 'telegram' : 'session' }, 'auth_success');
+  }
   if (state.activeTab === 'games') {
     showCreateGameTooltip();
   } else if (state.activeTab === 'teams') {

@@ -16,10 +16,12 @@ const MONTHS = {
 };
 
 const DATE_REGEX = new RegExp(
-  `(?:(понедельник|вторник|среда|четверг|пятница|суббота|воскресенье)\\s+)?(\\d{1,2})\\s+(${Object.keys(MONTHS).join('|')})`,
+  `(?:(понедельник|вторник|среда|четверг|пятница|суббота|воскресенье)\\s+)?(\\d{1,2})\\s+(${Object.keys(MONTHS).join('|')})(?:\\s+(20\\d{2})(?:\\s*г(?:ода|\\.)?)?)?`,
   'i'
 );
 const TIME_REGEX = /\b([01]?\d|2[0-3]):([0-5]\d)\b/;
+const TIME_RANGE_REGEX = /\b([01]?\d|2[0-3]):([0-5]\d)(?:\s*[-–—]\s*(?:[01]?\d|2[0-3]):[0-5]\d)?\b/;
+const WEEKDAY_REGEX = /(^|[\s,;.])(?:понедельник|вторник|среда|четверг|пятница|суббота|воскресенье)(?=$|[\s,;.])/gi;
 const PLAYER_LINE_REGEX = /^\s*(?:(?:\d{1,2}\.)|[-•])?\s*@([A-Za-z0-9_]{3,32})\b/;
 const BARE_PLAYER_LINE_REGEX = /^\s*(?:(?:\d{1,2}\.)|[-•])\s*(?!@)(.+?)\s*$/u;
 const REQUIRED_PAYMENT_PHONE = '89295991499';
@@ -87,24 +89,34 @@ export function flattenTelegramExportText(text) {
     .join('');
 }
 
-function buildScheduledDate(day, monthIndex, timeMatch, referenceDate) {
+function buildScheduledDate(day, monthIndex, timeMatch, referenceDate, explicitYear) {
   const refDate = new Date(referenceDate);
+  if (!Number.isFinite(refDate.getTime())) return null;
   const hours = Number(timeMatch[1]);
   const minutes = Number(timeMatch[2]);
   const timezoneOffset = process.env.CHAT_TIMEZONE_OFFSET || '+03:00';
-  let year = refDate.getFullYear();
+  let year = explicitYear ? Number(explicitYear) : refDate.getUTCFullYear();
   let candidate = createDateWithOffset(year, monthIndex, day, hours, minutes, timezoneOffset);
   const diffDays = (candidate.getTime() - refDate.getTime()) / (1000 * 60 * 60 * 24);
 
-  if (diffDays < -180) {
+  if (!explicitYear && diffDays < -180) {
     year += 1;
     candidate = createDateWithOffset(year, monthIndex, day, hours, minutes, timezoneOffset);
-  } else if (diffDays > 180) {
+  } else if (!explicitYear && diffDays > 180) {
     year -= 1;
     candidate = createDateWithOffset(year, monthIndex, day, hours, minutes, timezoneOffset);
   }
 
-  return candidate;
+  const calendarDate = new Date(Date.UTC(year, monthIndex, day));
+  if (calendarDate.getUTCMonth() !== monthIndex || !Number.isFinite(candidate.getTime())) return null;
+  return { scheduledAt: candidate, date: `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` };
+}
+
+function locationFromHeader(line) {
+  return line.replace(DATE_REGEX, '').replace(TIME_RANGE_REGEX, '')
+    .replace(WEEKDAY_REGEX, '$1')
+    .replace(/(?:^|\s)(?:дата|время|начало|место|адрес)\s*:/gi, ' ')
+    .replace(/^[\s.,:;–—-]+|[\s.,:;–—-]+$/g, '').trim();
 }
 
 function createDateWithOffset(year, monthIndex, day, hours, minutes, offset) {
@@ -158,8 +170,13 @@ export function parseAnnouncementText(rawText, referenceDate = new Date(), optio
     return null;
   }
 
+  const dateIndex = lines.findIndex((line) => DATE_REGEX.test(line));
+  const timeIndex = lines.findIndex((line) => TIME_REGEX.test(line));
+  if (dateIndex < 0 || timeIndex < 0) return null;
+  const headerEnd = Math.max(dateIndex, timeIndex);
   const playerLines = lines
     .map((line, index) => {
+      if (index <= headerEnd) return null;
       const player = parsePlayerLine(line);
       return player ? { index, ...player } : null;
     })
@@ -182,9 +199,7 @@ export function parseAnnouncementText(rawText, referenceDate = new Date(), optio
   const headerLines = lines.slice(0, firstPlayerIndex);
   const footerLines = lines.slice(lastPlayerIndex + 1);
 
-  let dateLine = '';
   let dateMatch = null;
-  let timeLine = '';
   let timeMatch = null;
 
   for (const line of headerLines.length ? headerLines : lines) {
@@ -192,7 +207,6 @@ export function parseAnnouncementText(rawText, referenceDate = new Date(), optio
       const candidate = line.match(DATE_REGEX);
       if (candidate) {
         dateMatch = candidate;
-        dateLine = line;
       }
     }
 
@@ -200,7 +214,6 @@ export function parseAnnouncementText(rawText, referenceDate = new Date(), optio
       const candidate = line.match(TIME_REGEX);
       if (candidate) {
         timeMatch = candidate;
-        timeLine = line;
       }
     }
   }
@@ -209,20 +222,18 @@ export function parseAnnouncementText(rawText, referenceDate = new Date(), optio
     return null;
   }
 
-  const inlineTimeLocation = timeLine.replace(TIME_REGEX, '').replace(/^[\s.,:;-]+/, '').trim();
-  const location = headerLines.find((line) => {
-    if (line === dateLine || line === timeLine) {
-      return false;
-    }
-
-    return !parsePlayerLine(line);
-  }) ?? inlineTimeLocation;
+  const location = headerLines.map(locationFromHeader).find((line) =>
+    line && !/^\d+$/.test(line) && !/^(?:\d+\s*(?:р\.?|руб\.?|₽)|https?:\/\/)/i.test(line)
+  );
+  if (!location) return null;
 
   const footerWithoutPlayers = footerLines.filter((line) => !parsePlayerLine(line));
   const priceLine = footerWithoutPlayers.find((line) => /\d/.test(line) && /(р|руб)/i.test(line)) ?? '';
   const paymentLines = footerWithoutPlayers.filter((line) => line !== priceLine);
   const monthIndex = MONTHS[dateMatch[3].toLowerCase()];
-  const scheduledAt = buildScheduledDate(Number(dateMatch[2]), monthIndex, timeMatch, referenceDate);
+  const schedule = buildScheduledDate(Number(dateMatch[2]), monthIndex, timeMatch, referenceDate, dateMatch[4]);
+  if (!schedule) return null;
+  const { scheduledAt, date } = schedule;
   const key = [
     scheduledAt.toISOString().slice(0, 16),
     location.toLowerCase(),
@@ -240,7 +251,7 @@ export function parseAnnouncementText(rawText, referenceDate = new Date(), optio
     playerUsernames: usernames,
     playerRefs,
     scheduledAt: scheduledAt.toISOString(),
-    date: scheduledAt.toISOString().slice(0, 10),
+    date,
     time: timeMatch[0],
     key
   };
