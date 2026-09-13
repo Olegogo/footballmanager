@@ -230,7 +230,7 @@ h1 { width: 657px; margin-bottom: 20px; font-size: 84px; font-weight: 700; line-
   .manifesto h2 { font-size: 38px; }
   .manifesto p:last-child { font-size: 17px; }
   .loop { width: 100%; }
-  .final-cta { height: 690px; margin-top: 24px; padding: 44px 24px 0; }
+  .final-cta { height: auto; margin-top: 24px; padding: 44px 24px 44px; }
   .final-cta h2 { font-size: 48px; }
   .final-cta > p { width: 100%; font-size: 17px; }
   .actions--center { flex-direction: column; margin-top: 30px; }
