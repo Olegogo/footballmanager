@@ -1,3 +1,6 @@
+import { formatMatchDate } from '../packages/i18n/dates.js';
+import { renderLanding } from './lib/landing.js';
+import { localizedError, AppError } from './lib/errors.js';
 import http from 'node:http';
 import path from 'node:path';
 
@@ -240,19 +243,25 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === 'GET' && (url.pathname === '/about' || url.pathname === '/about/')) {
-      serveStaticFile(res, path.join(config.webDir, 'landing.html'));
+    if (req.method === 'GET' && /^\/(?:about|ru|en)\/?$/.test(url.pathname)) {
+      const explicitLocale = url.pathname.match(/^\/(ru|en)\/?$/)?.[1];
+      const savedLocale = String(req.headers.cookie || '').match(/(?:^|;\s*)matchup_locale=(ru|en)(?:;|$)/)?.[1];
+      const locale = explicitLocale || savedLocale || getRequestLocale(req, url);
+      if (!explicitLocale) { redirect(res, `/${locale}`); return; }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Language': locale });
+      res.end(renderLanding(locale, getCanonicalBaseUrl(req) || config.publicBaseUrl || `http://${req.headers.host}`));
       return;
     }
 
     if (req.method === 'GET' && url.pathname === '/telegram') {
       const telegramUrl = url.searchParams.get('mode') === 'bot'
-        ? bot.buildBotStartLink('landing')
+        ? bot.buildBotStartLink(`landing_${getRequestLocale(req, url)}`)
         : bot.buildMainMiniAppLink('', {
-            initialView: url.searchParams.get('view') || 'app'
+            initialView: url.searchParams.get('view') || 'app',
+            startParam: `lang_${getRequestLocale(req, url)}`
           });
 
-      redirect(res, telegramUrl || buildAppUrl(req));
+      redirect(res, telegramUrl || buildAppUrl(req, { locale: getRequestLocale(req, url) }));
       return;
     }
 
@@ -280,7 +289,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      sendPng(res, await renderLineupPng(game));
+      sendPng(res, await renderLineupPng(game, getRequestLocale(req, url, getViewerSession(req))));
       return;
     }
 
@@ -341,6 +350,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'GET' && url.pathname === '/lib/dates.js') {
+      serveStaticFile(res, path.join(config.rootDir, 'packages/i18n/dates.js')); return;
+    }
+
     if (req.method === 'GET' && url.pathname === '/lib/lineup.js') {
       serveStaticFile(res, path.join(config.rootDir, 'src/lib/lineup.js'));
       return;
@@ -382,7 +395,7 @@ const server = http.createServer(async (req, res) => {
       );
 
       if (!auth.ok) {
-        sendJson(res, 401, { error: auth.reason });
+        sendJson(res, 401, { errorKey: 'errors.unauthorized', error: t(normalizeLocale(body.locale), 'errors.unauthorized') });
         return;
       }
 
@@ -405,6 +418,9 @@ const server = http.createServer(async (req, res) => {
         await refreshTelegramChatAdminStatus(requestedChatId, player);
       }
 
+      if (['ru', 'en'].includes(body.preferredLocale) && player.localeSource !== 'manual') {
+        await store.setPlayerLocale(player.id, body.preferredLocale, 'manual');
+      }
       const token = await store.createSession(player.id, GLOBAL_SNAPSHOT_CHAT_ID);
       const locale = store.getPlayerLocale(player.id);
       const snapshot = getGlobalSnapshot(player.id, {
@@ -505,9 +521,9 @@ const server = http.createServer(async (req, res) => {
         initialView: 'game',
         gameId: game.id
       }) || appUrl;
-      const imageUrl = buildAbsoluteUrl(req, `/api/share-images/games/${encodeURIComponent(game.id)}.png`);
+      const imageUrl = buildAbsoluteUrl(req, `/api/share-images/games/${encodeURIComponent(game.id)}.png`, { locale });
       const shareText = t(locale, 'common.share.game_text', {
-        date: game.dateLabel,
+        date: formatMatchDate(game, locale),
         time: game.time,
         location: game.location ? `, ${game.location}` : ''
       });
@@ -587,6 +603,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const body = await readJsonBody(req);
+      if (!['ru', 'en'].includes(body.locale)) throw new AppError('invalid_locale');
       const player = await store.setPlayerLocale(session.playerId, body.locale, 'manual');
       const updatedLocale = store.getPlayerLocale(player.id);
       const snapshot = getGlobalSnapshot(session.playerId);
@@ -728,7 +745,7 @@ const server = http.createServer(async (req, res) => {
       const session = getViewerSession(req);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Требуется авторизация' });
+        sendJson(res, 401, { errorKey: 'errors.unauthorized', error: t(getRequestLocale(req, url, getViewerSession(req)), 'errors.unauthorized') });
         return;
       }
 
@@ -755,7 +772,7 @@ const server = http.createServer(async (req, res) => {
       const session = getViewerSession(req);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Требуется авторизация' });
+        sendJson(res, 401, { errorKey: 'errors.unauthorized', error: t(getRequestLocale(req, url, getViewerSession(req)), 'errors.unauthorized') });
         return;
       }
 
@@ -775,7 +792,7 @@ const server = http.createServer(async (req, res) => {
       const session = getViewerSession(req);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Требуется авторизация' });
+        sendJson(res, 401, { errorKey: 'errors.unauthorized', error: t(getRequestLocale(req, url, getViewerSession(req)), 'errors.unauthorized') });
         return;
       }
 
@@ -797,7 +814,7 @@ const server = http.createServer(async (req, res) => {
       const session = getViewerSession(req);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Требуется авторизация' });
+        sendJson(res, 401, { errorKey: 'errors.unauthorized', error: t(getRequestLocale(req, url, getViewerSession(req)), 'errors.unauthorized') });
         return;
       }
 
@@ -820,7 +837,7 @@ const server = http.createServer(async (req, res) => {
       const session = getViewerSession(req);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Требуется авторизация' });
+        sendJson(res, 401, { errorKey: 'errors.unauthorized', error: t(getRequestLocale(req, url, getViewerSession(req)), 'errors.unauthorized') });
         return;
       }
 
@@ -864,7 +881,7 @@ const server = http.createServer(async (req, res) => {
       const session = getViewerSession(req);
 
       if (!session) {
-        sendJson(res, 401, { error: 'Требуется авторизация' });
+        sendJson(res, 401, { errorKey: 'errors.unauthorized', error: t(getRequestLocale(req, url, getViewerSession(req)), 'errors.unauthorized') });
         return;
       }
 
@@ -906,6 +923,7 @@ const server = http.createServer(async (req, res) => {
         location: body.location,
         additionalInfo: body.additionalInfo,
         playerIds: body.playerIds,
+        timeZone: body.timeZone,
         timezoneOffset: config.chatTimezoneOffset
       });
 
@@ -944,6 +962,7 @@ const server = http.createServer(async (req, res) => {
         location: body.location,
         additionalInfo: body.additionalInfo,
         playerIds: body.playerIds,
+        timeZone: body.timeZone,
         timezoneOffset: config.chatTimezoneOffset
       });
 
@@ -1198,17 +1217,18 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/robots.txt') {
-      sendText(res, 200, `User-agent: *\nAllow: /about\nDisallow: /api/\nSitemap: ${buildAbsoluteUrl(req, '/sitemap.xml')}`);
+      sendText(res, 200, `User-agent: *\nAllow: /about\nAllow: /ru\nAllow: /en\nDisallow: /api/\nSitemap: ${buildAbsoluteUrl(req, '/sitemap.xml')}`);
       return;
     }
 
     if (req.method === 'GET' && url.pathname === '/sitemap.xml') {
-      const aboutUrl = buildAbsoluteUrl(req, '/about');
+      const aboutUrl = buildAbsoluteUrl(req, '/ru');
+      const englishUrl = buildAbsoluteUrl(req, '/en');
       res.writeHead(200, {
         'Content-Type': 'application/xml; charset=utf-8',
         'Cache-Control': 'public, max-age=3600'
       });
-      res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${aboutUrl}</loc><changefreq>weekly</changefreq><priority>1.0</priority></url></urlset>`);
+      res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${aboutUrl}</loc><changefreq>weekly</changefreq><priority>1.0</priority></url><url><loc>${englishUrl}</loc><changefreq>weekly</changefreq><priority>1.0</priority></url></urlset>`);
       return;
     }
 
@@ -1223,7 +1243,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     sendJson(res, statusCode, {
-      error: error.message || 'Internal server error'
+      ...localizedError(error, getRequestLocale(req, new URL(req.url || '/', 'http://localhost'), getViewerSession(req)))
     });
   }
 });

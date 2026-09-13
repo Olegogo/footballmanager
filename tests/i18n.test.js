@@ -8,14 +8,14 @@ import {
   translate
 } from '../packages/i18n/index.js';
 
-test('normalizeLocale supports Telegram language codes and falls back to ru', () => {
+test('normalizeLocale supports Telegram language codes and falls back to en', () => {
   assert.equal(normalizeLocale('ru'), 'ru');
   assert.equal(normalizeLocale('ru-RU'), 'ru');
   assert.equal(normalizeLocale('en'), 'en');
   assert.equal(normalizeLocale('en-US'), 'en');
   assert.equal(normalizeLocale('en-GB'), 'en');
-  assert.equal(normalizeLocale('de-DE'), 'ru');
-  assert.equal(normalizeLocale(''), 'ru');
+  assert.equal(normalizeLocale('de-DE'), 'en');
+  assert.equal(normalizeLocale(''), 'en');
 });
 
 test('resolveLocale respects manual, Telegram, chat and fallback priority', () => {
@@ -51,9 +51,9 @@ test('getPluralCategory handles ru and en plural forms', () => {
   assert.equal(getPluralCategory('en', 2), 'other');
 });
 
-test('translate interpolates values and falls back to ru for unknown locale', () => {
+test('translate interpolates values and falls back to en for unknown locale', () => {
   assert.equal(translate('en-US', 'common.buttons.save'), 'Save');
   assert.equal(translate('ru', 'common.buttons.save'), 'Сохранить');
-  assert.equal(translate('fr', 'common.buttons.save'), 'Сохранить');
+  assert.equal(translate('fr', 'common.buttons.save'), 'Save');
   assert.equal(translate('en', 'rating.already_rated', { count: 3 }), '3 rated');
 });

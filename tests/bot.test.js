@@ -5,7 +5,7 @@ import { TelegramBot } from '../src/bot/telegram.js';
 
 const RATING_PROMPT_TEXT = [
   '⚽ <b>Игра стартовала</b>',
-  '26 июля · 19:30',
+  '19 мая · 19:30',
   'Сокольники, поле 2',
   '',
   'Игроков: <b>15</b>',
@@ -22,6 +22,7 @@ function createRatingGame(overrides = {}) {
     location: 'Сокольники, поле 2',
     playerIds: Array.from({ length: 15 }, (_, index) => `player_${index + 1}`),
     scheduledAt: '2099-05-19T16:30:00.000Z',
+    date: '2099-05-19',
     ...overrides
   };
 }
@@ -137,7 +138,7 @@ test('processPendingRatingPrompts sends one lineup message with level when major
     sent[0].options.caption,
     [
       '⚽ <b>Игра стартовала</b>',
-      '26 июля · 19:30',
+      '19 мая · 19:30',
       'Сокольники, поле 2',
       '',
       'Игроков: <b>3</b>',
@@ -603,6 +604,7 @@ test('/start sends onboarding copy with app button', async () => {
 
   await bot.handleCommand({
     text: '/start',
+    from: { id: 123, language_code: 'ru' },
     chat: {
       id: 123,
       type: 'private'
@@ -615,7 +617,7 @@ test('/start sends onboarding copy with app button', async () => {
   assert.equal(sent[2].text, '🤖 Добавь бота в чат с игроками. Он поможет собирать составы, балансировать команды и вести статистику.');
   assert.equal(sent[2].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть приложение');
   assert.equal(sent[2].options.replyMarkup.inline_keyboard[1][0].text, 'О проекте');
-  assert.equal(sent[2].options.replyMarkup.inline_keyboard[1][0].url, 'https://app.example/about');
+  assert.equal(sent[2].options.replyMarkup.inline_keyboard[1][0].url, 'https://app.example/ru');
   assert.equal(sent[2].options.replyMarkup.inline_keyboard[2][0].text, 'Команды');
   assert.equal(sent[2].options.replyMarkup.inline_keyboard[2][0].callback_data, 'show_commands');
   assert.equal(sent[2].options.replyMarkup.inline_keyboard[3][0].text, 'Поддержка');
@@ -1847,7 +1849,7 @@ test('super admin can cancel another author announcement without being a chat ad
 
   assert.deepEqual(calls[0], { type: 'delete', id: draft.id });
   assert.equal(calls[1].type, 'edit');
-  assert.deepEqual(calls[2], { type: 'answer', id: 'callback_cancel', text: 'Анонс отменён' });
+  assert.deepEqual(calls[2], { type: 'answer', id: 'callback_cancel', text: 'Announcement cancelled' });
 });
 
 test('super admin can create a game from another author announcement without being a chat admin', async () => {
@@ -1905,5 +1907,5 @@ test('super admin can create a game from another author announcement without bei
   assert.equal(calls[0].payload.chatId, draft.chatId);
   assert.deepEqual(calls[1], { type: 'publish', gameId: game.id, options: { chatId: draft.chatId } });
   assert.deepEqual(calls[2], { type: 'delete', id: draft.id });
-  assert.deepEqual(calls[3], { type: 'answer', id: 'callback_confirm', text: 'Игра создана' });
+  assert.deepEqual(calls[3], { type: 'answer', id: 'callback_confirm', text: 'Match created' });
 });

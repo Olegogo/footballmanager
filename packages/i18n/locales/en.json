@@ -175,7 +175,8 @@
     "validation_required": "Fill in date, time and location",
     "validation_past_date": "You can’t create a game in the past.",
     "validation_players_min": "Add at least two players",
-    "waiting": "Waiting"
+    "waiting": "Waiting",
+    "time_zone": "Venue time zone"
   },
   "teams": {
     "search": "Search by team name or area",
@@ -321,19 +322,71 @@
     "no_position": "No position",
     "position_not_selected": "Position not selected",
     "positions": {
-      "GK": { "short": "GK", "card": "gk", "title": "Goalkeeper" },
-      "CB": { "short": "CB", "card": "cb", "title": "Centre back" },
-      "LB": { "short": "LB", "card": "lb", "title": "Left back" },
-      "RB": { "short": "RB", "card": "rb", "title": "Right back" },
-      "CDM": { "short": "DM", "card": "dm", "title": "Defensive midfielder" },
-      "CM": { "short": "CM", "card": "cm", "title": "Central midfielder" },
-      "CAM": { "short": "AM", "card": "am", "title": "Attacking midfielder" },
-      "LM": { "short": "LM", "card": "lm", "title": "Left midfielder" },
-      "RM": { "short": "RM", "card": "rm", "title": "Right midfielder" },
-      "LW": { "short": "LW", "card": "lw", "title": "Left winger" },
-      "RW": { "short": "RW", "card": "rw", "title": "Right winger" },
-      "ST": { "short": "ST", "card": "st", "title": "Striker" },
-      "N/A": { "short": "—", "card": "—", "title": "Not selected" }
+      "GK": {
+        "short": "GK",
+        "card": "gk",
+        "title": "Goalkeeper"
+      },
+      "CB": {
+        "short": "CB",
+        "card": "cb",
+        "title": "Centre back"
+      },
+      "LB": {
+        "short": "LB",
+        "card": "lb",
+        "title": "Left back"
+      },
+      "RB": {
+        "short": "RB",
+        "card": "rb",
+        "title": "Right back"
+      },
+      "CDM": {
+        "short": "DM",
+        "card": "dm",
+        "title": "Defensive midfielder"
+      },
+      "CM": {
+        "short": "CM",
+        "card": "cm",
+        "title": "Central midfielder"
+      },
+      "CAM": {
+        "short": "AM",
+        "card": "am",
+        "title": "Attacking midfielder"
+      },
+      "LM": {
+        "short": "LM",
+        "card": "lm",
+        "title": "Left midfielder"
+      },
+      "RM": {
+        "short": "RM",
+        "card": "rm",
+        "title": "Right midfielder"
+      },
+      "LW": {
+        "short": "LW",
+        "card": "lw",
+        "title": "Left winger"
+      },
+      "RW": {
+        "short": "RW",
+        "card": "rw",
+        "title": "Right winger"
+      },
+      "ST": {
+        "short": "ST",
+        "card": "st",
+        "title": "Striker"
+      },
+      "N/A": {
+        "short": "—",
+        "card": "—",
+        "title": "Not selected"
+      }
     },
     "profile_unavailable": "Profile is unavailable",
     "profile_unavailable_description": "Open ⚽ from Telegram or use dev login to see your player card.",
@@ -388,33 +441,114 @@
       "other": "Other",
       "team": "Passing and teamwork"
     },
-    "assistant": { "title": "Assist king", "description": "Made the most assists." },
-    "cat": { "title": "Cat reflexes", "description": "Best save of the match." },
-    "comeback_maker": { "title": "Comeback maker", "description": "Changed the flow of the game." },
-    "conductor": { "title": "Conductor", "description": "Most involved in goals: goals + assists." },
-    "dark_horse": { "title": "Dark horse", "description": "Arrived with a low rating and won MVP." },
-    "debutant": { "title": "Debutant", "description": "Played the first match." },
-    "form_up": { "title": "Form boost", "description": "Improved the average rating over the last 5 games." },
-    "goleador": { "title": "Top scorer", "description": "Received the most votes as the match’s main scorer." },
-    "hat_trick": { "title": "Hat-trick hero", "description": "Scored 3 goals in one match." },
-    "last_line": { "title": "Last line", "description": "Won MVP while playing goalkeeper." },
-    "local_guy": { "title": "Local hero", "description": "Played 10 matches at one venue." },
-    "long_shot": { "title": "Long shot", "description": "Scored from outside the box." },
-    "maguire_day": { "title": "Maguire moment", "description": "Funniest mistake of the match." },
-    "mvp": { "title": "MVP", "description": "Player of the match by participant votes." },
-    "no_toxic": { "title": "No toxicity", "description": "10 matches without complaints or conflicts." },
-    "organizer": { "title": "Organizer", "description": "Created the first match." },
-    "pickpocket": { "title": "Pickpocket", "description": "Most ball recoveries." },
-    "planned_it": { "title": "Totally planned", "description": "Scored an accidental goal." },
-    "playmaker": { "title": "Playmaker", "description": "Made 3+ assists in one match." },
-    "stable_guy": { "title": "Reliable one", "description": "Played 5 matches in a row without missing one." },
-    "support": { "title": "Support", "description": "Rated every player after the match." },
-    "underrated": { "title": "Underrated", "description": "Strong stats with few MVP votes." },
-    "unselfish": { "title": "Unselfish", "description": "Passed to an empty net instead of shooting." },
-    "wall": { "title": "The wall", "description": "Best defender of the match." },
-    "woodworker": { "title": "Woodwork magnet", "description": "Hit the woodwork 3 times." },
-    "yard_elite": { "title": "Yard elite", "description": "Reached top-3 rating." },
-    "yard_veteran": { "title": "Yard veteran", "description": "Played 50 matches." }
+    "assistant": {
+      "title": "Assist king",
+      "description": "Made the most assists."
+    },
+    "cat": {
+      "title": "Cat reflexes",
+      "description": "Best save of the match."
+    },
+    "comeback_maker": {
+      "title": "Comeback maker",
+      "description": "Changed the flow of the game."
+    },
+    "conductor": {
+      "title": "Conductor",
+      "description": "Most involved in goals: goals + assists."
+    },
+    "dark_horse": {
+      "title": "Dark horse",
+      "description": "Arrived with a low rating and won MVP."
+    },
+    "debutant": {
+      "title": "Debutant",
+      "description": "Played the first match."
+    },
+    "form_up": {
+      "title": "Form boost",
+      "description": "Improved the average rating over the last 5 games."
+    },
+    "goleador": {
+      "title": "Top scorer",
+      "description": "Received the most votes as the match’s main scorer."
+    },
+    "hat_trick": {
+      "title": "Hat-trick hero",
+      "description": "Scored 3 goals in one match."
+    },
+    "last_line": {
+      "title": "Last line",
+      "description": "Won MVP while playing goalkeeper."
+    },
+    "local_guy": {
+      "title": "Local hero",
+      "description": "Played 10 matches at one venue."
+    },
+    "long_shot": {
+      "title": "Long shot",
+      "description": "Scored from outside the box."
+    },
+    "maguire_day": {
+      "title": "Maguire moment",
+      "description": "Funniest mistake of the match."
+    },
+    "mvp": {
+      "title": "MVP",
+      "description": "Player of the match by participant votes."
+    },
+    "no_toxic": {
+      "title": "No toxicity",
+      "description": "10 matches without complaints or conflicts."
+    },
+    "organizer": {
+      "title": "Organizer",
+      "description": "Created the first match."
+    },
+    "pickpocket": {
+      "title": "Pickpocket",
+      "description": "Most ball recoveries."
+    },
+    "planned_it": {
+      "title": "Totally planned",
+      "description": "Scored an accidental goal."
+    },
+    "playmaker": {
+      "title": "Playmaker",
+      "description": "Made 3+ assists in one match."
+    },
+    "stable_guy": {
+      "title": "Reliable one",
+      "description": "Played 5 matches in a row without missing one."
+    },
+    "support": {
+      "title": "Support",
+      "description": "Rated every player after the match."
+    },
+    "underrated": {
+      "title": "Underrated",
+      "description": "Strong stats with few MVP votes."
+    },
+    "unselfish": {
+      "title": "Unselfish",
+      "description": "Passed to an empty net instead of shooting."
+    },
+    "wall": {
+      "title": "The wall",
+      "description": "Best defender of the match."
+    },
+    "woodworker": {
+      "title": "Woodwork magnet",
+      "description": "Hit the woodwork 3 times."
+    },
+    "yard_elite": {
+      "title": "Yard elite",
+      "description": "Reached top-3 rating."
+    },
+    "yard_veteran": {
+      "title": "Yard veteran",
+      "description": "Played 50 matches."
+    }
   },
   "stats": {
     "assists": "Assists",
@@ -454,11 +588,64 @@
     "chat_not_initialized": "Chat is not initialized yet",
     "chat_not_initialized_description": "Add the bot to a football chat, send /open or the first game announcement, and the data will appear here.",
     "generic": "Something went wrong",
-    "game_not_found": "Game not found",
+    "game_not_found": "Match not found",
     "internal": "Internal server error",
     "not_found": "Not found",
     "player_not_found": "Player not found",
-    "unauthorized": "Authorization required"
+    "unauthorized": "Authorization required",
+    "team_image_large": "The team image is too large",
+    "team_image_invalid": "Invalid team image",
+    "captain_only": "Only the captain can manage the team",
+    "schedule_required": "Enter the match date and time",
+    "game_in_past": "You cannot create a match in the past",
+    "players_required": "Add at least two players",
+    "organizer_only": "Only the organizer can edit the match",
+    "roster_organizer_only": "Only the organizer can close registration",
+    "chat_not_found": "Chat not found",
+    "organizer_not_found": "Organizer not found",
+    "team_details_required": "Enter the team name and city or area",
+    "team_not_found": "Team not found",
+    "opponent_not_found": "Opponent not found",
+    "challenge_self": "You cannot challenge your own team",
+    "venue_schedule_required": "Enter the date, time and venue",
+    "challenge_not_found": "Challenge not found",
+    "challenge_active": "This active challenge can no longer be changed",
+    "challenge_closed": "This challenge is already closed",
+    "challenge_processed": "This challenge has already been handled",
+    "challenge_team_required": "Choose your team to accept the challenge",
+    "challenge_team_inactive": "An inactive team cannot accept a challenge",
+    "challenge_captain_only": "Only the captain can respond to a challenge",
+    "challenge_other_turn": "Waiting for the other team to respond",
+    "challenge_action_invalid": "Invalid challenge action",
+    "global_not_found": "The match directory is unavailable",
+    "game_not_editable": "This match can no longer be edited",
+    "game_player_not_found": "Match or player not found",
+    "invite_expired": "This invitation can no longer be accepted",
+    "invite_not_found": "Invitation not found",
+    "registration_closed": "Registration for this match is closed",
+    "already_joined": "You are already in this match",
+    "already_invited": "You have already been invited to this match",
+    "requests_closed": "Join requests for this match are closed",
+    "request_not_found": "Join request not found",
+    "game_not_started": "The match has not started yet",
+    "rating_closed": "The rating window is closed",
+    "rate_self": "You cannot rate yourself",
+    "rate_target_only": "You can only rate participants in this match",
+    "rate_participants_only": "Only match participants can rate players",
+    "vote_self": "You cannot vote for yourself",
+    "mvp_participants_only": "MVP must be a match participant",
+    "points_self": "You cannot award points to yourself",
+    "points_participants_only": "Points can only be awarded to match participants",
+    "unknown_stat": "Unknown attribute",
+    "achievement_self": "You cannot award achievements to yourself",
+    "achievement_participants_only": "Achievements can only be awarded to match participants",
+    "achievement_unknown": "Unknown achievement",
+    "rating_empty": "Choose an MVP, award an achievement or give attribute points",
+    "points_limit": "You can award at most {{count}} points",
+    "request_failed": "The request failed. Please try again.",
+    "invalid_timezone": "Enter a valid time zone",
+    "invalid_local_time": "This local time does not exist or is ambiguous because the clocks change. Choose another time.",
+    "invalid_locale": "Choose Russian or English"
   },
   "bot": {
     "chat_connected": "⚽ I’m connected to this chat and ready to help with games.\n\nHow to create a game:\n• send an announcement with a date, time, place and tagged @players — I’ll recognize it and ask for confirmation;\n• reply to an existing announcement with /game;\n• or open the app with /open and create a game manually.\n\nWhen the match starts, I’ll remind participants to rate the players. Games, player cards and ratings stay available in one app even when the bot is used in several chats.\n\nDisable Privacy Mode in BotFather so I can see regular announcement messages. If recognition fails, reply to the announcement with /game.",
@@ -477,6 +664,56 @@
     "mvp_progress_majority": "Most players voted for MVP {{name}}",
     "no_username": "no username",
     "summary_datetime": "{{date}} at {{time}}",
-    "update_game_failed": "Couldn’t update the game"
+    "update_game_failed": "Couldn’t update the game",
+    "announcement_title": "⚽ <b>Match</b>",
+    "started_title": "⚽ <b>The match has started</b>",
+    "rating_reminder": "Remember to award points to standout players and choose the MVP",
+    "rate_players": "Rate players",
+    "details": "Match details",
+    "rate": "Rate",
+    "join": "I’m in",
+    "decline": "I can’t make it",
+    "draft_title": "⚽ <b>Match announcement</b>",
+    "draft_confirm": "Create and publish this match?",
+    "create": "Create a game",
+    "cancel": "Cancel",
+    "created": "Match created",
+    "draft_invalid": "The announcement changed and can no longer be parsed. Announcement cancelled.",
+    "draft_missing": "This draft is no longer available",
+    "confirm_admin": "Only the author or an admin can confirm",
+    "cancelled_title": "⚽ Announcement cancelled",
+    "cancelled": "Announcement cancelled",
+    "past_title": "⚽ Match not created: the scheduled time has passed.",
+    "past": "You cannot create a match in the past",
+    "exists": "This match already exists",
+    "created_title": "⚽ <b>Match created</b>",
+    "create_failed": "Could not create the match",
+    "not_found": "Match not found",
+    "joined": "You are in the lineup",
+    "already_joined": "You are already in the lineup",
+    "join_failed": "Could not join the match",
+    "player_count": "Players: <b>{{count}}</b>",
+    "level": "Match level: <b>{{rating}}</b>",
+    "timezone_help": "Group time zone: {{zone}}. An admin can change it: /timezone Europe/London",
+    "timezone_updated": "Time zone for new announcements: {{zone}}",
+    "description": "Find football games nearby, build lineups and teams, rate players, and track your progress. Open Matchup or add the bot to your football chat.",
+    "short_description": "Amateur football: games, teams, and stats in Telegram.",
+    "commands": {
+      "start": "Get started",
+      "open": "Open Matchup",
+      "game": "Create a match from a post",
+      "language": "Choose language",
+      "timezone": "Group time zone",
+      "help": "Help"
+    },
+    "ranked": "Ranked",
+    "friendly": "Friendly",
+    "challenge_accept": "Accept",
+    "challenge_decline": "Decline",
+    "challenge_counter": "Suggest another time",
+    "challenge_accepted": "Challenge accepted",
+    "challenge_declined": "Challenge declined",
+    "challenge_text": "<b>{{team}} challenges your team</b>\n{{format}}, {{date}} {{time}}\n{{location}}\n{{mode}}",
+    "challenge_counter_text": "<b>{{team}} suggests new terms</b>\n{{format}}, {{date}} {{time}}\n{{location}}\n{{mode}}"
   }
 }

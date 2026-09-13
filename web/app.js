@@ -1,3 +1,4 @@
+import { formatMatchDate } from '/lib/dates.js';
 import {
   POSITION_CHOICES,
   POSITION_META,
@@ -97,9 +98,6 @@ const GAME_FILTERS = [
   { key: 'current', labelKey: 'match.filters.current' },
   { key: 'finished', labelKey: 'match.filters.finished' }
 ];
-const MONTH_NAME_PATTERN = 'января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря';
-const MONTH_INDEX_BY_RU_LABEL = new Map(MONTH_NAME_PATTERN.split('|').map((month, index) => [month, index + 1]));
-const GAME_DATE_REGEX = new RegExp(`(\\d{1,2})\\s+(${MONTH_NAME_PATTERN})`, 'i');
 function readLaunchContext() {
   const searchParams = new URLSearchParams(window.location.search);
   const urlChatId = searchParams.get('chatId') || '';
@@ -151,7 +149,7 @@ const state = {
   chatId: launchContext.chatId,
   token: '',
   snapshot: null,
-  locale: 'ru',
+  locale: getTelegramLocale(),
   translations: {},
   allowDevLogin: false,
   activeTab: getSafeActiveTab(readInitialTabFromLaunch()),
@@ -253,10 +251,12 @@ if (window.ResizeObserver && appShellNode) {
 requestAnimationFrame(syncAppShellBounds);
 
 function getTelegramLocale() {
-  return String(tg?.initDataUnsafe?.user?.language_code || navigator.language || 'ru')
-    .trim()
-    .toLowerCase()
-    .startsWith('en') ? 'en' : 'ru';
+  let saved = '';
+  try { saved = localStorage.getItem('matchup-locale') || ''; } catch {}
+  const launch = window.Telegram?.WebApp?.initDataUnsafe?.start_param || new URLSearchParams(window.location.search).get('tgWebAppStartParam') || '';
+  const explicit = new URLSearchParams(window.location.search).get('locale') || String(launch).match(/^lang_(ru|en)$/)?.[1];
+  const value = saved || explicit || window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code || navigator.language || 'en';
+  return String(value).toLowerCase().startsWith('ru') ? 'ru' : 'en';
 }
 
 function getTranslationValue(key) {
@@ -568,6 +568,7 @@ let lastAnalyticsScreen = '';
 
 function trackAnalyticsEvent(eventName, data = {}, onceKey = '') {
   productAnalytics.track(eventName, {
+    locale: state.locale,
     source: tg?.initData ? 'telegram' : 'web',
     authenticated: Boolean(state.snapshot?.viewerPlayerId),
     ...data
@@ -649,6 +650,7 @@ function showCreateTeamTooltip() {
 async function api(path, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
+    'Accept-Language': state.locale,
     ...(options.headers ?? {})
   };
 
@@ -674,7 +676,7 @@ async function api(path, options = {}) {
       }
     }
 
-    throw new Error(data.error || 'Request failed');
+    throw new Error(data.errorKey && getTranslationValue(data.errorKey) ? t(data.errorKey, data.errorParams || {}) : data.error || t('errors.request_failed'));
   }
 
   return data;
@@ -695,7 +697,8 @@ async function authenticateTelegram() {
         chatId: state.chatId,
         gameId: state.selectedGameId,
         initData: tg.initData,
-        locale: getTelegramLocale()
+        locale: getTelegramLocale(),
+        preferredLocale: localStorage.getItem('matchup-locale') || String(tg?.initDataUnsafe?.start_param || '').match(/^lang_(ru|en)$/)?.[1] || ''
       }
     });
   } catch (error) {
@@ -903,7 +906,8 @@ function openManualGameEdit(game) {
   state.manualPlayerPickerOpen = false;
   state.manualPlayerSearch = '';
   state.manualGameDraft = {
-    date: new Date(game.scheduledAt).toISOString().slice(0, 10),
+    date: game.date || new Date(game.scheduledAt).toISOString().slice(0, 10),
+    timeZone: game.timeZone || '+03:00',
     time: getTimeInputStartValue(game.time),
     location: game.location || '',
     additionalInfo: [...(game.priceLine ? [game.priceLine] : []), ...(game.paymentLines ?? [])].join('\n'),
@@ -924,7 +928,8 @@ function openManualGameCopy(game) {
   state.manualPlayerPickerOpen = false;
   state.manualPlayerSearch = '';
   state.manualGameDraft = {
-    date: new Date(game.scheduledAt).toISOString().slice(0, 10),
+    date: game.date || new Date(game.scheduledAt).toISOString().slice(0, 10),
+    timeZone: game.timeZone || '+03:00',
     time: getTimeInputStartValue(game.time),
     location: game.location || '',
     additionalInfo: getGameAdditionalInfo(game),
@@ -1301,28 +1306,6 @@ function renderEditorStateBadge(player, gamePlayer, game) {
   return `<span class="editor-status">${escapeHtml(getEmptyPlayerStatusLabel(gamePlayer, game))}</span>`;
 }
 
-function getMonthLabel(monthNumber) {
-  const months = getTranslatedObject('common.months');
-  return months?.[String(monthNumber)] || '';
-}
-
-function getGameDateShort(dateLabel = '', scheduledAt = '') {
-  const scheduledDate = scheduledAt ? new Date(scheduledAt) : null;
-
-  if (scheduledDate && !Number.isNaN(scheduledDate.getTime())) {
-    return `${scheduledDate.getDate()} ${getMonthLabel(scheduledDate.getMonth() + 1)}`.trim();
-  }
-
-  const match = String(dateLabel || '').replaceAll(',', ' ').match(GAME_DATE_REGEX);
-
-  if (match) {
-    const monthNumber = MONTH_INDEX_BY_RU_LABEL.get(match[2].toLowerCase());
-    return `${Number(match[1])} ${getMonthLabel(monthNumber) || match[2].toLowerCase()}`;
-  }
-
-  return String(dateLabel || '');
-}
-
 function formatCountdown(ms) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -1551,7 +1534,7 @@ function renderEditablePositionSelector(label, value, selectedPosition, canEdit)
 
 function formatMetricLabel(label) {
   const text = String(label || '').trim();
-  return text ? text.charAt(0).toLocaleUpperCase('ru-RU') + text.slice(1) : '';
+  return text ? text.charAt(0).toLocaleUpperCase(state.locale) + text.slice(1) : '';
 }
 
 function renderMetricCell(label, value, options = {}) {
@@ -1830,7 +1813,7 @@ function renderGameHeader(game) {
     <section class="panel game-info-panel ${game.ratingWindowOpen ? 'game-info-panel--rating' : ''}">
       <div class="game-summary">
         <div>
-          <h2>${escapeHtml(getGameDateShort(game.dateLabel, game.scheduledAt))}</h2>
+          <h2>${escapeHtml(formatMatchDate(game, state.locale))}</h2>
         </div>
         <span class="status-pill ${escapeHtml(game.status)}">${escapeHtml(statusText)}</span>
       </div>
@@ -1871,7 +1854,7 @@ function renderGameHeader(game) {
 }
 
 function getGameAdditionalInfo(game) {
-  return [...(game.priceLine ? [game.priceLine] : []), ...(game.paymentLines ?? [])]
+  return [game.challengeMode ? teamChoiceLabel('modes', game.challengeMode) : '', game.needsReferee ? t('teams.referee') : '', ...(game.priceLine ? [game.priceLine] : []), ...(game.paymentLines ?? [])]
     .map((line) => String(line || '').trim())
     .filter(Boolean)
     .join('\n');
@@ -2844,7 +2827,7 @@ function renderGameCard(game) {
     <article class="game-card ${isOpenable ? 'game-card--openable' : ''}"${openAttribute}>
       <div class="game-card-head">
         <div>
-          <h2>${escapeHtml(getGameDateShort(game.dateLabel, game.scheduledAt))}</h2>
+          <h2>${escapeHtml(formatMatchDate(game, state.locale))}</h2>
           <p>${escapeHtml(game.time)}</p>
         </div>
         <span class="status-pill ${escapeHtml(game.status)}">${escapeHtml(getGameStatusLabel(game.status))}</span>
@@ -2900,6 +2883,7 @@ function toDateInputValue(date = new Date()) {
 }
 
 function ensureManualGameDraftDefaults() {
+  state.manualGameDraft.timeZone ||= Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   if (!state.manualGameDraft.date) {
     state.manualGameDraft.date = toDateInputValue(new Date());
   }
@@ -3041,6 +3025,7 @@ function readManualGameForm(form) {
   return {
     date: String(formData.get('date') || ''),
     time: String(formData.get('time') || ''),
+    timeZone: String(formData.get('timeZone') || state.manualGameDraft.timeZone || 'UTC'),
     location: String(formData.get('location') || '').trim(),
     additionalInfo: String(formData.get('additionalInfo') || '').trim(),
     playerIds: [...state.manualGameDraft.playerIds]
@@ -3107,6 +3092,10 @@ function renderCreateGameScreen() {
             <label>
               <span>${escapeHtml(t('common.labels.time'))}</span>
               <input type="time" name="time" value="${escapeHtml(state.manualGameDraft.time)}" required>
+            </label>
+            <label class="manual-field-wide">
+              <span>${escapeHtml(t('match.time_zone'))}</span>
+              <input name="timeZone" value="${escapeHtml(state.manualGameDraft.timeZone)}" placeholder="Europe/London" required>
             </label>
             <label class="manual-field-wide">
               <span>${escapeHtml(t('common.labels.location'))}</span>
@@ -3999,6 +3988,7 @@ function renderTeamChallengeEditor() {
       <section class="team-editor-island">
         <div class="challenge-versus"><strong>${escapeHtml(challenger?.name || '')}</strong><span>→</span><strong>${escapeHtml(opponent?.name || t('teams.open_challenge'))}</strong></div>
         <div class="team-form-grid"><label class="team-form-field"><span>${escapeHtml(t('common.labels.date'))}</span><input type="date" name="date" value="${escapeHtml(draft.date || '')}" required></label><label class="team-form-field"><span>${escapeHtml(t('common.labels.time'))}</span><input type="time" name="time" value="${escapeHtml(draft.time || '')}" required></label></div>
+        <label class="team-form-field"><span>${escapeHtml(t('match.time_zone'))}</span><input name="timeZone" value="${escapeHtml(draft.timeZone || 'UTC')}" required></label>
         <label class="team-form-field"><span>${escapeHtml(t('common.labels.location'))}</span><input name="location" value="${escapeHtml(draft.location || '')}" required></label>
         <div class="team-form-grid"><label class="team-form-field"><span>${escapeHtml(t('teams.format'))}</span><select name="format">${['5x5','6x6','7x7','8x8','11x11'].map((value) => `<option value="${value}" ${draft.format === value ? 'selected' : ''}>${escapeHtml(teamChoiceLabel('formats', value))}</option>`).join('')}</select></label><label class="team-form-field"><span>${escapeHtml(t('teams.duration'))}</span><select name="duration"><option value="60" ${draft.duration === 60 ? 'selected' : ''}>60</option><option value="90" ${draft.duration !== 60 ? 'selected' : ''}>90</option></select></label></div>
         <label class="team-form-field"><span>${escapeHtml(t('teams.mode'))}</span><select name="mode">${['friendly','ranked','open'].map((value) => `<option value="${value}" ${draft.mode === value ? 'selected' : ''}>${escapeHtml(teamChoiceLabel('modes', value))}</option>`).join('')}</select></label>
@@ -4038,6 +4028,7 @@ function getDefaultChallengeDraft({ challengerTeamId = '', opponentTeamId = '', 
     challengerTeamId: challengerTeamId || challenge?.challengerTeamId || '',
     opponentTeamId: opponentTeamId || challenge?.opponentTeamId || '',
     date: challenge?.date || getDefaultChallengeDate(),
+    timeZone: challenge ? (challenge.timeZone || '+03:00') : (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'),
     time: challenge?.time || '19:00',
     location: challenge?.location || '',
     format: challenge?.format || getTeams().find((team) => team.id === challengerTeamId)?.format || '5x5',
@@ -4097,6 +4088,7 @@ function readTeamChallengeForm(form) {
     ...(state.challengeDraft ?? {}),
     date: String(formData.get('date') || ''),
     time: String(formData.get('time') || ''),
+    timeZone: String(formData.get('timeZone') || 'UTC'),
     location: String(formData.get('location') || ''),
     format: String(formData.get('format') || '5x5'),
     duration: Number(formData.get('duration') || 90),
@@ -4447,6 +4439,14 @@ function syncTabbar() {
 }
 
 function syncStaticLabels() {
+  let picker = document.getElementById('entryLanguage');
+  if (!picker && !state.snapshot?.viewerPlayerId) {
+    picker = document.createElement('select'); picker.id = 'entryLanguage'; picker.dataset.localeSelect = '';
+    picker.innerHTML = '<option value="ru">Русский</option><option value="en">English</option>';
+    document.querySelector('.topbar')?.appendChild(picker);
+  }
+  if (picker) { picker.hidden = Boolean(state.snapshot?.viewerPlayerId); picker.value = state.locale; picker.setAttribute('aria-label', t('settings.language.choose')); }
+
   document.documentElement.lang = state.locale || 'ru';
   gameMenuButtonNode?.setAttribute('aria-label', t('match.actions'));
   gameShareButtonNode?.setAttribute('aria-label', t('common.buttons.share_game'));
@@ -4641,8 +4641,18 @@ async function updateProfilePosition(position) {
   showToast(t('common.misc.updated'));
 }
 
+function persistLocalePreference(locale) {
+  try { localStorage.setItem('matchup-locale', locale); } catch {}
+  document.cookie = `matchup_locale=${locale}; Path=/; Max-Age=31536000; SameSite=Lax`;
+}
+
 async function updateLocale(locale) {
-  if (!(await ensureAuthorizedForAction())) {
+  if (!['ru', 'en'].includes(locale)) return;
+  if (!state.snapshot?.viewerPlayerId) {
+    state.locale = locale;
+    await loadSnapshot();
+    render();
+    persistLocalePreference(locale);
     return;
   }
 
@@ -4654,6 +4664,7 @@ async function updateLocale(locale) {
   applyI18nPayload(data);
   state.snapshot = data.snapshot;
   render();
+  persistLocalePreference(locale);
   showToast(t('settings.language.updated'));
 }
 

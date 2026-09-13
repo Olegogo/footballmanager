@@ -5461,3 +5461,14 @@ input[type="range"] {
   .team-card-rating { font-size: 25px; }
   .team-card-rating-value .rating-trend-arrow { width: 19px; height: 19px; }
 }
+
+#entryLanguage {
+  margin-left: auto;
+  max-width: 120px;
+  padding: 6px 8px;
+  border: 1px solid #ffffff26;
+  border-radius: 8px;
+  background: #141716;
+  color: #f5f7f2;
+  font: inherit;
+}

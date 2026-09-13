@@ -1,18 +1,21 @@
 <!doctype html>
-<html lang="ru">
+<html lang="{{locale}}">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Matchup — любительский футбол рядом</title>
-    <meta name="description" content="Находи футбольные матчи рядом, собирай составы, создавай команды и следи за личной статистикой в Telegram-приложении Matchup.">
+    <title>{{landing.title}}</title>
+    <meta name="description" content="{{landing.description}}">
     <meta name="robots" content="index, follow">
     <meta name="theme-color" content="#050806">
-    <link rel="canonical" href="https://footballmanager-production-cafd.up.railway.app/about">
+    <link rel="canonical" href="{{canonical}}">
+    <link rel="alternate" hreflang="ru" href="{{baseUrl}}/ru">
+    <link rel="alternate" hreflang="en" href="{{baseUrl}}/en">
+    <link rel="alternate" hreflang="x-default" href="{{baseUrl}}/en">
     <meta property="og:type" content="website">
-    <meta property="og:title" content="Matchup — найди свою игру рядом">
-    <meta property="og:description" content="Любительский футбол в одном месте: игры, составы, команды, рейтинг и достижения.">
-    <meta property="og:image" content="/assets/landing/field-figma.png">
-    <meta property="og:url" content="https://footballmanager-production-cafd.up.railway.app/about">
+    <meta property="og:title" content="{{landing.og_title}}">
+    <meta property="og:description" content="{{landing.og_description}}">
+    <meta property="og:image" content="{{asset.9}}">
+    <meta property="og:url" content="{{canonical}}">
     <meta name="twitter:card" content="summary_large_image">
     <script defer src="https://cloud.umami.is/script.js" data-website-id="e040d262-429d-4b72-9c6a-e266bc96638f" data-exclude-search="true" data-exclude-hash="true"></script>
     <script defer src="/landing.js"></script>
@@ -24,140 +27,149 @@
         "name": "Matchup",
         "applicationCategory": "SportsApplication",
         "operatingSystem": "Telegram",
-        "description": "Сервис для поиска любительских футбольных матчей, сбора составов, команд и статистики игроков.",
+        "description": "{{landing.schema_description}}",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "RUB" }
       }
     </script>
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="#top" aria-label="Matchup — на главную">
+      <a class="brand" href="#top" aria-label="{{landing.home}}">
         <img class="brand-mark" src="/assets/landing/logo-mark.svg" alt="" width="40" height="40">
         <span>Matchup</span>
       </a>
-      <nav class="desktop-nav" aria-label="Разделы страницы">
-        <a href="#games">Игры</a>
-        <a href="#teams">Команды</a>
-        <a href="#organizers">Организаторам</a>
+      <nav class="desktop-nav" aria-label="{{landing.sections}}">
+        <a href="#games">{{landing.games}}</a>
+        <a href="#teams">{{landing.teams}}</a>
+        <a href="#organizers">{{landing.organizers}}</a>
       </nav>
-      <a class="button button--primary button--small" href="/telegram?mode=bot" data-telegram-entry data-umami-event="open_matchup">Открыть в Telegram</a>
+      <div class="header-actions">
+        <details class="language-menu">
+          <summary aria-label="{{languageLabel}}"><span>{{localeUpper}}</span><img src="/assets/landing/language-chevron.svg" width="7" height="4" alt=""></summary>
+          <nav class="language-options" aria-label="{{languageLabel}}">
+            <a href="/ru" lang="ru" hreflang="ru" data-language="ru" {{ruCurrent}}>Русский</a>
+            <a href="/en" lang="en" hreflang="en" data-language="en" {{enCurrent}}>English</a>
+          </nav>
+        </details>
+      <a class="button button--primary button--small" href="/telegram?mode=bot&amp;locale={{locale}}" data-telegram-entry data-umami-event="open_matchup">{{landing.open}}</a>
+      </div>
     </header>
 
     <main id="top">
       <section class="hero shell" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="eyebrow">Любительский футбол в одном месте</p>
-          <h1 id="hero-title">Найди свою<br>игру рядом</h1>
-          <p class="hero-lead">Находи игры рядом, собирай составы, создавай команды и следи за своим прогрессом</p>
+          <p class="eyebrow">{{landing.eyebrow}}</p>
+          <h1 id="hero-title">{{landing.hero_title}}</h1>
+          <p class="hero-lead">{{landing.hero_lead}}</p>
           <div class="actions">
-            <a class="button button--primary" href="/telegram?mode=bot" data-telegram-entry data-umami-event="open_matchup">Открыть в Telegram</a>
-            <a class="button button--secondary" href="/telegram" data-umami-event="open_matchup">Создать игру</a>
+            <a class="button button--primary" href="/telegram?mode=bot&amp;locale={{locale}}" data-telegram-entry data-umami-event="open_matchup">{{landing.open}}</a>
+            <a class="button button--secondary" href="/telegram?locale={{locale}}" data-umami-event="open_matchup">{{landing.create_game}}</a>
           </div>
         </div>
-        <div class="hero-product" aria-label="Матч, состав и карточка игрока в Matchup">
-          <img class="hero-game" src="/assets/landing/hero-game.png" alt="Экран матча и состава" width="293" height="523">
-          <img class="hero-player" src="/assets/landing/player-card-figma.png" alt="Карточка игрока" width="279" height="502">
+        <div class="hero-product" aria-label="{{landing.hero_alt}}">
+          <img class="hero-game" src="{{asset.0}}" alt="{{landing.game_alt}}" width="293" height="523">
+          <img class="hero-player" src="{{asset.1}}" alt="{{landing.player_alt}}" width="279" height="502">
         </div>
       </section>
 
       <section class="section shell" id="games" aria-labelledby="scenario-title">
         <div class="section-heading">
-          <h2 id="scenario-title">Всё, что превращает<br>случайный матч<br>в регулярную игру</h2>
-          <p>От поиска свободного места до личной статистики — в одном сценарии</p>
+          <h2 id="scenario-title">{{landing.scenario_title}}</h2>
+          <p>{{landing.scenario_lead}}</p>
         </div>
         <div class="steps-grid">
           <article class="feature-card">
             <span class="step">01</span>
-            <h3>Найди игру</h3>
-            <p>Дата, район, уровень, свободные места и стоимость.</p>
-            <div class="visual visual--game"><img src="/assets/landing/find-game-figma.png" alt="Карточка ближайшей игры"></div>
+            <h3>{{landing.find}}</h3>
+            <p>{{landing.find_lead}}</p>
+            <div class="visual visual--game"><img src="{{asset.2}}" alt="{{landing.find_alt}}"></div>
           </article>
           <article class="feature-card">
             <span class="step">02</span>
-            <h3>Собери состав</h3>
-            <p>Приглашения, подтверждение участия, баланс команд и схема поля.</p>
-            <div class="visual visual--lineup"><img src="/assets/landing/build-lineup-figma.png" alt="Состав участников матча"></div>
+            <h3>{{landing.lineup}}</h3>
+            <p>{{landing.lineup_lead}}</p>
+            <div class="visual visual--lineup"><img src="{{asset.3}}" alt="{{landing.lineup_alt}}"></div>
           </article>
           <article class="feature-card">
             <span class="step">03</span>
-            <h3>Играй и развивайся</h3>
-            <p>Рейтинг, MVP, достижения и история матчей.</p>
-            <div class="visual visual--achievement"><img src="/assets/landing/achievement-clean.png" alt="Достижение игрока в Matchup"></div>
+            <h3>{{landing.improve}}</h3>
+            <p>{{landing.improve_lead}}</p>
+            <div class="visual visual--achievement"><img src="{{asset.4}}" alt="{{landing.achievement_alt}}"></div>
           </article>
         </div>
 
         <article class="team-feature" id="teams">
           <div>
             <span class="step">04</span>
-            <h3>Создай команду</h3>
-            <p>Постоянный состав, командный рейтинг и вызовы соперникам.</p>
-            <a class="button button--primary" href="/telegram" data-umami-event="open_matchup">Создать команду</a>
+            <h3>{{landing.team_title}}</h3>
+            <p>{{landing.team_lead}}</p>
+            <a class="button button--primary" href="/telegram?locale={{locale}}" data-umami-event="open_matchup">{{landing.create_team}}</a>
           </div>
-          <div class="team-visual" aria-label="Экран команды, игроки и вызовы">
-            <img class="team-main" src="/assets/landing/team-main-figma.png" alt="Карточка команды">
-            <img class="team-side" src="/assets/landing/team-side-figma.png" alt="Игроки и вызовы команды">
+          <div class="team-visual" aria-label="{{landing.team_visual_alt}}">
+            <img class="team-main" src="{{asset.6}}" alt="{{landing.team_alt}}">
+            <img class="team-side" src="{{asset.7}}" alt="{{landing.team_side_alt}}">
           </div>
         </article>
       </section>
 
       <section class="section shell" aria-labelledby="smart-title">
         <div class="section-heading">
-          <h2 id="smart-title">Умные преимущества,<br>которые работают в фоне</h2>
-          <p>Matchup помогает не только до матча, но и после него</p>
+          <h2 id="smart-title">{{landing.smart_title}}</h2>
+          <p>{{landing.smart_lead}}</p>
         </div>
         <div class="smart-grid">
           <article class="smart-card">
-            <h3>Парсинг футбольных чатов</h3>
-            <p>Бот распознаёт анонс игры и превращает его в понятную карточку с записью. Команда <strong>/game</strong> с опросом кто идёт.</p>
-            <div class="smart-visual smart-visual--parsing"><img src="/assets/landing/parsing-figma.png" alt="Бот создаёт игру из сообщения в футбольном чате"></div>
+            <h3>{{landing.parsing}}</h3>
+            <p>{{landing.parsing_lead}}</p>
+            <div class="smart-visual smart-visual--parsing"><img src="{{asset.5}}" alt="{{landing.parsing_alt}}"></div>
           </article>
           <article class="smart-card">
-            <h3>FIFA-карточка из реальных игр</h3>
-            <p>Не создавай себя в игре — прокачивай себя на настоящем поле.</p>
-            <div class="smart-visual smart-visual--player"><img src="/assets/landing/player-card-figma.png" alt="Персональная карточка футболиста"></div>
+            <h3>{{landing.card_title}}</h3>
+            <p>{{landing.card_lead}}</p>
+            <div class="smart-visual smart-visual--player"><img src="{{asset.1}}" alt="{{landing.card_alt}}"></div>
           </article>
         </div>
       </section>
 
       <section class="organizer shell" id="organizers" aria-labelledby="organizer-title">
         <div class="organizer-copy">
-          <p class="organizer-label">Для организаторов и площадок</p>
-          <h2 id="organizer-title">Меньше ручной рутины.<br>Больше сыгранных<br>матчей.</h2>
-          <p>Сбор игроков, подтверждения, оплата и управление бронированиями</p>
-          <a class="button button--dark" href="https://t.me/olejooo" data-umami-event="contact_organization_support">Подключить организацию</a>
+          <p class="organizer-label">{{landing.organizer_label}}</p>
+          <h2 id="organizer-title">{{landing.organizer_title}}</h2>
+          <p>{{landing.organizer_lead}}</p>
+          <a class="button button--dark" href="https://t.me/olejooo" data-umami-event="contact_organization_support">{{landing.organization}}</a>
         </div>
-        <div class="organizer-visual"><img src="/assets/landing/organizer-figma.png" alt="Управление расписанием футбольных площадок"></div>
+        <div class="organizer-visual"><img src="{{asset.8}}" alt="{{landing.organizer_alt}}"></div>
       </section>
 
       <section class="manifesto shell">
         <div>
-          <p class="eyebrow">Matchup — место, где</p>
-          <h2>любительский футбол<br>становится регулярным</h2>
-          <p>Не ещё один чат. Не просто рейтинг.<br>А единый ритм игры — от первого поиска<br>до следующего матча.</p>
+          <p class="eyebrow">{{landing.manifesto_label}}</p>
+          <h2>{{landing.manifesto_title}}</h2>
+          <p>{{landing.manifesto_lead}}</p>
         </div>
         <ol class="loop">
-          <li><img src="/assets/landing/rhythm-dot.svg" alt="">Найти игру</li>
-          <li><img src="/assets/landing/rhythm-dot.svg" alt="">Подтвердить участие</li>
-          <li><img src="/assets/landing/rhythm-dot.svg" alt="">Сыграть</li>
-          <li><img src="/assets/landing/rhythm-dot.svg" alt="">Получить рейтинг</li>
-          <li><img src="/assets/landing/rhythm-dot-active.svg" alt="">Вернуться снова</li>
+          <li><img src="/assets/landing/rhythm-dot.svg" alt="">{{landing.loop_find}}</li>
+          <li><img src="/assets/landing/rhythm-dot.svg" alt="">{{landing.loop_confirm}}</li>
+          <li><img src="/assets/landing/rhythm-dot.svg" alt="">{{landing.loop_play}}</li>
+          <li><img src="/assets/landing/rhythm-dot.svg" alt="">{{landing.loop_rating}}</li>
+          <li><img src="/assets/landing/rhythm-dot-active.svg" alt="">{{landing.loop_return}}</li>
         </ol>
       </section>
 
       <section class="final-cta shell" aria-labelledby="final-title">
-        <h2 id="final-title">Готов к следующей игре?</h2>
-        <p>Открой Matchup в Telegram и найди матч рядом или создай<br>свою игру за пару минут</p>
+        <h2 id="final-title">{{landing.final_title}}</h2>
+        <p>{{landing.final_lead}}</p>
         <div class="actions actions--center">
-          <a class="button button--primary" href="/telegram?mode=bot" data-telegram-entry data-umami-event="open_matchup">Открыть в Telegram</a>
-          <a class="button button--secondary" href="/telegram" data-umami-event="open_matchup">Создать игру</a>
+          <a class="button button--primary" href="/telegram?mode=bot&amp;locale={{locale}}" data-telegram-entry data-umami-event="open_matchup">{{landing.open}}</a>
+          <a class="button button--secondary" href="/telegram?locale={{locale}}" data-umami-event="open_matchup">{{landing.create_game}}</a>
         </div>
-        <div class="field-visual"><img src="/assets/landing/field-figma.png" alt="Состав футболистов на поле"></div>
+        <div class="field-visual"><img src="{{asset.9}}" alt="{{landing.field_alt}}"></div>
       </section>
     </main>
 
     <footer class="site-footer shell">
       <a class="footer-brand" href="#top">matchup</a>
-      <span>Играй чаще</span>
+      <span>{{landing.footer}}</span>
       <span>2026</span>
     </footer>
   </body>

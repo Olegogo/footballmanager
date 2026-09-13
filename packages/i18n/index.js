@@ -1,7 +1,7 @@
 import ru from './locales/ru.json' with { type: 'json' };
 import en from './locales/en.json' with { type: 'json' };
 
-export const DEFAULT_LOCALE = 'ru';
+export const DEFAULT_LOCALE = 'en';
 export const SUPPORTED_LOCALES = ['ru', 'en'];
 export const LOCALE_LABELS = {
   ru: 'Русский',

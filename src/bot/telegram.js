@@ -1,3 +1,6 @@
+import { scheduleInTimeZone } from '../lib/timezone.js';
+import { localizedError } from '../lib/errors.js';
+import { formatMatchDate } from '../../packages/i18n/dates.js';
 import { parseAnnouncementText } from '../lib/parser.js';
 import { renderLineupPng } from '../lib/lineup-image.js';
 import { isSuperAdminUsername } from '../lib/admins.js';
@@ -99,6 +102,11 @@ export class TelegramBot {
     return createTranslator(locale)(key, params);
   }
 
+  getCallbackLocale(query) {
+    const player = this.store.getPlayerByTelegramUserId?.(query.from?.id);
+    return normalizeLocale(player?.locale || query.from?.language_code);
+  }
+
   buildLanguageKeyboard(scope = 'user') {
     return {
       inline_keyboard: [
@@ -157,7 +165,7 @@ export class TelegramBot {
       return url.toString();
     }
 
-    url.searchParams.set('startapp', view || 'app');
+    url.searchParams.set('startapp', options.startParam || view || 'app');
     return url.toString();
   }
 
@@ -171,9 +179,9 @@ export class TelegramBot {
     return url.toString();
   }
 
-  buildAboutUrl() {
+  buildAboutUrl(locale = 'en') {
     const baseUrl = normalizeHttpUrl(this.config.publicBaseUrl);
-    return baseUrl ? new URL('/about', baseUrl).toString() : '';
+    return baseUrl ? new URL(`/${normalizeLocale(locale)}`, baseUrl).toString() : '';
   }
 
   buildTelegramLoginUrl(chatId = '', options = {}) {
@@ -371,6 +379,15 @@ export class TelegramBot {
     this.botUsername = me?.username ?? '';
   }
 
+  async syncLocalizedBotProfile() {
+    for (const language_code of ['', 'en', 'ru']) {
+      const locale = language_code || 'en';
+      await this.callApi('setMyCommands', { language_code, commands: ['start', 'open', 'game', 'language', 'timezone', 'help'].map(command => ({ command, description: this.t(locale, `bot.commands.${command}`) })) });
+      await this.callApi('setMyDescription', { language_code, description: this.t(locale, 'bot.description') });
+      await this.callApi('setMyShortDescription', { language_code, short_description: this.t(locale, 'bot.short_description') });
+    }
+  }
+
   async syncDefaultMenuButton() {
     const url = this.buildMiniAppUrl();
 
@@ -533,10 +550,10 @@ export class TelegramBot {
         time: storedGame.time,
         scheduledAt: storedGame.scheduledAt,
         participants
-      });
+      }, this.getGameLocale(storedGame));
     }
 
-    return renderLineupPng(game);
+    return renderLineupPng(game, this.getGameLocale(game));
   }
 
   getGameAnnouncementView(game) {
@@ -578,15 +595,15 @@ export class TelegramBot {
   formatGameAnnouncementCaption(game) {
     const { playerCount, averageRating } = this.getGameAnnouncementView(game);
     const lines = [
-      '⚽ <b>Игра</b>',
-      `${escapeTelegramHtml(game.dateLabel || game.date || '')} · ${escapeTelegramHtml(game.time || '')}`,
+      this.t(this.getGameLocale(game), 'bot.announcement_title'),
+      `${escapeTelegramHtml(formatMatchDate(game, this.getGameLocale(game)))} · ${escapeTelegramHtml(game.time || '')}`,
       escapeTelegramHtml(game.location || ''),
       '',
-      `Игроков: <b>${playerCount}</b>`
+      this.t(this.getGameLocale(game), 'bot.player_count', { count: playerCount })
     ];
 
     if (averageRating !== null) {
-      lines.push(`Уровень игры: <b>${averageRating}</b>`);
+      lines.push(this.t(this.getGameLocale(game), 'bot.level', { rating: averageRating }));
     }
 
     return lines.filter((line, index) => line || index === 3).join('\n').trim();
@@ -595,20 +612,20 @@ export class TelegramBot {
   formatRatingStartedCaption(game) {
     const { playerCount, averageRating } = this.getGameAnnouncementView(game);
     const lines = [
-      '⚽ <b>Игра стартовала</b>',
-      `${escapeTelegramHtml(game.dateLabel || game.date || '')} · ${escapeTelegramHtml(game.time || '')}`,
+      this.t(this.getGameLocale(game), 'bot.started_title'),
+      `${escapeTelegramHtml(formatMatchDate(game, this.getGameLocale(game)))} · ${escapeTelegramHtml(game.time || '')}`,
       escapeTelegramHtml(game.location || ''),
       '',
-      `Игроков: <b>${playerCount}</b>`
+      this.t(this.getGameLocale(game), 'bot.player_count', { count: playerCount })
     ];
 
     if (averageRating !== null) {
-      lines.push(`Уровень игры: <b>${averageRating}</b>`);
+      lines.push(this.t(this.getGameLocale(game), 'bot.level', { rating: averageRating }));
     }
 
     lines.push(
       '',
-      'Не забудьте раздать баллы самым заметным игрокам и выбрать MVP'
+      this.t(this.getGameLocale(game), 'bot.rating_reminder')
     );
 
     return lines.join('\n').trim();
@@ -619,7 +636,7 @@ export class TelegramBot {
     const rateButton = this.buildMiniAppButton(
       chat?.type || 'supergroup',
       game.chatId,
-      'Оценить игроков',
+      this.t(this.getGameLocale(game), 'bot.rate_players'),
       { initialView: 'game', gameId: game.id }
     );
 
@@ -652,7 +669,7 @@ export class TelegramBot {
 
     return this.sendMiniAppEntry(game.chatId, chat?.type || 'supergroup', game.chatId, {
       primaryText: caption,
-      buttonText: 'Оценить игроков',
+      buttonText: this.t(this.getGameLocale(game), 'bot.rate_players'),
       parseMode: 'HTML',
       locale: this.getGameLocale(game),
       initialView: 'game',
@@ -665,7 +682,7 @@ export class TelegramBot {
     const detailsButton = this.buildMiniAppButton(
       chat?.type || 'supergroup',
       game.chatId,
-      'Детали игры',
+      this.t(this.getGameLocale(game), 'bot.details'),
       { initialView: 'game', gameId: game.id }
     );
     const rows = [];
@@ -674,7 +691,7 @@ export class TelegramBot {
       const rateButton = this.buildMiniAppButton(
         chat?.type || 'supergroup',
         game.chatId,
-        'Оценить',
+        this.t(this.getGameLocale(game), 'bot.rate'),
         { initialView: 'game', gameId: game.id }
       );
       const actionRow = [rateButton, detailsButton].filter(Boolean);
@@ -684,8 +701,8 @@ export class TelegramBot {
       }
     } else {
       rows.push([
-        { text: 'Участвую', callback_data: `game_join:${game.id}` },
-        { text: 'Не смогу', callback_data: `decline_game:${game.id}` }
+        { text: this.t(this.getGameLocale(game), 'bot.join'), callback_data: `game_join:${game.id}` },
+        { text: this.t(this.getGameLocale(game), 'bot.decline'), callback_data: `decline_game:${game.id}` }
       ]);
 
       if (detailsButton) {
@@ -784,27 +801,27 @@ export class TelegramBot {
     const playerCount = announcement.playerRefs?.length || announcement.playerUsernames?.length || 0;
 
     return [
-      '⚽ <b>Анонс игры</b>',
-      `${escapeTelegramHtml(announcement.dateLabel || announcement.date || '')} · ${escapeTelegramHtml(announcement.time || '')}`,
+      this.t(this.getGameLocale(draft), 'bot.draft_title'),
+      `${escapeTelegramHtml(formatMatchDate(announcement, this.getGameLocale(draft)))} · ${escapeTelegramHtml(announcement.time || '')}`,
       escapeTelegramHtml(announcement.location || ''),
-      `Игроков: <b>${playerCount}</b>`,
+      this.t(this.getGameLocale(draft), 'bot.player_count', { count: playerCount }),
       '',
-      'Создать и опубликовать игру?'
+      this.t(this.getGameLocale(draft), 'bot.draft_confirm')
     ].join('\n');
   }
 
-  buildAnnouncementDraftKeyboard(draftId) {
+  buildAnnouncementDraftKeyboard(draftId, locale = 'en') {
     return {
       inline_keyboard: [[
-        { text: 'Создать игру', callback_data: `confirm_announcement:${draftId}` },
-        { text: 'Отмена', callback_data: `cancel_announcement:${draftId}` }
+        { text: this.t(locale, 'bot.create'), callback_data: `confirm_announcement:${draftId}` },
+        { text: this.t(locale, 'bot.cancel'), callback_data: `cancel_announcement:${draftId}` }
       ]]
     };
   }
 
   async publishOrSyncAnnouncementDraft(draft) {
     const text = this.formatAnnouncementDraft(draft);
-    const replyMarkup = this.buildAnnouncementDraftKeyboard(draft.id);
+    const replyMarkup = this.buildAnnouncementDraftKeyboard(draft.id, this.getGameLocale(draft));
 
     if (draft.confirmationMessageId) {
       try {
@@ -909,7 +926,7 @@ export class TelegramBot {
     const locationLine = game.location ? `${this.t(locale, 'common.labels.location')}: ${game.location}` : '';
 
     return this.t(locale, 'bot.invite_text', {
-      date: game.dateLabel,
+      date: formatMatchDate(game, locale),
       time: game.time,
       locationLine
     });
@@ -992,7 +1009,7 @@ export class TelegramBot {
       `<b>${escapeTelegramHtml(this.t(locale, 'match.summary_title'))}</b>`,
       '',
       escapeTelegramHtml(this.t(locale, 'bot.summary_datetime', {
-        date: summary?.dateLabel || game.dateLabel,
+        date: formatMatchDate(game, locale),
         time: summary?.time || game.time
       })),
       summary?.location || game.location ? `${escapeTelegramHtml(this.t(locale, 'common.labels.location'))}: ${escapeTelegramHtml(summary?.location || game.location)}` : '',
@@ -1134,12 +1151,14 @@ export class TelegramBot {
 
     const locale = this.getPlayerLocale(captain);
     const mode = challenge.mode === 'ranked'
-      ? (locale === 'en' ? 'Ranked' : 'Рейтинговый')
-      : (locale === 'en' ? 'Friendly' : 'Товарищеский');
+      ? (this.t(locale, 'bot.ranked'))
+      : (this.t(locale, 'bot.friendly'));
     const isCounter = challenge.status === 'counter';
-    const text = locale === 'en'
-      ? `<b>${senderTeam.name} ${isCounter ? 'suggests new terms' : 'challenges your team'}</b>\n${challenge.format}, ${challenge.date} ${challenge.time}\n${challenge.location}\n${mode}`
-      : `<b>${senderTeam.name} ${isCounter ? 'предлагает новые условия' : 'бросает вам вызов'}</b>\n${challenge.format}, ${challenge.date} ${challenge.time}\n${challenge.location}\n${mode}`;
+    const text = this.t(locale, isCounter ? 'bot.challenge_counter_text' : 'bot.challenge_text', {
+      team: escapeTelegramHtml(senderTeam.name), format: escapeTelegramHtml(challenge.format),
+      date: escapeTelegramHtml(formatMatchDate(challenge, locale)), time: escapeTelegramHtml(challenge.time),
+      location: escapeTelegramHtml(challenge.location), mode: escapeTelegramHtml(mode)
+    });
     const appLink = this.buildMainMiniAppLink('', { initialView: 'teams' });
 
     try {
@@ -1149,16 +1168,16 @@ export class TelegramBot {
           inline_keyboard: [
             [
               {
-                text: locale === 'en' ? 'Accept' : 'Принять',
+                text: this.t(locale, 'bot.challenge_accept'),
                 callback_data: `team_challenge_accept:${challenge.id}`
               },
               {
-                text: locale === 'en' ? 'Decline' : 'Отклонить',
+                text: this.t(locale, 'bot.challenge_decline'),
                 callback_data: `team_challenge_decline:${challenge.id}`
               }
             ],
             ...(appLink ? [[{
-              text: locale === 'en' ? 'Suggest another time' : 'Предложить другое время',
+              text: this.t(locale, 'bot.challenge_counter'),
               url: appLink
             }]] : [])
           ]
@@ -1169,15 +1188,14 @@ export class TelegramBot {
     }
   }
 
-  formatJoinRequestText(game, player) {
-    const locale = this.getGameLocale(game);
+  formatJoinRequestText(game, player, locale = this.getGameLocale(game)) {
     const username = player?.username ? `@${player.username}` : this.t(locale, 'bot.no_username');
     const locationLine = game.location ? `${this.t(locale, 'common.labels.location')}: ${game.location}` : '';
 
     return this.t(locale, 'bot.join_request', {
       name: player?.displayName || username,
       username,
-      date: game.dateLabel,
+      date: formatMatchDate(game, locale),
       time: game.time,
       locationLine
     });
@@ -1194,7 +1212,7 @@ export class TelegramBot {
 
     try {
       await this.sendMiniAppEntry(organizer.privateChatId, 'private', game.chatId, {
-        primaryText: this.formatJoinRequestText(game, player),
+        primaryText: this.formatJoinRequestText(game, player, this.getPlayerLocale(organizer)),
         buttonText: this.t(this.getPlayerLocale(organizer), 'common.buttons.details'),
         locale: this.getPlayerLocale(organizer),
         initialView: 'game',
@@ -1216,7 +1234,7 @@ export class TelegramBot {
     try {
       await this.sendMiniAppEntry(player.privateChatId, 'private', game.chatId, {
         primaryText: this.t(this.getPlayerLocale(player), 'bot.invite_added', {
-          date: game.dateLabel,
+          date: formatMatchDate(game, this.getPlayerLocale(player)),
           time: game.time
         }),
         buttonText: this.t(this.getPlayerLocale(player), 'common.buttons.details'),
@@ -1243,7 +1261,7 @@ export class TelegramBot {
         organizer.privateChatId,
         this.t(this.getPlayerLocale(organizer), 'bot.declined_notify', {
           name: player.displayName || `@${player.username}`,
-          date: game.dateLabel,
+          date: formatMatchDate(game, this.getPlayerLocale(organizer)),
           time: game.time
         })
       );
@@ -1382,7 +1400,13 @@ export class TelegramBot {
     const chatId = message.chat.id;
     const targetChatId =
       message.chat.type === 'private' ? this.config.defaultChatId || chatId : chatId;
-    const locale = this.getMessageLocale(message);
+    let locale = this.getMessageLocale(message);
+    const launchLocale = getMessageText(message).match(/^\/start(?:@\w+)?\s+landing_(ru|en)$/)?.[1];
+    const player = this.store.getPlayerByTelegramUserId?.(message.from?.id);
+    if (launchLocale && message.chat.type === 'private' && player && player.localeSource !== 'manual') {
+      await this.store.setPlayerLocaleByTelegramUserId(message.from.id, launchLocale, 'manual');
+      locale = launchLocale;
+    }
 
     if (command === '/start') {
       const lines = [
@@ -1400,10 +1424,10 @@ export class TelegramBot {
         buttonText: this.t(locale, 'common.buttons.open_app'),
         locale,
         additionalKeyboardRows: [
-          ...(this.buildAboutUrl() ? [[
+          ...(this.buildAboutUrl(locale) ? [[
             {
               text: this.t(locale, 'onboarding.about_button'),
-              url: this.buildAboutUrl()
+              url: this.buildAboutUrl(locale)
             }
           ]] : []),
           [
@@ -1435,6 +1459,23 @@ export class TelegramBot {
         locale,
         buttonOnly: true
       });
+      return;
+    }
+
+    if (command === '/timezone') {
+      const zone = stripCommandPayload(getMessageText(message));
+      if (!zone) {
+        await this.sendText(chatId, this.t(locale, 'bot.timezone_help', { zone: this.store.state?.chats?.[String(chatId)]?.timeZone || this.config.chatTimezoneOffset || '+03:00' }));
+        return;
+      }
+      if (message.chat.type !== 'private' && !(await this.isUserAdminOfChat(chatId, message.from?.id))) {
+        await this.sendText(chatId, this.t(locale, 'settings.language.only_admin')); return;
+      }
+      try {
+        scheduleInTimeZone('2030-01-15', '12:00', zone);
+        await this.store.setChatTimeZone(chatId, zone);
+        await this.sendText(chatId, this.t(locale, 'bot.timezone_updated', { zone }));
+      } catch (error) { await this.sendText(chatId, localizedError(error, locale).error); }
       return;
     }
 
@@ -1518,7 +1559,8 @@ export class TelegramBot {
 
     const sourceDate = new Date((source.sourceMessage?.date ?? message.date ?? Math.floor(Date.now() / 1000)) * 1000);
     const announcement = parseAnnouncementText(source.rawText, sourceDate, {
-      requirePaymentBlock: false
+      requirePaymentBlock: false,
+      timeZone: this.store.state?.chats?.[String(message.chat.id)]?.timeZone || this.config.chatTimezoneOffset || '+03:00'
     });
 
     if (!announcement) {
@@ -1574,8 +1616,8 @@ export class TelegramBot {
 
       if (message.chat.type === 'private') {
         await this.sendMiniAppEntry(message.chat.id, 'private', targetChatId, {
-          primaryText: 'Игра создана',
-          buttonText: 'Детали игры',
+          primaryText: this.t(this.getMessageLocale(message), 'bot.created'),
+          buttonText: this.t(this.getMessageLocale(message), 'bot.details'),
           locale: this.getGameLocale(result.game),
           initialView: 'game',
           gameId: result.game.id
@@ -1601,7 +1643,8 @@ export class TelegramBot {
     const existingGame = this.store.findGameByMessage?.(message.chat.id, message.message_id);
     const existingDraft = this.store.findAnnouncementDraftByMessage?.(message.chat.id, message.message_id);
     const announcement = parseAnnouncementText(rawText, sourceDate, {
-      requirePaymentBlock: false
+      requirePaymentBlock: false,
+      timeZone: this.store.state?.chats?.[String(message.chat.id)]?.timeZone || this.config.chatTimezoneOffset || '+03:00'
     });
 
     if (!announcement) {
@@ -1610,7 +1653,7 @@ export class TelegramBot {
         await this.editTextMessage(
           existingDraft.confirmationChatId || existingDraft.chatId,
           existingDraft.confirmationMessageId,
-          'Анонс изменён и больше не распознаётся. Анонс отменён.',
+          this.t(this.getMessageLocale(message), 'bot.draft_invalid'),
           { replyMarkup: { inline_keyboard: [] } }
         ).catch(() => {});
       }
@@ -1788,7 +1831,7 @@ export class TelegramBot {
       const locale = this.getPlayerLocale(player);
 
       if (!player) {
-        await this.answerCallbackQuery(callbackQuery.id, locale === 'en' ? 'Player not found' : 'Игрок не найден');
+        await this.answerCallbackQuery(callbackQuery.id, this.t(locale, 'errors.player_not_found'));
         return;
       }
 
@@ -1811,11 +1854,11 @@ export class TelegramBot {
         await this.answerCallbackQuery(
           callbackQuery.id,
           action === 'accept'
-            ? (locale === 'en' ? 'Challenge accepted' : 'Вызов принят')
-            : (locale === 'en' ? 'Challenge declined' : 'Вызов отклонён')
+            ? (this.t(locale, 'bot.challenge_accepted'))
+            : (this.t(locale, 'bot.challenge_declined'))
         );
       } catch (error) {
-        await this.answerCallbackQuery(callbackQuery.id, error.message);
+        await this.answerCallbackQuery(callbackQuery.id, localizedError(error, this.getCallbackLocale(callbackQuery)).error);
       }
       return;
     }
@@ -1825,7 +1868,7 @@ export class TelegramBot {
       const draft = this.store.getAnnouncementDraftById?.(draftId);
 
       if (!draft) {
-        await this.answerCallbackQuery(callbackQuery.id, 'Черновик уже недоступен');
+        await this.answerCallbackQuery(callbackQuery.id, this.t(this.getCallbackLocale(callbackQuery), 'bot.draft_missing'));
         return;
       }
 
@@ -1836,7 +1879,7 @@ export class TelegramBot {
         : await this.isUserAdminOfChat(draft.chatId, callbackQuery.from?.id);
 
       if (!isAuthor && !isSuperAdmin && !isAdmin) {
-        await this.answerCallbackQuery(callbackQuery.id, 'Подтвердить может автор или администратор');
+        await this.answerCallbackQuery(callbackQuery.id, this.t(this.getCallbackLocale(callbackQuery), 'bot.confirm_admin'));
         return;
       }
 
@@ -1845,10 +1888,10 @@ export class TelegramBot {
         await this.editTextMessage(
           draft.confirmationChatId || draft.chatId,
           draft.confirmationMessageId,
-          '⚽ Анонс отменён',
+          this.t(this.getGameLocale(draft), 'bot.cancelled_title'),
           { replyMarkup: { inline_keyboard: [] } }
         ).catch(() => {});
-        await this.answerCallbackQuery(callbackQuery.id, 'Анонс отменён');
+        await this.answerCallbackQuery(callbackQuery.id, this.t(this.getCallbackLocale(callbackQuery), 'bot.cancelled'));
         return;
       }
 
@@ -1858,10 +1901,10 @@ export class TelegramBot {
           await this.editTextMessage(
             draft.confirmationChatId || draft.chatId,
             draft.confirmationMessageId,
-            '⚽ Игра не создана: дата и время уже прошли.',
+            this.t(this.getGameLocale(draft), 'bot.past_title'),
             { replyMarkup: { inline_keyboard: [] } }
           ).catch(() => {});
-          await this.answerCallbackQuery(callbackQuery.id, 'Нельзя создать игру в прошлом');
+          await this.answerCallbackQuery(callbackQuery.id, this.t(this.getCallbackLocale(callbackQuery), 'bot.past'));
           return;
         }
 
@@ -1878,7 +1921,7 @@ export class TelegramBot {
         });
 
         if (!result?.game) {
-          await this.answerCallbackQuery(callbackQuery.id, 'Игра уже существует');
+          await this.answerCallbackQuery(callbackQuery.id, this.t(this.getCallbackLocale(callbackQuery), 'bot.exists'));
           return;
         }
 
@@ -1888,12 +1931,12 @@ export class TelegramBot {
         await this.editTextMessage(
           draft.confirmationChatId || draft.chatId,
           draft.confirmationMessageId,
-          '⚽ <b>Игра создана</b>',
+          this.t(this.getGameLocale(draft), 'bot.created_title'),
           { parseMode: 'HTML', replyMarkup: { inline_keyboard: [] } }
         ).catch(() => {});
-        await this.answerCallbackQuery(callbackQuery.id, 'Игра создана');
+        await this.answerCallbackQuery(callbackQuery.id, this.t(this.getCallbackLocale(callbackQuery), 'bot.created'));
       } catch (error) {
-        await this.answerCallbackQuery(callbackQuery.id, error.message || 'Не удалось создать игру');
+        await this.answerCallbackQuery(callbackQuery.id, localizedError(error, this.getCallbackLocale(callbackQuery)).error);
       }
       return;
     }
@@ -1903,7 +1946,7 @@ export class TelegramBot {
       const game = this.store.getGameById?.(gameId);
 
       if (!game) {
-        await this.answerCallbackQuery(callbackQuery.id, 'Игра не найдена');
+        await this.answerCallbackQuery(callbackQuery.id, this.t(this.getCallbackLocale(callbackQuery), 'bot.not_found'));
         return;
       }
 
@@ -1921,10 +1964,10 @@ export class TelegramBot {
         await this.publishOrSyncGameAnnouncement(result.game.id);
         await this.answerCallbackQuery(
           callbackQuery.id,
-          result.joined ? 'Ты в составе' : 'Ты уже в составе'
+          result.joined ? this.t(this.getCallbackLocale(callbackQuery), 'bot.joined') : this.t(this.getCallbackLocale(callbackQuery), 'bot.already_joined')
         );
       } catch (error) {
-        await this.answerCallbackQuery(callbackQuery.id, error.message || 'Не удалось присоединиться');
+        await this.answerCallbackQuery(callbackQuery.id, localizedError(error, this.getCallbackLocale(callbackQuery)).error);
       }
       return;
     }
@@ -1958,7 +2001,7 @@ export class TelegramBot {
       }
       await this.publishOrSyncGameAnnouncement(result.game.id);
     } catch (error) {
-      await this.answerCallbackQuery(callbackQuery.id, error.message || this.t(locale, 'bot.update_game_failed'));
+      await this.answerCallbackQuery(callbackQuery.id, localizedError(error, this.getCallbackLocale(callbackQuery)).error);
     }
   }
 
@@ -1989,6 +2032,7 @@ export class TelegramBot {
 
     try {
       await this.syncDefaultMenuButton();
+      await this.syncLocalizedBotProfile();
     } catch (error) {
       console.error('Unable to update Telegram menu button:', error.message);
     }

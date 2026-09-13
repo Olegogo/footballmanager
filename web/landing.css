@@ -256,3 +256,46 @@ h1 { width: 657px; margin-bottom: 20px; font-size: 84px; font-weight: 700; line-
   html { scroll-behavior: auto; }
   .button { transition: none; }
 }
+
+/* The language menu shares the navigation surface and remains above the hero. */
+.site-header { grid-template-columns: 1fr auto auto; position: relative; z-index: 5; }
+.header-actions { display: flex; align-items: center; gap: 16px; }
+.language-menu { position: relative; color: var(--muted); font-size: 14px; }
+.language-menu summary { display: flex; align-items: center; gap: 4px; padding: 4px 6px; border-radius: 8px; background: rgba(255,255,255,.12); cursor: pointer; list-style: none; }
+.language-menu summary::-webkit-details-marker { display: none; }
+.language-menu summary img { width: 7px; height: 4px; transform: rotate(180deg); }
+.language-menu[open] summary img { transform: none; }
+.language-menu summary:focus-visible, .language-options a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.language-options { position: absolute; right: 0; top: calc(100% + 10px); width: 144px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 12px 28px #0008; }
+.language-options a { display: block; padding: 10px 12px; border-radius: 7px; }
+.language-options a:hover { background: #ffffff12; color: var(--text); }
+.language-options a[aria-current] { color: var(--accent); }
+html[lang="en"] .visual--lineup { height: 480px; flex-shrink: 0; margin-top: 8px; }
+html[lang="en"] .smart-card h3 { font-size: clamp(24px, 2.09vw, 30px); }
+@media (min-width: 821px) and (max-width: 1240px) {
+  .hero-copy, h1 { width: 60%; }
+  h1 { width: 100%; font-size: clamp(50px, 6vw, 74px); }
+  .hero-lead { width: 100%; font-size: 21px; }
+  .hero-game { left: 64%; }
+  .hero-player { left: 82%; }
+  .visual { max-width: 100%; }
+  .team-main { left: 52%; }
+  .team-side { left: 85%; }
+  .organizer-copy { width: 53%; }
+  .organizer h2, .organizer-copy > p:not(.organizer-label) { width: 100%; }
+  .organizer-visual { left: 62%; width: 34%; height: auto; aspect-ratio: 451 / 530; }
+  .manifesto { grid-template-columns: minmax(0, 1fr) 32%; gap: 24px; }
+  .manifesto h2, .manifesto p:last-child { width: 100%; }
+  .loop li { width: calc(100% - 32px); }
+}
+@media (max-width: 820px) {
+  .site-header { grid-template-columns: 1fr auto; gap: 8px; }
+  .header-actions { gap: 8px; }
+  html[lang="en"] .smart-card h3 { font-size: 30px; }
+  .visual--achievement { max-width: 100%; }
+}
+@media (max-width: 380px) {
+  .brand { font-size: 14px; gap: 4px; }
+  .brand-mark { width: 28px; height: 28px; }
+  .site-header .button { padding: 0 8px; font-size: 11px; }
+}

@@ -1,3 +1,4 @@
+import { translate } from '../../packages/i18n/index.js';
 import { Buffer } from 'node:buffer';
 
 import { Resvg } from '@resvg/resvg-js';
@@ -41,8 +42,8 @@ function truncate(value, maxLength) {
   return `${normalized.slice(0, maxLength - 1)}…`;
 }
 
-function getShortPlayerName(player) {
-  const name = player.displayName || player.username || 'Игрок';
+function getShortPlayerName(player, locale) {
+  const name = player.displayName || player.username || translate(locale, 'players.unknown_player');
   return truncate(name.replace(/^@/, '').split(/\s+/).filter(Boolean)[0] || name, 10);
 }
 
@@ -128,14 +129,14 @@ function renderPlayerAvatar(player, photoDataUrl, avatarId) {
   `;
 }
 
-function renderPlayerCard({ player, slot, teamKey, index, photoDataUrl }) {
+function renderPlayerCard({ player, slot, teamKey, index, photoDataUrl, locale }) {
   const x = Math.round(toFieldX(slot.x) - PLAYER_CARD.width / 2);
   const y = Math.round(toFieldY(slot.y) - PLAYER_CARD.height / 2);
   const avatarId = `avatar-${teamKey}-${index}`;
   const ratingLabel = getPlayerRatingLabel(player);
   const nameLabel = ratingLabel
-    ? `${ratingLabel}. ${getShortPlayerName(player)}`
-    : getShortPlayerName(player);
+    ? `${ratingLabel}. ${getShortPlayerName(player, locale)}`
+    : getShortPlayerName(player, locale);
 
   return `
     <g transform="translate(${x} ${y})">
@@ -162,7 +163,7 @@ function renderFieldLines() {
   `;
 }
 
-export async function renderLineupSvg(game) {
+export async function renderLineupSvg(game, locale = 'en') {
   const participants = game?.participants ?? [];
   const photoIndex = await buildPhotoIndex(participants);
   const teams = splitBalancedTeams(participants);
@@ -174,6 +175,7 @@ export async function renderLineupSvg(game) {
         .map((assignment, index) =>
           renderPlayerCard({
             ...assignment,
+            locale,
             teamKey: team.key,
             index,
             photoDataUrl: photoIndex.get(assignment.player.id)
@@ -202,8 +204,8 @@ export async function renderLineupSvg(game) {
   `;
 }
 
-export async function renderLineupPng(game) {
-  const svg = await renderLineupSvg(game);
+export async function renderLineupPng(game, locale = 'en') {
+  const svg = await renderLineupSvg(game, locale);
   const renderer = new Resvg(svg, {
     fitTo: {
       mode: 'width',

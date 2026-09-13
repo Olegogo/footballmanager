@@ -1,3 +1,4 @@
+import { scheduleInTimeZone } from './timezone.js';
 import { normalizeUsername, unique } from './utils.js';
 
 const MONTHS = {
@@ -12,16 +13,29 @@ const MONTHS = {
   сентября: 8,
   октября: 9,
   ноября: 10,
-  декабря: 11
+  декабря: 11,
+  january: 0, february: 1, march: 2, april: 3, may: 4, june: 5, july: 6, august: 7, september: 8, october: 9, november: 10, december: 11,
+  jan: 0, feb: 1, mar: 2, apr: 3, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11
 };
 
 const DATE_REGEX = new RegExp(
-  `(?:(понедельник|вторник|среда|четверг|пятница|суббота|воскресенье)\\s+)?(\\d{1,2})\\s+(${Object.keys(MONTHS).join('|')})(?:\\s+(20\\d{2})(?:\\s*г(?:ода|\\.)?)?)?`,
+  `(?:(понедельник|вторник|среда|четверг|пятница|суббота|воскресенье|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\s+)?(\\d{1,2})\\s+(${Object.keys(MONTHS).join('|')})(?:\\s+(20\\d{2})(?:\\s*г(?:ода|\\.)?)?)?`,
   'i'
 );
+const EN_MONTH_DATE = /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept?|oct|nov|dec)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(20\d{2}))?\b/i;
+function matchDate(line) {
+  const direct = line.match(DATE_REGEX);
+  if (direct) return direct;
+  const english = line.match(EN_MONTH_DATE);
+  if (english) return [english[0], undefined, english[2], english[1], english[3]];
+  const iso = line.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+  if (iso && +iso[2] >= 1 && +iso[2] <= 12) return [iso[0], undefined, iso[3], Object.keys(MONTHS)[+iso[2] - 1], iso[1]];
+  return null;
+}
+
 const TIME_REGEX = /\b([01]?\d|2[0-3]):([0-5]\d)\b/;
 const TIME_RANGE_REGEX = /\b([01]?\d|2[0-3]):([0-5]\d)(?:\s*[-–—]\s*(?:[01]?\d|2[0-3]):[0-5]\d)?\b/;
-const WEEKDAY_REGEX = /(^|[\s,;.])(?:понедельник|вторник|среда|четверг|пятница|суббота|воскресенье)(?=$|[\s,;.])/gi;
+const WEEKDAY_REGEX = /(^|[\s,;.])(?:понедельник|вторник|среда|четверг|пятница|суббота|воскресенье|monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?=$|[\s,;.])/gi;
 const PLAYER_LINE_REGEX = /^\s*(?:(?:\d{1,2}\.)|[-•])?\s*@([A-Za-z0-9_]{3,32})\b/;
 const BARE_PLAYER_LINE_REGEX = /^\s*(?:(?:\d{1,2}\.)|[-•])\s*(?!@)(.+?)\s*$/u;
 const REQUIRED_PAYMENT_PHONE = '89295991499';
@@ -89,12 +103,12 @@ export function flattenTelegramExportText(text) {
     .join('');
 }
 
-function buildScheduledDate(day, monthIndex, timeMatch, referenceDate, explicitYear) {
+function buildScheduledDate(day, monthIndex, timeMatch, referenceDate, explicitYear, timeZone) {
   const refDate = new Date(referenceDate);
   if (!Number.isFinite(refDate.getTime())) return null;
   const hours = Number(timeMatch[1]);
   const minutes = Number(timeMatch[2]);
-  const timezoneOffset = process.env.CHAT_TIMEZONE_OFFSET || '+03:00';
+  const timezoneOffset = timeZone || process.env.CHAT_TIMEZONE_OFFSET || '+03:00';
   let year = explicitYear ? Number(explicitYear) : refDate.getUTCFullYear();
   let candidate = createDateWithOffset(year, monthIndex, day, hours, minutes, timezoneOffset);
   const diffDays = (candidate.getTime() - refDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -113,25 +127,16 @@ function buildScheduledDate(day, monthIndex, timeMatch, referenceDate, explicitY
 }
 
 function locationFromHeader(line) {
-  return line.replace(DATE_REGEX, '').replace(TIME_RANGE_REGEX, '')
+  return line.replace(matchDate(line)?.[0] || /$^/, '').replace(TIME_RANGE_REGEX, '')
     .replace(WEEKDAY_REGEX, '$1')
-    .replace(/(?:^|\s)(?:дата|время|начало|место|адрес)\s*:/gi, ' ')
+    .replace(/(?:^|\s)(?:дата|время|начало|место|адрес|date|time|start|location|venue|address)\s*:/gi, ' ')
     .replace(/^[\s.,:;–—-]+|[\s.,:;–—-]+$/g, '').trim();
 }
 
 function createDateWithOffset(year, monthIndex, day, hours, minutes, offset) {
-  const match = String(offset).trim().match(/^([+-])(\d{2}):(\d{2})$/);
-
-  if (!match) {
-    return new Date(year, monthIndex, day, hours, minutes, 0, 0);
-  }
-
-  const sign = match[1] === '-' ? -1 : 1;
-  const offsetHours = Number(match[2]);
-  const offsetMinutes = Number(match[3]);
-  const totalOffsetMinutes = sign * (offsetHours * 60 + offsetMinutes);
-  const utcTimestamp = Date.UTC(year, monthIndex, day, hours, minutes, 0, 0) - totalOffsetMinutes * 60 * 1000;
-  return new Date(utcTimestamp);
+  try {
+    return scheduleInTimeZone(`${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`, `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`, offset);
+  } catch { return new Date(NaN); }
 }
 
 function normalizeLines(rawText) {
@@ -170,7 +175,7 @@ export function parseAnnouncementText(rawText, referenceDate = new Date(), optio
     return null;
   }
 
-  const dateIndex = lines.findIndex((line) => DATE_REGEX.test(line));
+  const dateIndex = lines.findIndex((line) => Boolean(matchDate(line)));
   const timeIndex = lines.findIndex((line) => TIME_REGEX.test(line));
   if (dateIndex < 0 || timeIndex < 0) return null;
   const headerEnd = Math.max(dateIndex, timeIndex);
@@ -204,7 +209,7 @@ export function parseAnnouncementText(rawText, referenceDate = new Date(), optio
 
   for (const line of headerLines.length ? headerLines : lines) {
     if (!dateMatch) {
-      const candidate = line.match(DATE_REGEX);
+      const candidate = matchDate(line);
       if (candidate) {
         dateMatch = candidate;
       }
@@ -228,10 +233,10 @@ export function parseAnnouncementText(rawText, referenceDate = new Date(), optio
   if (!location) return null;
 
   const footerWithoutPlayers = footerLines.filter((line) => !parsePlayerLine(line));
-  const priceLine = footerWithoutPlayers.find((line) => /\d/.test(line) && /(р|руб)/i.test(line)) ?? '';
+  const priceLine = footerWithoutPlayers.find((line) => /\d/.test(line) && /(?:руб|₽|р(?=\s|$|[.,])|USD|EUR|GBP|RUB|[$€£])/i.test(line)) ?? '';
   const paymentLines = footerWithoutPlayers.filter((line) => line !== priceLine);
   const monthIndex = MONTHS[dateMatch[3].toLowerCase()];
-  const schedule = buildScheduledDate(Number(dateMatch[2]), monthIndex, timeMatch, referenceDate, dateMatch[4]);
+  const schedule = buildScheduledDate(Number(dateMatch[2]), monthIndex, timeMatch, referenceDate, dateMatch[4], options.timeZone);
   if (!schedule) return null;
   const { scheduledAt, date } = schedule;
   const key = [
@@ -251,6 +256,7 @@ export function parseAnnouncementText(rawText, referenceDate = new Date(), optio
     playerUsernames: usernames,
     playerRefs,
     scheduledAt: scheduledAt.toISOString(),
+    timeZone: options.timeZone || process.env.CHAT_TIMEZONE_OFFSET || '+03:00',
     date,
     time: timeMatch[0],
     key
@@ -291,14 +297,14 @@ export function parseAnnouncementTextLog(rawText, referenceDate = new Date()) {
   for (let start = 0; start < lines.length; start += 1) {
     const trimmedLine = lines[start].trim();
 
-    if (!trimmedLine || !DATE_REGEX.test(trimmedLine)) {
+    if (!trimmedLine || !Boolean(matchDate(trimmedLine))) {
       continue;
     }
 
     let nextDateIndex = lines.length;
 
     for (let cursor = start + 1; cursor < lines.length; cursor += 1) {
-      if (DATE_REGEX.test(lines[cursor].trim())) {
+      if (Boolean(matchDate(lines[cursor].trim()))) {
         nextDateIndex = cursor;
         break;
       }

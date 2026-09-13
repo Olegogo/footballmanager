@@ -47,7 +47,7 @@ loadEnvFile(path.join(rootDir, '.env'));
 export const config = {
   rootDir,
   webDir: path.join(rootDir, 'web'),
-  dataFile: path.join(rootDir, 'data', 'db.json'),
+  dataFile: env('DATA_FILE', path.join(rootDir, 'data', 'db.json')),
   host: env('HOST', '0.0.0.0'),
   port: Number(env('PORT', '3000')),
   publicBaseUrl: env('PUBLIC_BASE_URL', '').replace(/\/+$/, ''),

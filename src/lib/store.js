@@ -1,3 +1,5 @@
+import { scheduleInTimeZone } from './timezone.js';
+import { AppError } from './errors.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -59,10 +61,10 @@ function normalizeTeamImageUrl(value) {
 
   if (!normalized) return '';
   if (normalized.length > 700_000) {
-    throw new Error('Изображение команды слишком большое');
+    throw new AppError('team_image_large');
   }
   if (!/^data:image\/(?:png|jpe?g|webp);base64,/i.test(normalized) && !/^https:\/\//i.test(normalized)) {
-    throw new Error('Некорректное изображение команды');
+    throw new AppError('team_image_invalid');
   }
   return normalized;
 }
@@ -74,7 +76,7 @@ function assertCanManageTeam(state, team, requesterPlayerId) {
     return;
   }
 
-  throw new Error('Управлять командой может только капитан');
+  throw new AppError('captain_only');
 }
 
 function buildTeamViews(state, playerCards, viewerPlayerId) {
@@ -146,7 +148,7 @@ function ensureLocaleFields(state) {
   let changed = false;
 
   for (const chat of Object.values(state.chats ?? {})) {
-    const nextLocale = normalizeLocale(chat.locale || DEFAULT_LOCALE);
+    const nextLocale = normalizeLocale(chat.locale || 'ru');
     const nextSource = chat.localeSource || 'fallback';
 
     if (chat.locale !== nextLocale) {
@@ -165,7 +167,7 @@ function ensureLocaleFields(state) {
       player.analyticsId = randomUUID();
       changed = true;
     }
-    const nextLocale = normalizeLocale(player.locale || DEFAULT_LOCALE);
+    const nextLocale = normalizeLocale(player.locale || 'ru');
     const nextSource = player.localeSource || 'fallback';
 
     if (player.locale !== nextLocale) {
@@ -428,18 +430,18 @@ function buildTimeRangeWithDuration(time, durationMinutes) {
   return `${parsed.start}–${formatTimeFromMinutes(parsed.hours * 60 + parsed.minutes + duration)}`;
 }
 
-function buildManualSchedule(date, time, timezoneOffset = process.env.CHAT_TIMEZONE_OFFSET || '+03:00') {
+function buildManualSchedule(date, time, timezoneOffset = process.env.CHAT_TIMEZONE_OFFSET || '+03:00', timeZone = '') {
   const dateMatch = String(date ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   const timeInfo = parseManualTimeInput(time);
 
   if (!dateMatch || !timeInfo) {
-    throw new Error('Укажите дату и время игры');
+    throw new AppError('schedule_required');
   }
 
   const year = Number(dateMatch[1]);
   const monthIndex = Number(dateMatch[2]) - 1;
   const day = Number(dateMatch[3]);
-  const scheduledAt = createDateWithOffset(year, monthIndex, day, timeInfo.hours, timeInfo.minutes, timezoneOffset);
+  const scheduledAt = scheduleInTimeZone(String(date), timeInfo.start, timeZone || timezoneOffset);
   const monthNames = [
     'января',
     'февраля',
@@ -457,7 +459,8 @@ function buildManualSchedule(date, time, timezoneOffset = process.env.CHAT_TIMEZ
 
   return {
     scheduledAt: scheduledAt.toISOString(),
-    date: scheduledAt.toISOString().slice(0, 10),
+    date: String(date),
+    timeZone: timeZone || timezoneOffset,
     dateLabel: `${day} ${monthNames[monthIndex]}`,
     time: timeInfo.display
   };
@@ -468,7 +471,7 @@ function assertScheduleNotInPast(scheduledAt, now = new Date()) {
   const currentMinuteMs = Math.floor(now.getTime() / 60_000) * 60_000;
 
   if (Number.isFinite(scheduledMs) && scheduledMs < currentMinuteMs) {
-    const error = new Error('Нельзя создать игру в прошлом');
+    const error = new AppError('game_in_past');
     error.code = 'GAME_IN_PAST';
     error.statusCode = 400;
     throw error;
@@ -490,15 +493,16 @@ function applyManualFieldsToGame(state, game, {
   additionalInfo,
   playerIds,
   timezoneOffset,
+  timeZone,
   nowIso
 }) {
   const selectedPlayerIds = resolveManualPlayerIds(state, playerIds);
 
   if (selectedPlayerIds.length < 2) {
-    throw new Error('Добавьте минимум двух игроков');
+    throw new AppError('players_required');
   }
 
-  const schedule = buildManualSchedule(date, time, timezoneOffset);
+  const schedule = buildManualSchedule(date, time, timezoneOffset, timeZone || game.timeZone);
   const normalizedLocation = String(location ?? '').trim();
 
   game.key = [
@@ -511,6 +515,7 @@ function applyManualFieldsToGame(state, game, {
   game.time = schedule.time;
   game.scheduledAt = schedule.scheduledAt;
   game.date = schedule.date;
+  game.timeZone = schedule.timeZone;
   game.priceLine = '';
   game.paymentLines = String(additionalInfo ?? '')
     .split(/\r?\n/)
@@ -589,7 +594,7 @@ function assertCanManageGame(state, game, requesterPlayerId) {
     return;
   }
 
-  throw new Error('Редактировать игру может только организатор');
+  throw new AppError('organizer_only');
 }
 
 function assertCanToggleRosterLock(state, game, requesterPlayerId) {
@@ -603,7 +608,7 @@ function assertCanToggleRosterLock(state, game, requesterPlayerId) {
     return;
   }
 
-  throw new Error('Закрывать набор может только организатор');
+  throw new AppError('roster_organizer_only');
 }
 
 function findLatestGameForChat(state, chatId) {
@@ -1147,6 +1152,7 @@ function applyAnnouncementToGame(state, game, {
   game.time = announcement.time;
   game.scheduledAt = announcement.scheduledAt;
   game.date = announcement.date;
+  game.timeZone = announcement.timeZone || game.timeZone;
   if (announcement.hasPaymentBlock) {
     game.priceLine = announcement.priceLine;
     game.paymentLines = announcement.paymentLines;
@@ -1342,7 +1348,7 @@ export class AppStore {
       const player = findPlayerById(state, playerId);
 
       if (!player) {
-        throw new Error('Игрок не найден');
+        throw new AppError('player_not_found');
       }
 
       player.locale = normalizeLocale(locale);
@@ -1357,13 +1363,22 @@ export class AppStore {
       const player = findPlayerByTelegramUserId(state, telegramUserId);
 
       if (!player) {
-        throw new Error('Игрок не найден');
+        throw new AppError('player_not_found');
       }
 
       player.locale = normalizeLocale(locale);
       player.localeSource = localeSource;
       player.updatedAt = new Date().toISOString();
       return player;
+    });
+  }
+
+  async setChatTimeZone(chatId, timeZone) {
+    return this.mutate(state => {
+      const chat = state.chats[String(chatId)];
+      if (!chat) throw new AppError('chat_not_found');
+      scheduleInTimeZone('2030-01-15', '12:00', timeZone);
+      chat.timeZone = timeZone;
     });
   }
 
@@ -1680,6 +1695,7 @@ export class AppStore {
         time: announcement.time,
         scheduledAt: announcement.scheduledAt,
         date: announcement.date,
+        timeZone: announcement.timeZone,
         priceLine: announcement.priceLine,
         paymentLines: announcement.paymentLines,
         playerUsernames: announcement.playerUsernames,
@@ -1714,22 +1730,23 @@ export class AppStore {
     location,
     playerIds,
     additionalInfo,
-    timezoneOffset
+    timezoneOffset,
+    timeZone
   }) {
     return this.mutate((state) => {
       const chat = state.chats[String(chatId)];
       const organizer = findPlayerById(state, organizerPlayerId);
 
       if (!chat) {
-        throw new Error('Чат не найден');
+        throw new AppError('chat_not_found');
       }
 
       if (!organizer) {
-        throw new Error('Организатор не найден');
+        throw new AppError('organizer_not_found');
       }
 
       const now = new Date().toISOString();
-      const requestedSchedule = buildManualSchedule(date, time, timezoneOffset);
+      const requestedSchedule = buildManualSchedule(date, time, timezoneOffset, timeZone);
       assertScheduleNotInPast(requestedSchedule.scheduledAt);
       const gameId = `game_${state.meta.nextGameId++}`;
       const game = {
@@ -1772,6 +1789,7 @@ export class AppStore {
         additionalInfo,
         playerIds: unique([organizerPlayerId, ...(Array.isArray(playerIds) ? playerIds : [])]),
         timezoneOffset,
+        timeZone,
         nowIso: now
       });
       applyManualInviteState(state, game, {
@@ -1804,14 +1822,14 @@ export class AppStore {
       const requester = findPlayerById(state, requesterPlayerId);
 
       if (!requester) {
-        throw new Error('Игрок не найден');
+        throw new AppError('player_not_found');
       }
 
       const normalizedName = String(name ?? '').trim();
       const normalizedCity = String(city ?? '').trim();
 
       if (!normalizedName || !normalizedCity) {
-        throw new Error('Укажите название команды и город или район');
+        throw new AppError('team_details_required');
       }
 
       const selectedPlayerIds = resolveManualPlayerIds(state, [
@@ -1849,7 +1867,7 @@ export class AppStore {
       const team = state.teams?.[teamId];
 
       if (!team) {
-        throw new Error('Команда не найдена');
+        throw new AppError('team_not_found');
       }
 
       assertCanManageTeam(state, team, requesterPlayerId);
@@ -1882,7 +1900,7 @@ export class AppStore {
       const team = state.teams?.[teamId];
 
       if (!team) {
-        throw new Error('Команда не найдена');
+        throw new AppError('team_not_found');
       }
 
       assertCanManageTeam(state, team, requesterPlayerId);
@@ -1903,18 +1921,18 @@ export class AppStore {
       const challengerTeam = state.teams?.[challengerTeamId];
 
       if (!challengerTeam) {
-        throw new Error('Команда не найдена');
+        throw new AppError('team_not_found');
       }
 
       assertCanManageTeam(state, challengerTeam, requesterPlayerId);
       const opponentTeam = opponentTeamId ? state.teams?.[opponentTeamId] : null;
 
       if (opponentTeamId && !opponentTeam) {
-        throw new Error('Соперник не найден');
+        throw new AppError('opponent_not_found');
       }
 
       if (opponentTeam?.id === challengerTeam.id) {
-        throw new Error('Нельзя бросить вызов своей команде');
+        throw new AppError('challenge_self');
       }
 
       const date = String(payload?.date ?? '').trim();
@@ -1922,7 +1940,7 @@ export class AppStore {
       const location = String(payload?.location ?? '').trim();
 
       if (!date || !time || !location) {
-        throw new Error('Укажите дату, время и площадку');
+        throw new AppError('venue_schedule_required');
       }
 
       const now = new Date().toISOString();
@@ -1935,6 +1953,7 @@ export class AppStore {
         format: normalizeChoice(payload?.format, TEAM_FORMATS, challengerTeam.format),
         date,
         time,
+        timeZone: payload?.timeZone || process.env.CHAT_TIMEZONE_OFFSET || '+03:00',
         location,
         duration: Number(payload?.duration) === 60 ? 60 : 90,
         mode,
@@ -1959,17 +1978,17 @@ export class AppStore {
       const challenge = state.teamChallenges?.[challengeId];
 
       if (!challenge) {
-        throw new Error('Вызов не найден');
+        throw new AppError('challenge_not_found');
       }
 
       if (!['open', 'sent', 'counter'].includes(challenge.status)) {
-        throw new Error('Активный вызов уже нельзя изменить');
+        throw new AppError('challenge_active');
       }
 
       const challengerTeam = state.teams?.[challenge.challengerTeamId];
 
       if (!challengerTeam) {
-        throw new Error('Команда не найдена');
+        throw new AppError('team_not_found');
       }
 
       assertCanManageTeam(state, challengerTeam, requesterPlayerId);
@@ -1978,11 +1997,12 @@ export class AppStore {
       const location = String(payload?.location ?? challenge.location).trim();
 
       if (!date || !time || !location) {
-        throw new Error('Укажите дату, время и площадку');
+        throw new AppError('venue_schedule_required');
       }
 
       challenge.date = date;
       challenge.time = time;
+      challenge.timeZone = payload?.timeZone || challenge.timeZone;
       challenge.location = location;
       challenge.format = normalizeChoice(payload?.format, TEAM_FORMATS, challenge.format);
       challenge.duration = Number(payload?.duration) === 60 ? 60 : 90;
@@ -2002,17 +2022,17 @@ export class AppStore {
       const challenge = state.teamChallenges?.[challengeId];
 
       if (!challenge) {
-        throw new Error('Вызов не найден');
+        throw new AppError('challenge_not_found');
       }
 
       if (!['open', 'sent', 'counter'].includes(challenge.status)) {
-        throw new Error('Вызов уже закрыт');
+        throw new AppError('challenge_closed');
       }
 
       const challengerTeam = state.teams?.[challenge.challengerTeamId];
 
       if (!challengerTeam) {
-        throw new Error('Команда не найдена');
+        throw new AppError('team_not_found');
       }
 
       assertCanManageTeam(state, challengerTeam, requesterPlayerId);
@@ -2029,13 +2049,13 @@ export class AppStore {
       const challenge = state.teamChallenges?.[challengeId];
 
       if (!challenge) {
-        throw new Error('Вызов не найден');
+        throw new AppError('challenge_not_found');
       }
 
       const challengerTeam = state.teams?.[challenge.challengerTeamId];
 
       if (!challengerTeam) {
-        throw new Error('Команда не найдена');
+        throw new AppError('team_not_found');
       }
 
       assertCanManageTeam(state, challengerTeam, requesterPlayerId);
@@ -2049,11 +2069,11 @@ export class AppStore {
       const challenge = state.teamChallenges?.[challengeId];
 
       if (!challenge) {
-        throw new Error('Вызов не найден');
+        throw new AppError('challenge_not_found');
       }
 
       if (!['open', 'sent', 'counter'].includes(challenge.status)) {
-        throw new Error('Вызов уже обработан');
+        throw new AppError('challenge_processed');
       }
 
       let opponentTeam = challenge.opponentTeamId ? state.teams?.[challenge.opponentTeamId] : null;
@@ -2075,11 +2095,11 @@ export class AppStore {
         const responderTeam = managedTeams.find((team) => team.id === responderTeamId);
 
         if (!responderTeam || responderTeam.id === challengerTeam?.id) {
-          throw new Error('Выберите свою команду для принятия вызова');
+          throw new AppError('challenge_team_required');
         }
 
         if (responderTeam.status === 'inactive') {
-          throw new Error('Неактивная команда не может принять вызов');
+          throw new AppError('challenge_team_inactive');
         }
 
         challenge.opponentTeamId = responderTeam.id;
@@ -2088,11 +2108,11 @@ export class AppStore {
       }
 
       if (!managedTeam) {
-        throw new Error('Ответить на вызов может только капитан');
+        throw new AppError('challenge_captain_only');
       }
 
       if (challenge.status !== 'open' && challenge.awaitingTeamId && managedTeam.id !== challenge.awaitingTeamId) {
-        throw new Error('Сейчас ответ ожидается от другой команды');
+        throw new AppError('challenge_other_turn');
       }
 
       if (action === 'decline') {
@@ -2105,6 +2125,7 @@ export class AppStore {
       if (action === 'counter') {
         challenge.date = String(payload?.date ?? challenge.date).trim();
         challenge.time = String(payload?.time ?? challenge.time).trim();
+        challenge.timeZone = payload?.timeZone || challenge.timeZone;
         challenge.location = String(payload?.location ?? challenge.location).trim();
         challenge.duration = Number(payload?.duration) === 60 ? 60 : 90;
         challenge.costSplit = String(payload?.costSplit ?? challenge.costSplit).trim();
@@ -2121,13 +2142,13 @@ export class AppStore {
       }
 
       if (action !== 'accept' || !challengerTeam || !opponentTeam) {
-        throw new Error('Некорректное действие с вызовом');
+        throw new AppError('challenge_action_invalid');
       }
 
       const chat = state.chats.global;
 
       if (!chat) {
-        throw new Error('Глобальный раздел игр не найден');
+        throw new AppError('global_not_found');
       }
 
       const now = new Date().toISOString();
@@ -2144,6 +2165,8 @@ export class AppStore {
         rawText: '',
         key: '',
         source: 'team_challenge',
+        challengeMode: challenge.mode,
+        needsReferee: challenge.needsReferee,
         sourceDate: now,
         organizerPlayerId,
         dateLabel: '',
@@ -2172,15 +2195,14 @@ export class AppStore {
         updatedAt: now
       };
       const details = [
-        challenge.mode === 'ranked' ? 'Рейтинговый матч' : 'Товарищеский матч',
         challenge.costSplit,
-        challenge.needsReferee ? 'Нужен судья' : '',
         challenge.comment
       ].filter(Boolean).join('\n');
 
       applyManualFieldsToGame(state, game, {
         date: challenge.date,
         time: buildTimeRangeWithDuration(challenge.time, challenge.duration),
+        timeZone: challenge.timeZone,
         location: challenge.location,
         additionalInfo: details,
         playerIds: selectedPlayerIds,
@@ -2214,20 +2236,21 @@ export class AppStore {
     location,
     playerIds,
     additionalInfo,
-    timezoneOffset
+    timezoneOffset,
+    timeZone
   }) {
     return this.mutate((state) => {
       const chat = state.chats[String(chatId)];
       const game = state.games[gameId];
 
       if (!chat || !game || game.chatId !== String(chatId)) {
-        throw new Error('Игра не найдена');
+        throw new AppError('game_not_found');
       }
 
       assertCanManageGame(state, game, requesterPlayerId);
 
       if (!isGameEditableBeforeStart(game, new Date())) {
-        throw new Error('Игру уже нельзя редактировать');
+        throw new AppError('game_not_editable');
       }
 
       const now = new Date().toISOString();
@@ -2240,6 +2263,7 @@ export class AppStore {
         additionalInfo,
         playerIds: unique([game.organizerPlayerId || requesterPlayerId, ...(Array.isArray(playerIds) ? playerIds : [])]),
         timezoneOffset,
+        timeZone,
         nowIso: now
       });
       applyManualInviteState(state, game, {
@@ -2259,13 +2283,13 @@ export class AppStore {
       const game = state.games[gameId];
 
       if (!game) {
-        throw new Error('Игра не найдена');
+        throw new AppError('game_not_found');
       }
 
       assertCanToggleRosterLock(state, game, requesterPlayerId);
 
       if (!isGameEditableBeforeStart(game, new Date())) {
-        throw new Error('Игру уже нельзя редактировать');
+        throw new AppError('game_not_editable');
       }
 
       game.rosterLocked = Boolean(rosterLocked);
@@ -2280,7 +2304,7 @@ export class AppStore {
       const game = state.games[gameId];
 
       if (!chat || !game || game.chatId !== String(chatId)) {
-        throw new Error('Игра не найдена');
+        throw new AppError('game_not_found');
       }
 
       assertCanManageGame(state, game, requesterPlayerId);
@@ -2321,7 +2345,7 @@ export class AppStore {
       const player = findPlayerById(state, playerId);
 
       if (!game || !player) {
-        throw new Error('Игра или игрок не найдены');
+        throw new AppError('game_player_not_found');
       }
 
       const wasInGame = game.playerIds.includes(playerId);
@@ -2352,11 +2376,11 @@ export class AppStore {
       const player = findPlayerById(state, playerId);
 
       if (!game || !player) {
-        throw new Error('Игра или игрок не найдены');
+        throw new AppError('game_player_not_found');
       }
 
       if (!isGameEditableBeforeStart(game, new Date())) {
-        throw new Error('Приглашение уже нельзя принять');
+        throw new AppError('invite_expired');
       }
 
       if (game.playerIds.includes(playerId)) {
@@ -2369,7 +2393,7 @@ export class AppStore {
       }
 
       if (!(game.invitedPlayerIds ?? []).includes(playerId)) {
-        throw new Error('Приглашение не найдено');
+        throw new AppError('invite_not_found');
       }
 
       game.invitedPlayerIds = (game.invitedPlayerIds ?? []).filter((id) => id !== playerId);
@@ -2394,11 +2418,11 @@ export class AppStore {
       const player = findPlayerById(state, playerId);
 
       if (!game || !player) {
-        throw new Error('Игра или игрок не найдены');
+        throw new AppError('game_player_not_found');
       }
 
       if (!isGameJoinable(game, new Date())) {
-        throw new Error('Запись на эту игру уже закрыта');
+        throw new AppError('registration_closed');
       }
 
       const wasInGame = game.playerIds.includes(playerId);
@@ -2425,19 +2449,19 @@ export class AppStore {
       const player = findPlayerById(state, playerId);
 
       if (!game || !player) {
-        throw new Error('Игра или игрок не найдены');
+        throw new AppError('game_player_not_found');
       }
 
       if (game.playerIds.includes(playerId)) {
-        throw new Error('Ты уже в составе этой игры');
+        throw new AppError('already_joined');
       }
 
       if ((game.invitedPlayerIds ?? []).includes(playerId)) {
-        throw new Error('Ты уже приглашен в эту игру');
+        throw new AppError('already_invited');
       }
 
       if (!isGameJoinable(game, new Date())) {
-        throw new Error('Заявки на эту игру уже закрыты');
+        throw new AppError('requests_closed');
       }
 
       const pendingJoinPlayerIds = game.pendingJoinPlayerIds ?? [];
@@ -2461,7 +2485,7 @@ export class AppStore {
       const player = findPlayerById(state, playerId);
 
       if (!game || !player) {
-        throw new Error('Игра или игрок не найдены');
+        throw new AppError('game_player_not_found');
       }
 
       const isSelfCancel = requesterPlayerId === playerId;
@@ -2470,7 +2494,7 @@ export class AppStore {
         assertCanManageGame(state, game, requesterPlayerId);
 
         if (!isGameEditableBeforeStart(game, new Date())) {
-          throw new Error('Игру уже нельзя редактировать');
+          throw new AppError('game_not_editable');
         }
       }
 
@@ -2503,17 +2527,17 @@ export class AppStore {
       const player = findPlayerById(state, playerId);
 
       if (!game || !player) {
-        throw new Error('Игра или игрок не найдены');
+        throw new AppError('game_player_not_found');
       }
 
       assertCanManageGame(state, game, requesterPlayerId);
 
       if (!isGameEditableBeforeStart(game, new Date())) {
-        throw new Error('Игру уже нельзя редактировать');
+        throw new AppError('game_not_editable');
       }
 
       if (!(game.pendingJoinPlayerIds ?? []).includes(playerId)) {
-        throw new Error('Заявка не найдена');
+        throw new AppError('request_not_found');
       }
 
       game.pendingJoinPlayerIds = (game.pendingJoinPlayerIds ?? []).filter((id) => id !== playerId);
@@ -2830,23 +2854,23 @@ export class AppStore {
       const chat = game ? state.chats[String(game.chatId)] : state.chats[String(chatId)];
 
       if (!chat || !game) {
-        throw new Error('Игра не найдена');
+        throw new AppError('game_not_found');
       }
 
       if (new Date(game.scheduledAt) > new Date()) {
-        throw new Error('Игра еще не началась');
+        throw new AppError('game_not_started');
       }
 
       if (!isRatingWindowOpen(state, game, new Date())) {
-        throw new Error('Окно оценки уже закрыто');
+        throw new AppError('rating_closed');
       }
 
       if (raterPlayerId === targetPlayerId) {
-        throw new Error('Нельзя оценивать себя');
+        throw new AppError('rate_self');
       }
 
       if (!game.playerIds.includes(raterPlayerId) || !game.playerIds.includes(targetPlayerId)) {
-        throw new Error('Оценивать можно только участников текущей игры');
+        throw new AppError('rate_target_only');
       }
 
       let rating = Object.values(state.ratings).find(
@@ -2890,30 +2914,30 @@ export class AppStore {
       const chat = game ? state.chats[String(game.chatId)] : state.chats[String(chatId)];
 
       if (!chat || !game) {
-        throw new Error('Игра не найдена');
+        throw new AppError('game_not_found');
       }
 
       if (new Date(game.scheduledAt) > new Date()) {
-        throw new Error('Игра еще не началась');
+        throw new AppError('game_not_started');
       }
 
       if (!isRatingWindowOpen(state, game, new Date())) {
-        throw new Error('Окно оценки уже закрыто');
+        throw new AppError('rating_closed');
       }
 
       if (!game.playerIds.includes(raterPlayerId)) {
-        throw new Error('Оценивать можно только участникам текущей игры');
+        throw new AppError('rate_participants_only');
       }
 
       const mvpPlayerId = String(payload?.mvpPlayerId ?? '');
 
       if (mvpPlayerId) {
         if (mvpPlayerId === raterPlayerId) {
-          throw new Error('Нельзя голосовать за себя');
+          throw new AppError('vote_self');
         }
 
         if (!game.playerIds.includes(mvpPlayerId)) {
-          throw new Error('MVP можно выбрать только из участников игры');
+          throw new AppError('mvp_participants_only');
         }
       }
 
@@ -2929,15 +2953,15 @@ export class AppStore {
         }
 
         if (targetPlayerId === raterPlayerId) {
-          throw new Error('Нельзя начислять очки себе');
+          throw new AppError('points_self');
         }
 
         if (!game.playerIds.includes(targetPlayerId)) {
-          throw new Error('Очки можно начислять только участникам игры');
+          throw new AppError('points_participants_only');
         }
 
         if (!STAT_KEYS.includes(statKey)) {
-          throw new Error('Неизвестный параметр');
+          throw new AppError('unknown_stat');
         }
 
         const key = `${targetPlayerId}:${statKey}`;
@@ -2964,15 +2988,15 @@ export class AppStore {
         }
 
         if (targetPlayerId === raterPlayerId) {
-          throw new Error('Нельзя выдавать ачивки себе');
+          throw new AppError('achievement_self');
         }
 
         if (!game.playerIds.includes(targetPlayerId)) {
-          throw new Error('Ачивки можно выдавать только участникам игры');
+          throw new AppError('achievement_participants_only');
         }
 
         if (!QUICK_ACHIEVEMENT_KEYS.has(achievementKey)) {
-          throw new Error('Неизвестная ачивка');
+          throw new AppError('achievement_unknown');
         }
 
         achievementMap.set(achievementKey, {
@@ -2984,11 +3008,11 @@ export class AppStore {
       const achievements = [...achievementMap.values()];
 
       if (totalPoints > QUICK_RATING_POINTS) {
-        throw new Error(`Можно раздать максимум ${QUICK_RATING_POINTS} очка`);
+        throw new AppError('points_limit', { count: QUICK_RATING_POINTS });
       }
 
       if (!mvpPlayerId && totalPoints === 0 && achievements.length === 0) {
-        throw new Error('Выберите MVP, ачивку или раздайте очки параметров');
+        throw new AppError('rating_empty');
       }
 
       for (const boostId of Object.keys(state.statBoosts ?? {})) {
@@ -3071,7 +3095,7 @@ export class AppStore {
       const player = state.players[playerId];
 
       if (!player) {
-        throw new Error('Игрок не найден');
+        throw new AppError('player_not_found');
       }
 
       const career = buildGlobalCareerIndex(state, new Date()).get(playerId);

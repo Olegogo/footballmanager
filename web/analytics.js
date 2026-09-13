@@ -5,7 +5,7 @@ const EVENTS = new Set([
   'rating_saved', 'rating_completed', 'profile_saved'
 ]);
 const FIELDS = new Set([
-  'screen', 'source', 'authenticated', 'game_id', 'game_status', 'join_status',
+  'locale', 'screen', 'source', 'authenticated', 'game_id', 'game_status', 'join_status',
   'method', 'mode', 'actor', 'filter', 'rating_mode'
 ]);
 
