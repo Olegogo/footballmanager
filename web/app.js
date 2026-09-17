@@ -2475,9 +2475,9 @@ function renderFieldTeamControl(activeTeamKey, game) {
   const canAddTeam = canChangeTeamCount && teamCount < getMaximumTeamCount(game.participants?.length ?? 0);
   const canResetTeams = canChangeTeamCount && teamCount === 4;
   const countAction = canResetTeams
-    ? `<button type="button" class="field-team-count-button" data-field-team-count-action="reset" aria-label="${escapeHtml(t('match.reset_teams'))}">&times;</button>`
+    ? `<button type="button" class="field-team-count-button" data-field-team-count-action="reset" aria-label="${escapeHtml(t('match.reset_teams'))}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18" /></svg></button>`
     : canAddTeam
-      ? `<button type="button" class="field-team-count-button" data-field-team-count-action="add" aria-label="${escapeHtml(t('match.add_team'))}">+</button>`
+      ? `<button type="button" class="field-team-count-button" data-field-team-count-action="add" aria-label="${escapeHtml(t('match.add_team'))}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14M12 5v14" /></svg></button>`
       : '';
 
   return `

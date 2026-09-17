@@ -2361,7 +2361,15 @@ p {
 
 .field-team-control .field-team-count-button {
   color: #f3eed6;
-  font: 500 28px/1 Inter, system-ui, sans-serif;
+}
+
+.field-team-count-button svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
 }
 
 .field-empty {
