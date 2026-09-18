@@ -5295,7 +5295,6 @@ input[type="range"] {
 
 .team-detail-stats {
   padding: 16px;
-  border: 0;
   border-radius: 28px;
   background: #0a170f;
 }
@@ -5322,7 +5321,6 @@ input[type="range"] {
 
 .team-detail-island {
   padding: 16px;
-  border: 0;
   background: #0a170f;
 }
 
@@ -5337,7 +5335,6 @@ input[type="range"] {
 .team-challenges-block {
   gap: 14px;
   padding: 16px;
-  border: 0;
   background: #0a170f;
 }
 
@@ -5347,7 +5344,6 @@ input[type="range"] {
 
 .team-challenges-block .team-challenge-card {
   padding: 12px;
-  border: 0;
   border-radius: 20px;
   background: #232e27;
 }
