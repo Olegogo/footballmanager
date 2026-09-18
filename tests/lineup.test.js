@@ -17,7 +17,7 @@ test('match formations match the fixed five, six, seven and eight-player schemes
   for (const size of [5,6,7,8]) {
     const roster = [player('keeper',80,'GK'), ...Array.from({length:size-1},(_,i)=>player(`p${i}`,70))];
     const assigned = buildFullFieldAssignments(roster);
-    assert.deepEqual(assigned[0].slot,{x:12,y:50});
+    assert.deepEqual(assigned[0].slot,{x:8,y:50});
     assert.deepEqual(assigned.slice(1).map(({slot})=>[slot.x,slot.y]).sort(), expected[size].sort());
     assert.deepEqual(buildFullFieldAssignments([...roster].reverse()),assigned);
   }
@@ -44,9 +44,9 @@ test('keepers never overflow into outfield and nobody is lost without a keeper o
     assert.equal(new Set(assigned.map(({slot})=>`${slot.x},${slot.y}`)).size,size);
   }
   const assigned = buildFullFieldAssignments([player('a',80,'GK'),player('b',70,'GK'),player('c',70)]);
-  assert.ok(assigned.filter(({position})=>position==='GK').every(({slot})=>slot.x===12 && slot.y>=38 && slot.y<=62));
+  assert.ok(assigned.filter(({position})=>position==='GK').every(({slot})=>slot.x===8 && slot.y>=38 && slot.y<=62));
   const effective = buildFullFieldAssignments([{...player('override',80),currentGameStats:{hasRatings:true,position:'GK'}}]);
-  assert.deepEqual(effective[0].slot,{x:12,y:50});
+  assert.deepEqual(effective[0].slot,{x:8,y:50});
 });
 
 test('splitBalancedTeams supports two to four balanced teams', () => {

@@ -19,7 +19,7 @@ export const POSITION_META = {
 export const POSITION_CHOICES = ['N/A', 'GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST'];
 
 const FIELD_POSITION_LAYOUT_FULL = {
-  GK: { x: 12, y: 50 },
+  GK: { x: 8, y: 50 },
   CB: { x: 28, y: 50 },
   LB: { x: 28, y: 15 },
   RB: { x: 28, y: 85 },
@@ -254,7 +254,7 @@ export function buildFullFieldAssignments(players) {
   return [
     ...keepers.map((player, index) => ({
       player, position: 'GK',
-      slot: { x: 12, y: keepers.length === 1 ? 50 : 38 + 24 * index / (keepers.length - 1) }
+      slot: { x: FIELD_POSITION_LAYOUT_FULL.GK.x, y: keepers.length === 1 ? 50 : 38 + 24 * index / (keepers.length - 1) }
     })),
     ...outfield.map((player, index) => ({ player, position: getEffectivePosition(player), slot: slots[index] }))
   ];

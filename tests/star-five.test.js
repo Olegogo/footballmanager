@@ -61,7 +61,7 @@ test('first keeper enters a full outfield lineup and takes only one place', () =
 test('formation fixes keeper in goal, respects wings and separates repeated positions', () => {
   const players = ['GK', 'LB', 'RB', 'ST', 'ST'].map((position, i) => ({ id: String(i), position, displayName: String(i) }));
   const result = buildStarFiveFieldAssignments(players);
-  assert.deepEqual(result.find((entry) => entry.position === 'GK').slot, { x: 12, y: 50 });
+  assert.deepEqual(result.find((entry) => entry.position === 'GK').slot, { x: 8, y: 50 });
   assert.ok(result.find((entry) => entry.position === 'LB').slot.y < 50);
   assert.ok(result.find((entry) => entry.position === 'RB').slot.y > 50);
   assert.ok(result.filter((entry) => entry.position === 'ST').every((entry) => entry.slot.x === 68));
