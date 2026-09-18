@@ -3,6 +3,7 @@ import {
   POSITION_CHOICES,
   POSITION_META,
   buildFullFieldAssignments,
+  buildStarFiveFieldAssignments,
   clamp,
   getEffectiveOverall,
   getEffectivePosition,
@@ -2502,7 +2503,7 @@ function renderField(game, options = {}) {
     : selectedTeam.players;
   const selectedTeamIndex = getFieldTeams(game).findIndex((team) => team.key === selectedTeam?.key);
   const shouldMirrorTeam = Boolean(options.showTeamControl && !options.singleField && selectedTeamIndex % 2 === 1);
-  const assignments = buildFullFieldAssignments(fieldPlayers).map(({ player, slot }) => ({
+  const assignments = (options.assignments || buildFullFieldAssignments(fieldPlayers)).map(({ player, slot }) => ({
     player,
     slot: shouldMirrorTeam ? { ...slot, x: 100 - slot.x } : slot
   }));
@@ -3166,8 +3167,8 @@ function renderTeamActionsModal() {
 
   if (state.teamActionsOpen && state.teamScreen === 'star-five') {
     return `<div class="modal-backdrop modal-backdrop--compact" data-team-actions-backdrop="true">
-      <section class="modal-card game-actions-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('teams.actions'))}">
-        <h2>${escapeHtml(t('teams.actions'))}</h2>
+      <section class="modal-card game-actions-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('star_five.actions'))}">
+        <h2>${escapeHtml(t('star_five.actions'))}</h2>
         <button type="button" class="game-action-button" data-share-star-five>${escapeHtml(t('star_five.share'))}</button>
       </section></div>`;
   }
@@ -3813,14 +3814,13 @@ function renderStarFiveCard(five) {
 
 function renderStarFiveDetail() {
   const five = getStarFives()[0];
-  const actions = five ? `<button type="button" class="game-top-button team-kebab-button" data-toggle-team-actions aria-label="${escapeHtml(t('teams.actions'))}" aria-expanded="${state.teamActionsOpen}">•••</button>` : '';
+  const actions = five ? `<button type="button" class="game-top-button team-kebab-button" data-toggle-team-actions aria-label="${escapeHtml(t('star_five.actions'))}" aria-expanded="${state.teamActionsOpen}">•••</button>` : '';
   if (!five) return `<section class="team-fullscreen">${renderTeamScreenHeader(t('star_five.title'))}<p>${escapeHtml(t('star_five.empty'))}</p></section>`;
-  return `<section class="team-fullscreen star-five-screen">
+  return `<section class="star-five-screen">
     ${renderTeamScreenHeader('', actions)}
-    <img class="star-five-pitch" src="/api/share-images/star-five.png?revision=${encodeURIComponent(five.revision)}" alt="${escapeHtml(t('star_five.title'))}">
+    ${renderField({ participants: five.players }, { singleField: true, assignments: buildStarFiveFieldAssignments(five.players) })}
     <div class="star-five-heading"><h2>${escapeHtml(t('star_five.title'))}</h2>${renderGameLevelBadges(five.rating)}</div>
-    ${renderTeamRoster(five)}
-    <p class="star-five-description">${escapeHtml(t('star_five.description'))}</p>
+    <section class="panel game-roster-panel"><h2>${escapeHtml(t('star_five.players'))}</h2><div class="game-player-list">${five.players.map((player) => renderTeamPlayerRow(player)).join('')}</div></section>
   </section>`;
 }
 

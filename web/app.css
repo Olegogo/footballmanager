@@ -4727,13 +4727,13 @@ input[type="range"] {
 .star-five-avatars .game-player-avatar { width: clamp(28px, 9vw, 46px); height: clamp(28px, 9vw, 46px); flex: 0 0 auto; }
 .star-five-card .team-card-meta { grid-column: 1 / -1; }
 .star-five-grid:empty { display: none; }
-.star-five-screen { background: #192e21; border-radius: 24px; padding: 12px; }
-.star-five-pitch { width: 100%; aspect-ratio: 400 / 233; display: block; object-fit: contain; }
+.star-five-screen { display: grid; gap: 12px; width: 100%; }
+.star-five-screen > .team-screen-header { margin-bottom: 8px; }
+.star-five-screen > .field-panel { width: 100%; }
 .star-five-heading { text-align: center; }
 .star-five-heading h2 { margin: 0 0 8px; font-size: 24px; }
 .star-five-heading p { margin: 0 0 10px; font-size: 13px; opacity: .7; }
 .star-five-heading .game-level-badges { justify-content: center; }
-.star-five-description { margin: 0 8px 12px; font-size: 13px; color: var(--muted); }
 .teams-list-screen,
 .team-fullscreen,
 .team-editor-form,

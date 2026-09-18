@@ -1,20 +1,31 @@
-import { buildGameMvpIndexForGames } from './stats.js';
+import { buildGameMvpIndexForGames, buildGlobalCareerIndex } from './stats.js';
 
 // Oldest to newest. A repeat never refreshes a player's place in the queue.
 export function advanceStarFive(entries, entry) {
   if (entries.some((item) => item.playerId === entry.playerId)) return entries;
-  return [...entries, entry].slice(-5);
+  const keeper = entry.position === 'GK';
+  const next = keeper ? entries.filter((item) => item.position !== 'GK') : [...entries];
+  next.push(entry);
+  if (next.length > 5) {
+    const oldestOutfield = next.findIndex((item) => item.position !== 'GK');
+    next.splice(oldestOutfield, 1);
+  }
+  return next;
 }
 
 export function getStarFiveCandidates(state, now = new Date()) {
   const games = Object.values(state.games).filter((game) =>
     new Date(game.scheduledAt) <= now
   ).sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt) || a.id.localeCompare(b.id));
+  const career = buildGlobalCareerIndex(state, now);
   const mvps = buildGameMvpIndexForGames(state, [...games], now);
   return games.flatMap((game) => {
     const mvp = mvps.get(game.id);
+    const player = state.players[mvp?.playerId];
+    const playerCareer = career.get(player?.id);
+    const position = player?.selfProfile?.position || (playerCareer?.ratedGames ? playerCareer.position : player?.defaultPosition) || 'N/A';
     return mvp && state.players[mvp.playerId]
-      ? [{ gameId: game.id, chatId: String(game.chatId), playerId: mvp.playerId, scheduledAt: game.scheduledAt }]
+      ? [{ gameId: game.id, chatId: String(game.chatId), playerId: mvp.playerId, position, scheduledAt: game.scheduledAt }]
       : [];
   });
 }
@@ -23,7 +34,7 @@ export function buildStarFiveView(entries, playerCards) {
   const cards = new Map(playerCards.map((player) => [player.id, player]));
   const players = [...entries].reverse().flatMap((entry) => {
     const player = cards.get(entry.playerId);
-    return player ? [{ ...player, mvpGameId: entry.gameId, enteredAt: entry.scheduledAt }] : [];
+    return player ? [{ ...player, position: entry.position || player.position, mvpGameId: entry.gameId, enteredAt: entry.scheduledAt }] : [];
   });
   const rated = players.filter((player) => player.ratedGames > 0);
   return {

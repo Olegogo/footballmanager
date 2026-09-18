@@ -1298,9 +1298,30 @@ export class AppStore {
   async syncStarFives({ notify = true, now = new Date() } = {}) {
     const candidates = getStarFiveCandidates(this.state, now);
     const unseen = candidates.filter((entry) => !this.state.starFive?.processed?.[entry.gameId]);
-    if (this.state.starFive && !unseen.length) return;
+    const positionsChanged = candidates.some((entry) => {
+      const previous = this.state.starFive?.processed?.[entry.gameId];
+      return previous && previous.position !== entry.position;
+    });
+    if (this.state.starFive?.version === 2 && !unseen.length && !positionsChanged) return;
     await this.mutate((state) => {
       const data = state.starFive ??= { processed: {}, entries: [], events: {} };
+      if (data.version !== 2 || positionsChanged) {
+        // Rebuild existing membership with keeper slots; do not announce historical changes.
+        let entries = [];
+        const events = {};
+        for (const entry of candidates) {
+          if (!data.processed[entry.gameId]) continue;
+          const next = advanceStarFive(entries, entry);
+          if (next !== entries && data.events[entry.gameId]) {
+            events[entry.gameId] = { ...data.events[entry.gameId], entries: next };
+          }
+          entries = next;
+          data.processed[entry.gameId] = entry;
+        }
+        data.entries = entries;
+        data.events = events;
+        data.version = 2;
+      }
       for (const entry of unseen) {
         if (data.processed[entry.gameId]) continue;
         data.processed[entry.gameId] = entry;

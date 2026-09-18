@@ -722,6 +722,8 @@
     "entered": "⭐ You joined the Matchup Star Five! Congratulations on your MVP!",
     "description": "MVPs from recent Matchup games. A repeat MVP keeps the lineup unchanged.",
     "empty": "The lineup will appear after the first MVP is chosen.",
-    "share": "Share the Star Five"
+    "share": "Share",
+    "actions": "Star Five actions",
+    "players": "Recent match MVPs"
   }
 }

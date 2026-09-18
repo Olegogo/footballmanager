@@ -7,6 +7,7 @@ import { AppStore } from '../src/lib/store.js';
 import { TelegramBot } from '../src/bot/telegram.js';
 import { advanceStarFive } from '../src/lib/star-five.js';
 import { renderStarFivePng } from '../src/lib/star-five-image.js';
+import { buildStarFiveFieldAssignments } from '../src/lib/lineup.js';
 
 async function fixture(t) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'star-five-'));
@@ -36,6 +37,58 @@ test('repeat MVP preserves order; sixth distinct MVP removes oldest; evicted pla
   assert.deepEqual(entries.map((e) => e.playerId), ['p2', 'p3', 'p4', 'p5', 'p6']);
   entries = advanceStarFive(entries, { playerId: 'p1', gameId: 'g7' });
   assert.deepEqual(entries.map((e) => e.playerId), ['p3', 'p4', 'p5', 'p6', 'p1']);
+});
+
+test('keeper replaces only the keeper; outfield MVP preserves the keeper', () => {
+  let entries = [{ playerId: 'gk1', position: 'GK' }, ...['LB', 'CM', 'RW', 'ST'].map((position) => ({ playerId: position, position }))];
+  const repeat = advanceStarFive(entries, { playerId: 'gk1', position: 'GK' });
+  assert.strictEqual(repeat, entries);
+  entries = advanceStarFive(entries, { playerId: 'newCM', position: 'CM' });
+  assert.deepEqual(entries.map((entry) => entry.playerId), ['gk1', 'CM', 'RW', 'ST', 'newCM']);
+  entries = advanceStarFive(entries, { playerId: 'gk2', position: 'GK' });
+  assert.deepEqual(entries.map((entry) => entry.playerId), ['CM', 'RW', 'ST', 'newCM', 'gk2']);
+  assert.equal(entries.filter((entry) => entry.position === 'GK').length, 1);
+});
+
+test('first keeper enters a full outfield lineup and takes only one place', () => {
+  const entries = Array.from({ length: 5 }, (_, index) => ({ playerId: `p${index}`, position: 'CM' }));
+  const next = advanceStarFive(entries, { playerId: 'gk', position: 'GK' });
+  assert.equal(next.length, 5);
+  assert.equal(next[0].playerId, 'p1');
+  assert.equal(next[4].playerId, 'gk');
+});
+
+test('formation fixes keeper in goal, respects wings and separates repeated positions', () => {
+  const players = ['GK', 'LB', 'RB', 'ST', 'ST'].map((position, i) => ({ id: String(i), position, displayName: String(i) }));
+  const result = buildStarFiveFieldAssignments(players);
+  assert.deepEqual(result.find((entry) => entry.position === 'GK').slot, { x: 12, y: 50 });
+  assert.ok(result.find((entry) => entry.position === 'LB').slot.y < 50);
+  assert.ok(result.find((entry) => entry.position === 'RB').slot.y > 50);
+  assert.ok(result.filter((entry) => entry.position === 'ST').every((entry) => entry.slot.x === 79));
+  assert.equal(new Set(result.map(({ slot }) => `${slot.x},${slot.y}`)).size, 5);
+  const mids = buildStarFiveFieldAssignments(players.map((player) => ({ ...player, position: 'CM' })));
+  assert.equal(new Set(mids.map(({ slot }) => `${slot.x},${slot.y}`)).size, 5);
+  assert.ok(mids.every(({ slot }) => slot.x > 12));
+});
+
+test('legacy membership is rebuilt with one goalkeeper without new notifications', async (t) => {
+  const store = await fixture(t);
+  store.state.players.p1.defaultPosition = 'GK';
+  store.state.players.p2.selfProfile = { position: 'GK' };
+  addGame(store, 1, 'p1');
+  addGame(store, 2, 'p3');
+  addGame(store, 3, 'p2');
+  await store.syncStarFives({ notify: false });
+  delete store.state.starFive.version;
+  store.state.starFive.entries = ['p1', 'p3', 'p2'].map((playerId, index) => ({ playerId, gameId: `g${index + 1}` }));
+  await store.syncStarFives();
+  assert.deepEqual(store.getStarFive().players.map((player) => player.id), ['p2', 'p3']);
+  assert.equal(store.getStarFive().players[0].position, 'GK');
+  assert.equal(store.listPendingStarFiveEvents().length, 0);
+  store.state.players.p3.selfProfile = { position: 'GK' };
+  await store.syncStarFives();
+  assert.equal(store.getStarFive().players.filter((player) => player.position === 'GK').length, 1);
+  assert.equal(store.listPendingStarFiveEvents().length, 0);
 });
 
 test('global lineup across chats, final MVP only, and duplicate/concurrent syncs are persisted once', async (t) => {
@@ -113,8 +166,8 @@ test('no private destination means only group notification; blocked bot is not r
   assert.equal(store.listPendingStarFiveEvents().length, 0);
 });
 
-test('share image is a 1200 × 699 PNG and handles XML-sensitive names', async () => {
+test('share image is a 1200 × 642 PNG and handles XML-sensitive names', async () => {
   const png = await renderStarFivePng({ players: [{ id: 'p1', displayName: '<A&B>', overall: 75, ratedGames: 1 }] });
   assert.equal(png.readUInt32BE(16), 1200);
-  assert.equal(png.readUInt32BE(20), 699);
+  assert.equal(png.readUInt32BE(20), 642);
 });

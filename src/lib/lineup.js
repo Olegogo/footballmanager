@@ -219,6 +219,34 @@ export function buildFullFieldAssignments(players) {
   });
 }
 
+// Keep the goal exclusively for the keeper, and give repeated/nearby positions
+// separate slots. At most five players makes an exhaustive assignment inexpensive.
+export function buildStarFiveFieldAssignments(players) {
+  const keeper = players.find((player) => getEffectivePosition(player) === 'GK');
+  const outfield = players.filter((player) => getEffectivePosition(player) !== 'GK').slice(0, keeper ? 4 : 5);
+  const slots = [28, 53, 79].flatMap((x) => [17, 50, 83].map((y) => ({ x, y })))
+    .filter((slot) => !keeper || slot.x !== 28 || slot.y !== 50);
+  let bestCost = Infinity;
+  let best = [];
+  const visit = (index, used, chosen, cost) => {
+    if (cost >= bestCost) return;
+    if (index === outfield.length) { bestCost = cost; best = [...chosen]; return; }
+    const target = FIELD_POSITION_LAYOUT_FULL[getEffectivePosition(outfield[index])];
+    slots.forEach((slot, slotIndex) => {
+      if (used & (1 << slotIndex)) return;
+      const distance = (slot.x - target.x) ** 2 + ((slot.y - target.y) * .6) ** 2;
+      chosen.push(slot);
+      visit(index + 1, used | (1 << slotIndex), chosen, cost + distance);
+      chosen.pop();
+    });
+  };
+  visit(0, 0, [], 0);
+  return [
+    ...(keeper ? [{ player: keeper, position: 'GK', slot: { ...FIELD_POSITION_LAYOUT_FULL.GK } }] : []),
+    ...outfield.map((player, index) => ({ player, position: getEffectivePosition(player), slot: best[index] }))
+  ];
+}
+
 export function getMaximumTeamCount(playerCount) {
   return clamp(Math.floor((Number(playerCount) || 0) / 5), 2, 4);
 }
