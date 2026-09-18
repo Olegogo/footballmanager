@@ -1,3 +1,4 @@
+import { advanceStarFive, buildStarFiveView, getStarFiveCandidates } from './star-five.js';
 import { scheduleInTimeZone } from './timezone.js';
 import { AppError } from './errors.js';
 import fs from 'node:fs/promises';
@@ -1291,6 +1292,48 @@ export class AppStore {
 
       await this.persist();
     }
+    await this.syncStarFives({ notify: Boolean(this.state.starFive) });
+  }
+
+  async syncStarFives({ notify = true, now = new Date() } = {}) {
+    const candidates = getStarFiveCandidates(this.state, now);
+    const unseen = candidates.filter((entry) => !this.state.starFive?.processed?.[entry.gameId]);
+    if (this.state.starFive && !unseen.length) return;
+    await this.mutate((state) => {
+      const data = state.starFive ??= { processed: {}, entries: [], events: {} };
+      for (const entry of unseen) {
+        if (data.processed[entry.gameId]) continue;
+        data.processed[entry.gameId] = entry;
+        const current = data.entries;
+        const next = advanceStarFive(current, entry);
+        if (next === current) continue;
+        data.entries = next;
+        if (notify) {
+          data.events[entry.gameId] = {
+            ...entry, entries: next, chatSent: false,
+            privateChatId: state.players[entry.playerId]?.privateChatId || '',
+            privateSent: !state.players[entry.playerId]?.privateChatId
+          };
+        }
+      }
+    });
+  }
+
+  listPendingStarFiveEvents() {
+    return Object.values(this.state.starFive?.events ?? {}).filter((event) => !event.chatSent || !event.privateSent);
+  }
+
+  async markStarFiveDelivery(gameId, destination) {
+    if (!['chatSent', 'privateSent'].includes(destination)) throw new Error('Invalid star five destination');
+    await this.mutate((state) => {
+      const event = state.starFive?.events?.[gameId];
+      if (event) event[destination] = true;
+    });
+  }
+
+  getStarFive(entries = null) {
+    const snapshot = buildChatSnapshot(this.state, 'global');
+    return buildStarFiveView(entries ?? this.state.starFive?.entries ?? [], snapshot.players);
   }
 
   async persist() {
@@ -3203,6 +3246,7 @@ export class AppStore {
     const snapshot = buildChatSnapshot(this.state, String(chatId), viewerPlayerId, new Date(), options);
     return {
       ...snapshot,
+      starFive: buildStarFiveView(this.state.starFive?.entries ?? [], snapshot.players),
       viewerAnalyticsId: viewerPlayerId ? this.state.players[viewerPlayerId]?.analyticsId || '' : '',
       ...buildTeamViews(this.state, snapshot.players, viewerPlayerId)
     };

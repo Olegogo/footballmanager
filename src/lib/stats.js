@@ -911,7 +911,7 @@ export function buildGlobalCareerIndex(state, now = new Date()) {
   );
 }
 
-function buildGameMvpIndexForGames(state, games, now = new Date()) {
+export function buildGameMvpIndexForGames(state, games, now = new Date()) {
   const career = new Map();
   const mvpIndex = new Map();
 

@@ -109,6 +109,7 @@ function readLaunchContext() {
     window.Telegram?.WebApp?.initDataUnsafe?.start_param ||
     '';
 
+  const shouldOpenStarFive = view === 'star-five' || startParam === 'star-five';
   const gameMatch = String(startParam).match(/^gameid_([a-zA-Z0-9_-]+)$/);
   const playerMatch = String(startParam).match(/^playerid_([a-zA-Z0-9_-]+)$/);
   const chatMatch =
@@ -121,9 +122,10 @@ function readLaunchContext() {
 
   return {
     chatId: urlChatId || chatMatch?.[1] || '',
+    shouldOpenStarFive,
     gameId: selectedGameId,
     playerId: selectedPlayerId,
-    initialTab: shouldOpenGame ? 'game' : shouldOpenPlayer ? 'players' : 'games'
+    initialTab: shouldOpenStarFive ? 'teams' : shouldOpenGame ? 'game' : shouldOpenPlayer ? 'players' : 'games'
   };
 }
 
@@ -163,7 +165,7 @@ const state = {
   playerSearch: '',
   showCreateGameTooltip: false,
   showCreateTeamTooltip: false,
-  teamScreen: 'list',
+  teamScreen: launchContext.shouldOpenStarFive ? 'star-five' : 'list',
   teamSearch: '',
   teamSort: 'rating',
   selectedTeamId: '',
@@ -3162,6 +3164,13 @@ function renderGameActionsModal() {
 function renderTeamActionsModal() {
   const team = getSelectedTeam();
 
+  if (state.teamActionsOpen && state.teamScreen === 'star-five') {
+    return `<div class="modal-backdrop modal-backdrop--compact" data-team-actions-backdrop="true">
+      <section class="modal-card game-actions-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('teams.actions'))}">
+        <h2>${escapeHtml(t('teams.actions'))}</h2>
+        <button type="button" class="game-action-button" data-share-star-five>${escapeHtml(t('star_five.share'))}</button>
+      </section></div>`;
+  }
   if (!state.teamActionsOpen || !team?.canManage) {
     return '';
   }
@@ -3737,6 +3746,7 @@ function renderProfileTab() {
 }
 
 function renderTeamsTab() {
+  if (state.teamScreen === 'star-five') return renderStarFiveDetail();
   if (state.teamScreen === 'editor') return renderTeamEditor();
   if (state.teamScreen === 'detail') return renderTeamDetail();
   if (state.teamScreen === 'challenge-detail') return renderTeamChallengeDetail();
@@ -3787,6 +3797,33 @@ function renderTeamCard(team) {
   `;
 }
 
+function getStarFives() {
+  const five = state.snapshot?.starFive;
+  return five?.players?.length ? [five] : [];
+}
+
+function renderStarFiveCard(five) {
+  const level = getGameLevelMeta(five.rating);
+  return `<button type="button" class="team-card star-five-card" data-open-star-five>
+    <span class="star-five-avatars">${five.players.map((player) => `<span class="game-player-avatar">${renderMiniAvatar(player)}</span>`).join('')}</span>
+    <span class="team-card-rating">${renderRatingValue(five.rating ?? '—', null, 'team-card-rating-value')}</span>
+    <span class="team-card-meta"><span>${escapeHtml(t('star_five.title'))}</span>${level ? `<span>${escapeHtml(level.label)}</span>` : ''}</span>
+  </button>`;
+}
+
+function renderStarFiveDetail() {
+  const five = getStarFives()[0];
+  const actions = five ? `<button type="button" class="game-top-button team-kebab-button" data-toggle-team-actions aria-label="${escapeHtml(t('teams.actions'))}" aria-expanded="${state.teamActionsOpen}">•••</button>` : '';
+  if (!five) return `<section class="team-fullscreen">${renderTeamScreenHeader(t('star_five.title'))}<p>${escapeHtml(t('star_five.empty'))}</p></section>`;
+  return `<section class="team-fullscreen star-five-screen">
+    ${renderTeamScreenHeader('', actions)}
+    <img class="star-five-pitch" src="/api/share-images/star-five.png?revision=${encodeURIComponent(five.revision)}" alt="${escapeHtml(t('star_five.title'))}">
+    <div class="star-five-heading"><h2>${escapeHtml(t('star_five.title'))}</h2>${renderGameLevelBadges(five.rating)}</div>
+    ${renderTeamRoster(five)}
+    <p class="star-five-description">${escapeHtml(t('star_five.description'))}</p>
+  </section>`;
+}
+
 function renderTeamsList() {
   const query = String(state.teamSearch || '').trim().toLowerCase();
   const teams = [...getTeams()]
@@ -3811,6 +3848,7 @@ function renderTeamsList() {
           ${openChallenges.map((challenge) => renderChallengeCard(challenge, true)).join('')}
         </section>
       ` : ''}
+      <section class="team-grid star-five-grid">${getStarFives().filter((five) => !query || t('star_five.title').toLowerCase().includes(query)).map(renderStarFiveCard).join('')}</section>
       ${teams.length
         ? `<section class="team-grid">${teams.map(renderTeamCard).join('')}</section>`
         : `<section class="empty-state teams-empty"><h2>${escapeHtml(t('teams.empty'))}</h2><p>${escapeHtml(t('teams.empty_description'))}</p></section>`}
@@ -5163,6 +5201,26 @@ document.addEventListener('click', async (event) => {
       : Math.min(maximumTeamCount, state.fieldTeamCount + 1);
     state.fieldTeamFilter = 'top';
     render();
+    return;
+  }
+
+  const openStarFive = event.target.closest('[data-open-star-five]');
+  if (openStarFive) {
+    hideCreateTeamTooltip();
+    state.selectedTeamId = '';
+    state.teamActionsOpen = false;
+    state.teamScreen = 'star-five';
+    render();
+    return;
+  }
+  if (event.target.closest('[data-share-star-five]')) {
+    state.teamActionsOpen = false;
+    renderModal();
+    if (!(await ensureAuthorizedForAction())) return;
+    try {
+      const data = await api('/api/share/star-five', { method: 'POST' });
+      await sharePreparedOrFallback(data);
+    } catch (error) { if (error.name !== 'AbortError') showToast(error.message); }
     return;
   }
 

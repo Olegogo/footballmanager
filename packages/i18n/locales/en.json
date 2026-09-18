@@ -715,5 +715,13 @@
     "challenge_declined": "Challenge declined",
     "challenge_text": "<b>{{team}} challenges your team</b>\n{{format}}, {{date}} {{time}}\n{{location}}\n{{mode}}",
     "challenge_counter_text": "<b>{{team}} suggests new terms</b>\n{{format}}, {{date}} {{time}}\n{{location}}\n{{mode}}"
+  },
+  "star_five": {
+    "title": "⭐ Star Five",
+    "updated": "⭐ The Star Five has a new member!\nMeet the MVPs of recent matches.",
+    "entered": "⭐ You joined the Matchup Star Five! Congratulations on your MVP!",
+    "description": "MVPs from recent Matchup games. A repeat MVP keeps the lineup unchanged.",
+    "empty": "The lineup will appear after the first MVP is chosen.",
+    "share": "Share the Star Five"
   }
 }

@@ -1,3 +1,4 @@
+import { renderStarFivePng } from '../lib/star-five-image.js';
 import { scheduleInTimeZone } from '../lib/timezone.js';
 import { localizedError } from '../lib/errors.js';
 import { formatMatchDate } from '../../packages/i18n/dates.js';
@@ -157,6 +158,11 @@ export class TelegramBot {
 
     if (options.playerId) {
       url.searchParams.set('startapp', `playerid_${options.playerId}`);
+      return url.toString();
+    }
+
+    if (view === 'star-five') {
+      url.searchParams.set('startapp', 'star-five');
       return url.toString();
     }
 
@@ -2124,7 +2130,54 @@ export class TelegramBot {
     }
   }
 
+  async processPendingStarFives() {
+    if (this.starFiveProcessing) return this.starFiveProcessing;
+    const run = async () => {
+      await this.store.syncStarFives?.();
+      if (!this.enabled) return;
+      for (const event of this.store.listPendingStarFiveEvents?.() ?? []) {
+        const five = this.store.getStarFive(event.entries);
+        const chat = this.store.state.chats[event.chatId];
+        if (!event.chatSent) {
+          try {
+            if (chat && !['private', 'global'].includes(chat.type)) {
+              const locale = this.store.getChatLocale?.(event.chatId) || 'ru';
+              await this.sendPhoto(event.chatId, await renderStarFivePng(five), {
+                filename: 'star-five.png', caption: this.t(locale, 'star_five.updated'),
+                replyMarkup: this.buildMiniAppKeyboard(chat.type, event.chatId, this.t(locale, 'common.buttons.view'), { initialView: 'star-five' })
+              });
+            }
+            await this.store.markStarFiveDelivery(event.gameId, 'chatSent');
+          } catch (error) {
+            console.error(`Unable to send star five to ${event.chatId}:`, error.message);
+          }
+        }
+        if (!event.privateSent) {
+          try {
+            const player = this.store.getPlayerById(event.playerId);
+            const locale = this.getPlayerLocale(player);
+            await this.sendMiniAppEntry(event.privateChatId, 'private', event.chatId, {
+              primaryText: this.t(locale, 'star_five.entered'),
+              buttonText: this.t(locale, 'common.buttons.view'), locale, initialView: 'star-five'
+            });
+            await this.store.markStarFiveDelivery(event.gameId, 'privateSent');
+          } catch (error) {
+            // A blocked bot cannot deliver; retry transient errors independently of the group post.
+            if (/403|bot was blocked|user is deactivated|chat not found/i.test(error.message)) {
+              await this.store.markStarFiveDelivery(event.gameId, 'privateSent');
+            } else {
+              console.error(`Unable to send star five to player ${event.playerId}:`, error.message);
+            }
+          }
+        }
+      }
+    };
+    this.starFiveProcessing = run();
+    try { await this.starFiveProcessing; } finally { this.starFiveProcessing = null; }
+  }
+
   async processPendingGameSummaries() {
+    await this.processPendingStarFives();
     if (!this.enabled || typeof this.store.listGamesRequiringSummary !== 'function') {
       return;
     }

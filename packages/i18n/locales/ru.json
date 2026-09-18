@@ -715,5 +715,13 @@
     "challenge_declined": "Вызов отклонён",
     "challenge_text": "<b>{{team}} бросает вам вызов</b>\n{{format}}, {{date}} {{time}}\n{{location}}\n{{mode}}",
     "challenge_counter_text": "<b>{{team}} предлагает новые условия</b>\n{{format}}, {{date}} {{time}}\n{{location}}\n{{mode}}"
+  },
+  "star_five": {
+    "title": "⭐ Звёздная пятёрка",
+    "updated": "⭐ Звёздная пятёрка обновилась!\nMVP последних игр — в новом составе.",
+    "entered": "⭐ Ты вошёл в Звёздную пятёрку Matchup! Поздравляем с MVP!",
+    "description": "MVP последних игр Matchup. Повторный MVP не меняет состав.",
+    "empty": "Пятёрка появится после выбора первого MVP.",
+    "share": "Поделиться пятёркой"
   }
 }

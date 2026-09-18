@@ -1,3 +1,4 @@
+import { renderStarFivePng } from './lib/star-five-image.js';
 import { formatMatchDate } from '../packages/i18n/dates.js';
 import { renderLanding } from './lib/landing.js';
 import { localizedError, AppError } from './lib/errors.js';
@@ -262,6 +263,39 @@ const server = http.createServer(async (req, res) => {
           });
 
       redirect(res, telegramUrl || buildAppUrl(req, { locale: getRequestLocale(req, url) }));
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/share-images/star-five.png') {
+      const five = store.getStarFive();
+      if (!five.players.length) { notFound(res); return; }
+      sendPng(res, await renderStarFivePng(five));
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/share/star-five') {
+      const session = getViewerSession(req);
+      const locale = getRequestLocale(req, url, session);
+      if (!session) { sendJson(res, 401, { error: t(locale, 'errors.unauthorized') }); return; }
+      const five = store.getStarFive();
+      if (!five.players.length) { notFound(res); return; }
+      const player = store.getPlayerById(session.playerId);
+      const appUrl = buildAppUrl(req, { view: 'star-five' });
+      const miniAppUrl = bot.buildMainMiniAppLink('', { initialView: 'star-five' }) || appUrl;
+      const imageUrl = buildAbsoluteUrl(req, '/api/share-images/star-five.png', { revision: five.revision });
+      const shareText = t(locale, 'star_five.title');
+      let preparedMessageId = '';
+      if (player?.telegramUserId && bot.enabled) {
+        try {
+          const prepared = await bot.prepareShareMessage(player.telegramUserId, {
+            id: 'star-five', type: 'photo', title: shareText,
+            photo_url: imageUrl, thumbnail_url: imageUrl, caption: shareText,
+            reply_markup: { inline_keyboard: [[{ text: t(locale, 'common.buttons.view'), url: miniAppUrl }]] }
+          });
+          preparedMessageId = prepared?.id || '';
+        } catch (error) { console.error('Unable to prepare star five share:', error.message); }
+      }
+      sendJson(res, 200, { preparedMessageId, fallback: { title: shareText, text: shareText, url: appUrl } });
       return;
     }
 
