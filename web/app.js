@@ -1262,7 +1262,7 @@ function renderGamePlayerState(player, game) {
   const ratingState = getGamePlayerRatingState(player, game);
   const ratingValue = renderRatingValue(
     ratingState.rating,
-    player.currentGameStats?.ratingDelta,
+    game ? player.currentGameStats?.ratingDelta : player.ratingDelta,
     'game-player-rating'
   );
 
@@ -2544,8 +2544,7 @@ function renderField(game, options = {}) {
   `;
 }
 
-function renderGamePlayerRow(player) {
-  const game = getCurrentGame();
+function renderGamePlayerRow(player, game = getCurrentGame()) {
   const positionLabel = getGamePlayerPositionLabel(player);
 
   return `
@@ -3820,7 +3819,7 @@ function renderStarFiveDetail() {
     ${renderTeamScreenHeader('', actions)}
     ${renderField({ participants: five.players }, { singleField: true, assignments: buildStarFiveFieldAssignments(five.players) })}
     <div class="star-five-heading"><h2>${escapeHtml(t('star_five.title'))}</h2>${renderGameLevelBadges(five.rating)}</div>
-    <section class="panel game-roster-panel"><h2>${escapeHtml(t('star_five.players'))}</h2><div class="game-player-list">${five.players.map((player) => renderTeamPlayerRow(player)).join('')}</div></section>
+    <section class="panel game-roster-panel"><h2>${escapeHtml(t('star_five.players'))}</h2><div class="game-player-list">${five.players.map((player) => renderGamePlayerRow(player, null)).join('')}</div></section>
   </section>`;
 }
 
