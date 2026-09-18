@@ -180,43 +180,84 @@ export function buildTeamFieldAssignments(players, zone) {
   });
 }
 
-export function buildFullFieldAssignments(players) {
-  const groups = new Map();
-  const bounds = { xMin: 5, xMax: 95, yMin: 7, yMax: 93 };
+// Outfield places for 1–2–2, 1–2–2–1, 1–2–3–1 and 1–2–3–2.
+const MATCH_FORMATIONS = {
+  4: [[34, 24], [34, 76], [68, 24], [68, 76]],
+  5: [[31, 24], [31, 76], [59, 24], [59, 76], [80, 50]],
+  6: [[27, 24], [27, 76], [51, 15], [51, 50], [51, 85], [78, 50]],
+  7: [[27, 24], [27, 76], [51, 15], [51, 50], [51, 85], [76, 24], [76, 76]]
+};
 
-  for (const player of [...players].sort((left, right) => {
-    const leftPosition = getSortPosition(getEffectivePosition(left));
-    const rightPosition = getSortPosition(getEffectivePosition(right));
+function matchFormationSlots(count) {
+  if (count <= 4) return MATCH_FORMATIONS[4].map(([x, y]) => ({ x, y }));
+  if (MATCH_FORMATIONS[count]) return MATCH_FORMATIONS[count].map(([x, y]) => ({ x, y }));
+  // Larger squads still get distinct outfield places; never use the goal as overflow.
+  const columns = Math.ceil(count / 3);
+  return Array.from({ length: count }, (_, index) => ({
+    x: 27 + Math.floor(index / 3) * 54 / Math.max(1, columns - 1),
+    y: [17, 50, 83][index % 3]
+  }));
+}
 
-    if (leftPosition !== rightPosition) {
-      return leftPosition - rightPosition;
-    }
-
-    if (getEffectiveOverall(right) !== getEffectiveOverall(left)) {
-      return getEffectiveOverall(right) - getEffectiveOverall(left);
-    }
-
-    return left.displayName.localeCompare(right.displayName, 'ru');
-  })) {
-    const position = getEffectivePosition(player);
-    const list = groups.get(position) || [];
-    list.push(player);
-    groups.set(position, list);
-  }
-
-  return [...groups.entries()].flatMap(([position, groupedPlayers]) => {
-    const base = FIELD_POSITION_LAYOUT_FULL[position] || FIELD_POSITION_LAYOUT_FULL['N/A'];
-    const offsets = buildClusterOffsets(groupedPlayers.length, position);
-
-    return groupedPlayers.map((player, index) => ({
-      player,
-      position,
-      slot: {
-        x: clamp(base.x + offsets[index].x, bounds.xMin, bounds.xMax),
-        y: clamp(base.y + offsets[index].y, bounds.yMin, bounds.yMax)
+// Minimum-cost matching, O(n³), so duplicate positions cannot share a place.
+// Unknown positions have no preference and take whichever places remain.
+function assignFormationSlots(players, slots) {
+  const n = players.length, m = slots.length;
+  const u = Array(n + 1).fill(0), v = Array(m + 1).fill(0);
+  const occupied = Array(m + 1).fill(0), previous = Array(m + 1).fill(0);
+  const cost = (i, j) => {
+    const position = getEffectivePosition(players[i]);
+    if (position === 'N/A') return 0;
+    const target = FIELD_POSITION_LAYOUT_FULL[position];
+    return (slots[j].x - target.x) ** 2 + ((slots[j].y - target.y) * .6) ** 2;
+  };
+  for (let i = 1; i <= n; i++) {
+    occupied[0] = i;
+    let j0 = 0;
+    const min = Array(m + 1).fill(Infinity), used = Array(m + 1).fill(false);
+    do {
+      used[j0] = true;
+      const i0 = occupied[j0];
+      let delta = Infinity, j1 = 0;
+      for (let j = 1; j <= m; j++) {
+        if (used[j]) continue;
+        const current = cost(i0 - 1, j - 1) - u[i0] - v[j];
+        if (current < min[j]) { min[j] = current; previous[j] = j0; }
+        if (min[j] < delta) { delta = min[j]; j1 = j; }
       }
-    }));
-  });
+      for (let j = 0; j <= m; j++) {
+        if (used[j]) { u[occupied[j]] += delta; v[j] -= delta; }
+        else min[j] -= delta;
+      }
+      j0 = j1;
+    } while (occupied[j0] !== 0);
+    do {
+      const j1 = previous[j0];
+      occupied[j0] = occupied[j1];
+      j0 = j1;
+    } while (j0);
+  }
+  const result = Array(n);
+  for (let j = 1; j <= m; j++) if (occupied[j]) result[occupied[j] - 1] = slots[j - 1];
+  return result;
+}
+
+export function buildFullFieldAssignments(players) {
+  const ordered = [...players].sort((a, b) =>
+    getSortPosition(getEffectivePosition(a)) - getSortPosition(getEffectivePosition(b)) ||
+    getEffectiveOverall(b) - getEffectiveOverall(a) ||
+    String(a.id || a.displayName).localeCompare(String(b.id || b.displayName))
+  );
+  const keepers = ordered.filter((player) => getEffectivePosition(player) === 'GK');
+  const outfield = ordered.filter((player) => getEffectivePosition(player) !== 'GK');
+  const slots = assignFormationSlots(outfield, matchFormationSlots(outfield.length));
+  return [
+    ...keepers.map((player, index) => ({
+      player, position: 'GK',
+      slot: { x: 12, y: keepers.length === 1 ? 50 : 38 + 24 * index / (keepers.length - 1) }
+    })),
+    ...outfield.map((player, index) => ({ player, position: getEffectivePosition(player), slot: slots[index] }))
+  ];
 }
 
 // Fixed 1–2–2 formation from the Star Five reference. Assign outfield players
