@@ -219,13 +219,17 @@ export function buildFullFieldAssignments(players) {
   });
 }
 
-// Keep the goal exclusively for the keeper, and give repeated/nearby positions
-// separate slots. At most five players makes an exhaustive assignment inexpensive.
+// Fixed 1–2–2 formation from the Star Five reference. Assign outfield players
+// to the closest of the four places without moving those places.
 export function buildStarFiveFieldAssignments(players) {
   const keeper = players.find((player) => getEffectivePosition(player) === 'GK');
   const outfield = players.filter((player) => getEffectivePosition(player) !== 'GK').slice(0, keeper ? 4 : 5);
-  const slots = [28, 53, 79].flatMap((x) => [17, 50, 83].map((y) => ({ x, y })))
-    .filter((slot) => !keeper || slot.x !== 28 || slot.y !== 50);
+  const slots = [
+    { x: 34, y: 24 }, { x: 34, y: 76 },
+    { x: 68, y: 24 }, { x: 68, y: 76 },
+    // Until a goalkeeper wins MVP, keep a fifth outfielder away from the goal.
+    ...(!keeper && outfield.length === 5 ? [{ x: 51, y: 50 }] : [])
+  ];
   let bestCost = Infinity;
   let best = [];
   const visit = (index, used, chosen, cost) => {

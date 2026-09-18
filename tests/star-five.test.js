@@ -64,8 +64,9 @@ test('formation fixes keeper in goal, respects wings and separates repeated posi
   assert.deepEqual(result.find((entry) => entry.position === 'GK').slot, { x: 12, y: 50 });
   assert.ok(result.find((entry) => entry.position === 'LB').slot.y < 50);
   assert.ok(result.find((entry) => entry.position === 'RB').slot.y > 50);
-  assert.ok(result.filter((entry) => entry.position === 'ST').every((entry) => entry.slot.x === 79));
+  assert.ok(result.filter((entry) => entry.position === 'ST').every((entry) => entry.slot.x === 68));
   assert.equal(new Set(result.map(({ slot }) => `${slot.x},${slot.y}`)).size, 5);
+  assert.deepEqual(result.filter(({ position }) => position !== 'GK').map(({ slot }) => `${slot.x},${slot.y}`).sort(), ['34,24', '34,76', '68,24', '68,76']);
   const mids = buildStarFiveFieldAssignments(players.map((player) => ({ ...player, position: 'CM' })));
   assert.equal(new Set(mids.map(({ slot }) => `${slot.x},${slot.y}`)).size, 5);
   assert.ok(mids.every(({ slot }) => slot.x > 12));

@@ -29,12 +29,12 @@ export async function renderStarFivePng(five) {
       const { x: px, y: py } = assignments[index].slot;
       const x = 72 + px * 10.56, y = 57.78 + py * 4.8792 - 18;
       const name = String(player.firstName || player.displayName || player.username || '').split(/\s+/)[0].slice(0, 16);
-      return `<defs><clipPath id="p${index}"><circle cx="${x}" cy="${y}" r="51.5"/></clipPath></defs>
-        <circle cx="${x}" cy="${y}" r="51.5" fill="#030a07"/>
-        <text x="${x}" y="${y + 12}" text-anchor="middle" fill="#ffe7af" font-size="32" font-family="Trebuchet MS, Avenir Next, sans-serif" font-weight="900">${escape(getInitials(player))}</text>
-        ${photos[index] ? `<image href="${photos[index]}" x="${x - 51.5}" y="${y - 51.5}" width="103" height="103" preserveAspectRatio="xMidYMid slice" clip-path="url(#p${index})"/>` : ''}
-        ${player.ratedGames > 0 ? `<circle cx="${x + 49}" cy="${y - 48}" r="27.5" fill="#fff"/><text x="${x + 49}" y="${y - 37}" text-anchor="middle" font-size="30" font-family="Trebuchet MS, Avenir Next, sans-serif" font-weight="900" fill="#172018">${Math.round(player.overall)}</text>` : ''}
-        <text x="${x}" y="${y + 84}" text-anchor="middle" fill="#fff" font-size="28" font-family="Trebuchet MS, Avenir Next, sans-serif" font-weight="900">${escape(name)}</text>`;
+      return `<defs><clipPath id="p${index}"><circle cx="${x}" cy="${y}" r="55"/></clipPath></defs>
+        <circle cx="${x}" cy="${y}" r="55" fill="#030a07" fill-opacity="0.86"/>
+        <text x="${x}" y="${y + 12}" text-anchor="middle" fill="#ffe7af" font-size="36" font-family="Trebuchet MS, Avenir Next, sans-serif" font-weight="900">${escape(getInitials(player))}</text>
+        ${photos[index] ? `<image href="${photos[index]}" x="${x - 55}" y="${y - 55}" width="110" height="110" preserveAspectRatio="xMidYMid slice" clip-path="url(#p${index})"/>` : ''}
+        ${player.ratedGames > 0 ? `<circle cx="${x + 49}" cy="${y - 48}" r="27.5" fill="#fff"/><text x="${x + 49}" y="${y - 37}" text-anchor="middle" font-size="33" font-family="Trebuchet MS, Avenir Next, sans-serif" font-weight="900" fill="#1d160a">${Math.round(player.overall)}</text>` : ''}
+        <text x="${x}" y="${y + 84}" text-anchor="middle" fill="#fff7dc" fill-opacity="0.92" font-size="36" font-family="Trebuchet MS, Avenir Next, sans-serif" font-weight="900">${escape(name)}</text>`;
     }).join('')}
   </svg>`;
   return new Resvg(svg, { font: { loadSystemFonts: true, defaultFontFamily: 'Trebuchet MS' } }).render().asPng();

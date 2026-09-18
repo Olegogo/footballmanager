@@ -4724,7 +4724,7 @@ input[type="range"] {
 /* Teams */
 .star-five-card { grid-template-columns: minmax(0, 1fr) auto !important; }
 .star-five-avatars { display: flex; gap: 6px; min-width: 0; }
-.star-five-avatars .game-player-avatar { width: clamp(28px, 9vw, 46px); height: clamp(28px, 9vw, 46px); flex: 0 0 auto; }
+.star-five-avatars .game-player-avatar { width: 46px; height: 46px; flex: 0 0 auto; }
 .star-five-card .team-card-meta { grid-column: 1 / -1; }
 .star-five-grid:empty { display: none; }
 .star-five-screen { display: grid; gap: 12px; width: 100%; }
@@ -5464,6 +5464,9 @@ input[type="range"] {
 }
 
 @media (max-width: 380px) {
+  .star-five-avatars { gap: 0; }
+  .star-five-avatars .game-player-avatar + .game-player-avatar { margin-left: -4px; }
+
   .team-card {
     grid-template-columns: 46px minmax(0, 1fr) auto;
     gap: 12px;
