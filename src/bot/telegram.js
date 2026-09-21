@@ -1,4 +1,4 @@
-import { renderStarFivePng } from '../lib/star-five-image.js';
+// import { renderStarFivePng } from '../lib/star-five-image.js';
 import { scheduleInTimeZone } from '../lib/timezone.js';
 import { localizedError } from '../lib/errors.js';
 import { formatMatchDate } from '../../packages/i18n/dates.js';
@@ -2136,10 +2136,12 @@ export class TelegramBot {
       await this.store.syncStarFives?.();
       if (!this.enabled) return;
       for (const event of this.store.listPendingStarFiveEvents?.() ?? []) {
-        const five = this.store.getStarFive(event.entries);
-        const chat = this.store.state.chats[event.chatId];
         if (!event.chatSent) {
           try {
+            // Group announcements are temporarily disabled; keep private notifications active.
+            /*
+            const five = this.store.getStarFive(event.entries);
+            const chat = this.store.state.chats[event.chatId];
             if (chat && !['private', 'global'].includes(chat.type)) {
               const locale = this.store.getChatLocale?.(event.chatId) || 'ru';
               await this.sendPhoto(event.chatId, await renderStarFivePng(five), {
@@ -2147,6 +2149,8 @@ export class TelegramBot {
                 replyMarkup: this.buildMiniAppKeyboard(chat.type, event.chatId, this.t(locale, 'common.buttons.view'), { initialView: 'star-five' })
               });
             }
+            */
+            // Complete the skipped destination so events do not stay pending or get posted later.
             await this.store.markStarFiveDelivery(event.gameId, 'chatSent');
           } catch (error) {
             console.error(`Unable to send star five to ${event.chatId}:`, error.message);

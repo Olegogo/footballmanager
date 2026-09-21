@@ -132,7 +132,7 @@ test('manual global games join the same five and repeated winners from other cha
   assert.deepEqual(store.getSnapshot('-1001').starFive, store.getSnapshot('-1002').starFive);
 });
 
-test('notifications retry only failed destination, never repeat a successful group photo', async (t) => {
+test('notifications retry private delivery without posting to the group', async (t) => {
   const store = await fixture(t);
   addGame(store, 1, 'p1');
   const bot = new TelegramBot({ telegramBotToken: 'test', publicBaseUrl: 'https://app.example', telegramBotUsername: 'test_bot' }, store);
@@ -145,15 +145,15 @@ test('notifications retry only failed destination, never repeat a successful gro
   await Promise.all([bot.processPendingStarFives(), bot.processPendingStarFives()]);
   await bot.processPendingStarFives();
   await bot.processPendingStarFives();
-  assert.equal(photos, 1); assert.equal(privateAttempts, 2);
+  assert.equal(photos, 0); assert.equal(privateAttempts, 2);
   assert.equal(store.listPendingStarFiveEvents().length, 0);
   addGame(store, 2, 'p1');
   await bot.processPendingStarFives();
-  assert.equal(photos, 1); assert.equal(privateAttempts, 2);
+  assert.equal(photos, 0); assert.equal(privateAttempts, 2);
   assert.match(bot.buildMainMiniAppLink('-1001', { initialView: 'star-five' }), /startapp=star-five/);
 });
 
-test('no private destination means only group notification; blocked bot is not retried', async (t) => {
+test('no private destination means no notification; blocked bot is not retried', async (t) => {
   const store = await fixture(t);
   addGame(store, 1, 'p7');
   addGame(store, 2, 'p1');
@@ -163,7 +163,7 @@ test('no private destination means only group notification; blocked bot is not r
   bot.sendMiniAppEntry = async () => { privates++; throw new Error('403: bot was blocked by the user'); };
   await bot.processPendingStarFives();
   await bot.processPendingStarFives();
-  assert.equal(photos, 2); assert.equal(privates, 1);
+  assert.equal(photos, 0); assert.equal(privates, 1);
   assert.equal(store.listPendingStarFiveEvents().length, 0);
 });
 
