@@ -424,19 +424,22 @@ function getQuickFormLearningRate(ratedGames) {
   const games = Math.max(0, Math.round(Number(ratedGames ?? 0)));
 
   if (games < 3) {
-    return 0.25;
+    return 0.5;
   }
 
   if (games < 10) {
-    return 0.15;
+    return 0.3;
   }
 
-  return 0.08;
+  return 0.16;
 }
 
 function getQuickFormBaseStats(entry, player) {
   if (entry.ratedGames > 0) {
-    return finalizeCareerEntry(entry).stats;
+    // Keep fractional changes between games; round only the displayed career stats.
+    return Object.fromEntries(
+      STAT_KEYS.map((key) => [key, entry.statSums[key] / entry.ratedGames])
+    );
   }
 
   return player?.selfProfile?.stats || FALLBACK_STATS;

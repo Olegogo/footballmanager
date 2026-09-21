@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildChatSnapshot,
+  buildGlobalCareerIndex,
   buildGameBoostAggregation,
   getGameEndAt,
   getLatestMvp,
@@ -420,7 +421,7 @@ test('buildChatSnapshot applies quick stat boosts and MVP votes globally', () =>
   const boostedPlayer = finishedSnapshot.players.find((player) => player.id === 'player_2');
 
   assert.equal(boostedPlayer.ratedGames, 1);
-  assert.equal(boostedPlayer.overall, 51);
+  assert.equal(boostedPlayer.overall, 53);
   assert.equal(boostedPlayer.isMvp, true);
   assert.equal(finishedSnapshot.games[0].mvp.playerId, 'player_2');
   assert.equal(finishedSnapshot.games[0].mvp.votes, 2);
@@ -636,6 +637,60 @@ test('buildChatSnapshot gradually lowers quiet participants after quick-rating q
   assert.equal(quietPlayer.ratedGames, 2);
   assert.ok(quietPlayer.overall < 72);
   assert.ok(quietPlayer.overall >= 70);
+});
+
+function quickFormHistory(ratedGames, gameCount = 1, raterCount = 3) {
+  const playerIds = ['standout', 'quiet', 'rater_1', 'rater_2'];
+  const state = {
+    players: Object.fromEntries(playerIds.map((id) => [id, {
+      id,
+      careerSeed: { ratedGames, stats: rating({ overall: 50 }), position: 'CM' }
+    }])),
+    games: {},
+    ratings: {},
+    mvpVotes: {}
+  };
+  for (let index = 0; index < gameCount; index += 1) {
+    const gameId = `game_${index}`;
+    state.games[gameId] = {
+      id: gameId,
+      scheduledAt: `2026-06-${String(index + 1).padStart(2, '0')}T16:00:00.000Z`,
+      playerIds
+    };
+    for (const raterPlayerId of playerIds.slice(1, 1 + raterCount)) {
+      state.mvpVotes[`${gameId}_${raterPlayerId}`] = {
+        gameId, raterPlayerId, targetPlayerId: 'standout'
+      };
+    }
+  }
+  return buildGlobalCareerIndex(state, new Date('2026-07-01T00:00:00.000Z'));
+}
+
+test('quick ratings use faster growth and decline at every experience boundary', () => {
+  // Three MVP votes among four players give +4.5 / -1.5 before learning rate.
+  for (const [ratedGames, standout, quiet] of [
+    [0, 52, 49], [2, 52, 49], [3, 51, 50], [9, 51, 50], [10, 51, 50]
+  ]) {
+    const career = quickFormHistory(ratedGames);
+    assert.equal(career.get('standout').overall, standout, `growth after ${ratedGames} games`);
+    assert.equal(career.get('quiet').overall, quiet, `decline after ${ratedGames} games`);
+  }
+});
+
+test('quick ratings accumulate fractional growth and decline across matches', () => {
+  const career = quickFormHistory(10, 3);
+  // +0.72 and -0.24 per match accumulate to +2.16 and -0.72.
+  assert.equal(career.get('standout').overall, 52);
+  assert.equal(career.get('quiet').overall, 49);
+  assert.equal(career.get('quiet').ratedGames, 13);
+});
+
+test('faster quick ratings still prevent decline without quorum or activity', () => {
+  assert.equal(quickFormHistory(10, 3, 2).get('quiet').overall, 50);
+  const inactive = quickFormHistory(10, 3, 0);
+  assert.equal(inactive.get('standout').overall, 50);
+  assert.equal(inactive.get('quiet').overall, 50);
+  assert.equal(inactive.get('quiet').ratedGames, 10);
 });
 
 test('buildGameBoostAggregation keeps negative achievements without rating penalty', () => {
