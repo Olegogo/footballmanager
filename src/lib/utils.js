@@ -9,6 +9,7 @@ const CONTENT_TYPES = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.ttf': 'font/ttf',
   '.svg': 'image/svg+xml'
 };
 

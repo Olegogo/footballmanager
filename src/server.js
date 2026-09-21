@@ -282,7 +282,7 @@ const server = http.createServer(async (req, res) => {
       const player = store.getPlayerById(session.playerId);
       const appUrl = buildAppUrl(req, { view: 'star-five' });
       const miniAppUrl = bot.buildMainMiniAppLink('', { initialView: 'star-five' }) || appUrl;
-      const imageUrl = buildAbsoluteUrl(req, '/api/share-images/star-five.png', { revision: five.revision });
+      const imageUrl = buildAbsoluteUrl(req, '/api/share-images/star-five.png', { revision: five.revision, style: 'field-font-v2' });
       const shareText = t(locale, 'star_five.title');
       let preparedMessageId = '';
       if (player?.telegramUserId && bot.enabled) {
@@ -378,7 +378,8 @@ const server = http.createServer(async (req, res) => {
 
     if (
       req.method === 'GET' &&
-      /^\/assets\/(?:achievements|field|icons|landing)\/[a-z0-9_.-]+\.(?:svg|png|webp)$/i.test(url.pathname)
+      (/^\/assets\/(?:achievements|field|icons|landing)\/[a-z0-9_.-]+\.(?:svg|png|webp)$/i.test(url.pathname)
+        || /^\/assets\/fonts\/[a-z0-9_.-]+\.ttf$/i.test(url.pathname))
     ) {
       serveStaticFile(res, path.join(config.webDir, url.pathname.slice(1)));
       return;

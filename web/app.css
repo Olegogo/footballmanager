@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Matchup Field";
+  src: url("/assets/fonts/DejaVuSans-Bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+}
+
 :root {
   color-scheme: dark;
   --bg: radial-gradient(circle at top, #173624 0%, #08140f 45%, #030805 100%);
@@ -2466,6 +2474,7 @@ p {
 }
 
 .field-player-photo {
+  font-family: "Matchup Field", sans-serif;
   position: relative;
   z-index: 1;
   width: clamp(26px, 8.6vw, 42px);
@@ -2511,6 +2520,7 @@ p {
 }
 
 .field-player-name {
+  font-family: "Matchup Field", sans-serif;
   position: relative;
   z-index: 1;
   width: 100%;

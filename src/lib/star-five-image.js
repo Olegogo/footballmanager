@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { Resvg } from '@resvg/resvg-js';
 import { buildStarFiveFieldAssignments, getInitials } from './lineup.js';
 
@@ -31,11 +32,19 @@ export async function renderStarFivePng(five) {
       const name = String(player.firstName || player.displayName || player.username || '').split(/\s+/)[0].slice(0, 16);
       return `<defs><clipPath id="p${index}"><circle cx="${x}" cy="${y}" r="55"/></clipPath></defs>
         <circle cx="${x}" cy="${y}" r="55" fill="#030a07" fill-opacity="0.86"/>
-        <text x="${x}" y="${y + 12}" text-anchor="middle" fill="#ffe7af" font-size="36" font-family="Trebuchet MS, Avenir Next, sans-serif" font-weight="900">${escape(getInitials(player))}</text>
+        <text x="${x}" y="${y + 12}" text-anchor="middle" fill="#ffe7af" font-size="36" font-family="DejaVu Sans" font-weight="900">${escape(getInitials(player))}</text>
         ${photos[index] ? `<image href="${photos[index]}" x="${x - 55}" y="${y - 55}" width="110" height="110" preserveAspectRatio="xMidYMid slice" clip-path="url(#p${index})"/>` : ''}
-        ${player.ratedGames > 0 ? `<circle cx="${x + 49}" cy="${y - 48}" r="27.5" fill="#fff"/><text x="${x + 49}" y="${y - 37}" text-anchor="middle" font-size="33" font-family="Trebuchet MS, Avenir Next, sans-serif" font-weight="900" fill="#1d160a">${Math.round(player.overall)}</text>` : ''}
-        <text x="${x}" y="${y + 84}" text-anchor="middle" fill="#fff7dc" fill-opacity="0.92" font-size="36" font-family="Trebuchet MS, Avenir Next, sans-serif" font-weight="900">${escape(name)}</text>`;
+        ${player.ratedGames > 0 ? `<circle cx="${x + 49}" cy="${y - 48}" r="27.5" fill="#fff"/><text x="${x + 49}" y="${y - 37}" text-anchor="middle" font-size="33" font-family="DejaVu Sans" font-weight="900" fill="#1d160a">${Math.round(player.overall)}</text>` : ''}
+        <text x="${x}" y="${y + 84}" text-anchor="middle" fill="#fff7dc" fill-opacity="0.92" font-size="36" font-family="DejaVu Sans" font-weight="900">${escape(name)}</text>`;
     }).join('')}
   </svg>`;
-  return new Resvg(svg, { font: { loadSystemFonts: true, defaultFontFamily: 'Trebuchet MS' } }).render().asPng();
+  return new Resvg(svg, {
+    font: {
+      // Use the same bundled face as the field in app.css, including on Linux.
+      loadSystemFonts: false,
+      fontFiles: [fileURLToPath(new URL('../../web/assets/fonts/DejaVuSans-Bold.ttf', import.meta.url))],
+      defaultFontFamily: 'DejaVu Sans',
+      sansSerifFamily: 'DejaVu Sans'
+    }
+  }).render().asPng();
 }
