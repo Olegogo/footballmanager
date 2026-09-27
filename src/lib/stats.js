@@ -37,6 +37,9 @@ const QUICK_RATING_GENERAL_MIN = -8;
 const QUICK_RATING_GENERAL_MAX = 10;
 const QUICK_RATING_STAT_FOCUS_SCALE = 4;
 const QUICK_RATING_STAT_FOCUS_CAP = 6;
+const RATER_WEIGHT_MIN = 0.85;
+const RATER_WEIGHT_MAX = 1.15;
+const RATER_WEIGHT_PER_RATING_POINT = 0.00375;
 
 const FALLBACK_STATS = {
   pace: 50,
@@ -63,7 +66,7 @@ const DATE_LABEL_MONTHS = [
 const DATE_LABEL_REGEX = new RegExp(`(\\d{1,2})\\s+(${DATE_LABEL_MONTHS.join('|')})`, 'i');
 
 function compareByDate(left, right) {
-  return new Date(left.scheduledAt) - new Date(right.scheduledAt);
+  return new Date(left.scheduledAt) - new Date(right.scheduledAt) || String(left.id).localeCompare(String(right.id));
 }
 
 function getTimeOrNull(value) {
@@ -204,6 +207,7 @@ function pickDominantPosition(positionCounts) {
 function createEmptySummary() {
   return {
     count: 0,
+    weightTotal: 0,
     goalsTotal: 0,
     assistsTotal: 0,
     yellowCardsMax: 0,
@@ -224,6 +228,9 @@ function createEmptyBoostSummary() {
   return {
     totalPoints: 0,
     mvpVotes: 0,
+    ratingPoints: 0,
+    ratingMvpVotes: 0,
+    ratingStatPoints: Object.fromEntries(STAT_KEYS.map((key) => [key, 0])),
     achievementScore: 0,
     ratingAchievementScore: 0,
     achievementCounts: {},
@@ -307,7 +314,7 @@ function finalizeSummary(summary) {
   }
 
   const stats = Object.fromEntries(
-    STAT_KEYS.map((key) => [key, round(summary.sums[key] / summary.count)])
+    STAT_KEYS.map((key) => [key, round(summary.sums[key] / summary.weightTotal)])
   );
   const overall = round(
     STAT_KEYS.reduce((sum, key) => sum + stats[key], 0) / STAT_KEYS.length
@@ -382,8 +389,8 @@ function getPositiveAchievementScore(boostSummary) {
 
 function getQuickRatingSignal(boostSummary) {
   return (
-    Math.max(0, Number(boostSummary?.totalPoints ?? 0)) +
-    Math.max(0, Number(boostSummary?.mvpVotes ?? 0)) * QUICK_RATING_MVP_WEIGHT +
+    Math.max(0, Number(boostSummary?.ratingPoints ?? boostSummary?.totalPoints ?? 0)) +
+    Math.max(0, Number(boostSummary?.ratingMvpVotes ?? boostSummary?.mvpVotes ?? 0)) * QUICK_RATING_MVP_WEIGHT +
     getPositiveAchievementScore(boostSummary)
   );
 }
@@ -409,7 +416,7 @@ function applyBoostsToStats(baseStats, boostSummary) {
       key,
       Math.max(1, Math.min(99, Math.round(
         Number(baseStats?.[key] ?? FALLBACK_STATS[key]) +
-        Number(boostSummary?.statPoints?.[key] ?? 0) +
+        Number(boostSummary?.ratingStatPoints?.[key] ?? boostSummary?.statPoints?.[key] ?? 0) +
         signalScore
       )))
     ])
@@ -485,7 +492,7 @@ function buildQuickFormStats(entry, boostSummary, quickContext, player) {
 
   return Object.fromEntries(
     STAT_KEYS.map((key) => {
-      const statPoints = Math.max(0, Number(boostSummary?.statPoints?.[key] ?? 0));
+      const statPoints = Math.max(0, Number(boostSummary?.ratingStatPoints?.[key] ?? boostSummary?.statPoints?.[key] ?? 0));
       const statFocus = Math.min(
         QUICK_RATING_STAT_FOCUS_CAP,
         (statPoints / raterCount) * QUICK_RATING_STAT_FOCUS_SCALE
@@ -577,7 +584,7 @@ function applyBoostsToCareerEntry(entry, boostSummary, player, fullGameStatsAppl
     const achievementScore = getPositiveAchievementScore(boostSummary);
 
     for (const key of STAT_KEYS) {
-      entry.statSums[key] += Number(boostSummary.statPoints[key] ?? 0) + achievementScore;
+      entry.statSums[key] += Number(boostSummary.ratingStatPoints?.[key] ?? boostSummary.statPoints[key] ?? 0) + achievementScore;
     }
     return;
   }
@@ -643,14 +650,14 @@ function getGamesForChatIds(state, chatIds) {
     .sort(compareByDate);
 }
 
-export function buildGameAggregation(state, gameId) {
+function aggregateGameRatings(state, gameId, raterWeights) {
   const game = state.games[gameId];
 
   if (!game) {
     return null;
   }
 
-  const ratings = Object.values(state.ratings).filter((rating) => rating.gameId === gameId);
+  const ratings = Object.values(state.ratings ?? {}).filter((rating) => rating.gameId === gameId);
   const byPlayer = new Map();
 
   for (const playerId of game.playerIds) {
@@ -663,7 +670,9 @@ export function buildGameAggregation(state, gameId) {
     }
 
     const summary = byPlayer.get(rating.targetPlayerId);
+    const weight = raterWeights.get(rating.raterPlayerId) ?? 1;
     summary.count += 1;
+    summary.weightTotal += weight;
     summary.positionCounts[rating.position] = (summary.positionCounts[rating.position] ?? 0) + 1;
 
     if (rating.position !== 'GK') {
@@ -675,7 +684,7 @@ export function buildGameAggregation(state, gameId) {
     summary.redCardsMax = Math.max(summary.redCardsMax, Math.min(MAX_RED_CARDS, Math.max(0, Math.round(Number(rating.redCards ?? 0)))));
 
     for (const key of STAT_KEYS) {
-      summary.sums[key] += rating[key];
+      summary.sums[key] += rating[key] * weight;
     }
   }
 
@@ -689,7 +698,7 @@ export function buildGameAggregation(state, gameId) {
   };
 }
 
-export function buildGameBoostAggregation(state, gameId) {
+function aggregateGameBoosts(state, gameId, raterWeights) {
   const game = state.games[gameId];
 
   if (!game) {
@@ -716,8 +725,11 @@ export function buildGameBoostAggregation(state, gameId) {
 
     const summary = byPlayer.get(boost.targetPlayerId);
     const points = Math.max(0, Math.round(Number(boost.points ?? 0)));
+    const weight = raterWeights.get(boost.raterPlayerId) ?? 1;
     summary.statPoints[boost.statKey] += points;
     summary.totalPoints += points;
+    summary.ratingStatPoints[boost.statKey] += points * weight;
+    summary.ratingPoints += points * weight;
 
     if (boost.raterPlayerId) {
       summary.raterIds.add(boost.raterPlayerId);
@@ -736,6 +748,7 @@ export function buildGameBoostAggregation(state, gameId) {
 
     const summary = byPlayer.get(vote.targetPlayerId);
     summary.mvpVotes += 1;
+    summary.ratingMvpVotes += raterWeights.get(vote.raterPlayerId) ?? 1;
 
     if (vote.raterPlayerId) {
       summary.raterIds.add(vote.raterPlayerId);
@@ -759,7 +772,7 @@ export function buildGameBoostAggregation(state, gameId) {
     const summary = byPlayer.get(vote.targetPlayerId);
     const ratingWeight = Number(achievement.ratingWeight ?? 0);
     summary.achievementScore += ratingWeight;
-    summary.ratingAchievementScore += Math.max(0, ratingWeight);
+    summary.ratingAchievementScore += Math.max(0, ratingWeight) * (raterWeights.get(vote.raterPlayerId) ?? 1);
     summary.achievementCounts[achievementKey] = (summary.achievementCounts[achievementKey] ?? 0) + 1;
 
     if (vote.raterPlayerId) {
@@ -768,6 +781,10 @@ export function buildGameBoostAggregation(state, gameId) {
     }
   }
 
+  const raterCount = gameRaterIds.size;
+  const raterWeightSum = [...gameRaterIds].reduce((sum, id) => sum + (raterWeights.get(id) ?? 1), 0);
+  // Normalize before applying caps: equally weighted groups keep the same scale.
+  const weightNormalization = raterWeightSum > 0 ? raterCount / raterWeightSum : 1;
   const players = Object.fromEntries(
     [...byPlayer.entries()].map(([playerId, summary]) => [
       playerId,
@@ -777,8 +794,11 @@ export function buildGameBoostAggregation(state, gameId) {
         hasQuickRating: summary.totalPoints > 0 || summary.mvpVotes > 0 || Object.keys(summary.achievementCounts).length > 0,
         totalPoints: summary.totalPoints,
         mvpVotes: summary.mvpVotes,
+        ratingPoints: summary.ratingPoints * weightNormalization,
+        ratingMvpVotes: summary.ratingMvpVotes * weightNormalization,
+        ratingStatPoints: Object.fromEntries(STAT_KEYS.map((key) => [key, summary.ratingStatPoints[key] * weightNormalization])),
         achievementScore: summary.achievementScore,
-        ratingAchievementScore: summary.ratingAchievementScore,
+        ratingAchievementScore: summary.ratingAchievementScore * weightNormalization,
         achievementCounts: { ...summary.achievementCounts },
         statPoints: { ...summary.statPoints },
         ratingsCount: summary.raterIds.size
@@ -786,7 +806,6 @@ export function buildGameBoostAggregation(state, gameId) {
     ])
   );
   const participantCount = Math.max(1, game.playerIds.length);
-  const raterCount = gameRaterIds.size;
   const quorum = getQuickRatingQuorum(participantCount);
   const totalRatingSignal = Object.values(players).reduce(
     (sum, playerSummary) => sum + getQuickRatingSignal(playerSummary),
@@ -804,6 +823,92 @@ export function buildGameBoostAggregation(state, gameId) {
     averageRatingSignal: totalRatingSignal / participantCount,
     players
   };
+}
+
+function getRaterWeight(entry) {
+  if (!entry?.ratedGames) {
+    return 1;
+  }
+
+  const overall = STAT_KEYS.reduce((sum, key) => sum + entry.statSums[key], 0) / (STAT_KEYS.length * entry.ratedGames);
+  return clampNumber(1 + (overall - 50) * RATER_WEIGHT_PER_RATING_POINT, RATER_WEIGHT_MIN, RATER_WEIGHT_MAX);
+}
+
+function applyAggregatedGameToCareer(state, game, career, aggregation, boostAggregation) {
+  for (const playerId of game.playerIds) {
+    const gameStats = aggregation?.players[playerId];
+    const entry = ensureCareerEntry(career, playerId);
+    applyGameToCareerEntry(entry, gameStats);
+
+    if (gameStats?.hasRatings) {
+      applyBoostsToCareerEntry(entry, boostAggregation?.players[playerId], state.players?.[playerId], true);
+    } else {
+      applyQuickFormToCareerEntry(entry, boostAggregation?.players[playerId], boostAggregation, state.players?.[playerId]);
+    }
+  }
+}
+
+function buildRatingHistory(state, now = new Date()) {
+  const career = new Map();
+  const history = new Map();
+  const ratedAuthorIds = new Set();
+  const games = Object.values(state.games).sort(compareByDate);
+
+  for (const player of Object.values(state.players ?? {})) {
+    const entry = createEmptyCareerEntry();
+    applyCareerSeedToEntry(entry, player.careerSeed);
+    career.set(player.id, entry);
+    if (entry.ratedGames > 0) {
+      ratedAuthorIds.add(player.id);
+    }
+  }
+
+  for (let start = 0; start < games.length;) {
+    let end = start + 1;
+    while (end < games.length && new Date(games[end].scheduledAt).getTime() === new Date(games[start].scheduledAt).getTime()) {
+      end += 1;
+    }
+
+    // Freeze every author's weight before applying any game at this timestamp.
+    for (let index = start; index < end; index += 1) {
+      const game = games[index];
+      const weights = new Map(game.playerIds.map((id) => [
+        id,
+        ratedAuthorIds.has(id) ? getRaterWeight(career.get(id)) : 1
+      ]));
+      history.set(game.id, {
+        aggregation: aggregateGameRatings(state, game.id, weights),
+        boostAggregation: aggregateGameBoosts(state, game.id, weights)
+      });
+    }
+
+    for (let index = start; index < end; index += 1) {
+      const game = games[index];
+      if (isFinalizedForCareer(state, game, now)) {
+        const { aggregation, boostAggregation } = history.get(game.id);
+        applyAggregatedGameToCareer(state, game, career, aggregation, boostAggregation);
+        // Participation alone can increment ratedGames using selfProfile as a base.
+        // Only an actual received assessment may establish the author's weight.
+        for (const id of game.playerIds) {
+          const boost = boostAggregation?.players[id];
+          if (aggregation?.players[id]?.hasRatings || getQuickRatingSignal(boost) > 0) {
+            ratedAuthorIds.add(id);
+          }
+        }
+      }
+    }
+    start = end;
+  }
+
+  return history;
+}
+
+export function buildGameAggregation(state, gameId, now = new Date()) {
+  return buildRatingHistory(state, now).get(gameId)?.aggregation ?? null;
+}
+
+export function buildGameBoostAggregation(state, gameId, now = new Date()) {
+  return buildRatingHistory(state, now).get(gameId)?.boostAggregation ?? null;
 }
 
 function combineGameStatsWithBoosts(gameStats, boostSummary, playerCard = null) {
@@ -858,9 +963,8 @@ function getGameStatsWithBoosts(state, gameId, playerId, playerCard = null, aggr
   );
 }
 
-function buildCareerIndexForPlayersAndGames(state, players, games, now = new Date()) {
+function buildCareerIndexForPlayersAndGames(state, players, games, now = new Date(), ratingHistory = buildRatingHistory(state, now)) {
   const career = new Map();
-  const playersById = new Map(players.map((player) => [player.id, player]));
 
   for (const player of players) {
     const entry = createEmptyCareerEntry();
@@ -868,27 +972,9 @@ function buildCareerIndexForPlayersAndGames(state, players, games, now = new Dat
     career.set(player.id, entry);
   }
 
-  for (const game of games.filter((item) => isFinalizedForCareer(state, item, now))) {
-    const aggregation = buildGameAggregation(state, game.id);
-    const boostAggregation = buildGameBoostAggregation(state, game.id);
-
-    for (const playerId of game.playerIds) {
-      const gameStats = aggregation?.players[playerId];
-      const entry = ensureCareerEntry(career, playerId);
-      applyGameToCareerEntry(entry, gameStats);
-
-      if (gameStats?.hasRatings) {
-        applyBoostsToCareerEntry(entry, boostAggregation?.players[playerId], playersById.get(playerId), true);
-        continue;
-      }
-
-      applyQuickFormToCareerEntry(
-        entry,
-        boostAggregation?.players[playerId],
-        boostAggregation,
-        playersById.get(playerId)
-      );
-    }
+  for (const game of games.filter((item) => isFinalizedForCareer(state, item, now)).sort(compareByDate)) {
+    const { aggregation, boostAggregation } = ratingHistory.get(game.id);
+    applyAggregatedGameToCareer(state, game, career, aggregation, boostAggregation);
   }
 
   return new Map(
@@ -905,16 +991,17 @@ export function buildCareerIndex(state, chatId, now = new Date()) {
   );
 }
 
-export function buildGlobalCareerIndex(state, now = new Date()) {
+export function buildGlobalCareerIndex(state, now = new Date(), ratingHistory = buildRatingHistory(state, now)) {
   return buildCareerIndexForPlayersAndGames(
     state,
     Object.values(state.players),
     Object.values(state.games).sort(compareByDate),
-    now
+    now,
+    ratingHistory
   );
 }
 
-export function buildGameMvpIndexForGames(state, games, now = new Date()) {
+export function buildGameMvpIndexForGames(state, games, now = new Date(), ratingHistory = buildRatingHistory(state, now)) {
   const career = new Map();
   const mvpIndex = new Map();
 
@@ -927,13 +1014,12 @@ export function buildGameMvpIndexForGames(state, games, now = new Date()) {
     }
   }
 
-  for (const game of games.sort(compareByDate)) {
+  for (const game of [...games].sort(compareByDate)) {
     if (!isFinalizedForCareer(state, game, now)) {
       continue;
     }
 
-    const aggregation = buildGameAggregation(state, game.id);
-    const boostAggregation = buildGameBoostAggregation(state, game.id);
+    const { aggregation, boostAggregation } = ratingHistory.get(game.id);
     const voteWinner = getGameMvpVoteWinner(state, game);
 
     if (voteWinner) {
@@ -1022,18 +1108,7 @@ export function buildGameMvpIndexForGames(state, games, now = new Date()) {
       });
     }
 
-    for (const playerId of game.playerIds) {
-      const gameStats = aggregation?.players[playerId];
-      const entry = ensureCareerEntry(career, playerId);
-      applyGameToCareerEntry(entry, gameStats);
-
-      if (gameStats?.hasRatings) {
-        applyBoostsToCareerEntry(entry, boostAggregation?.players[playerId], state.players[playerId], true);
-        continue;
-      }
-
-      applyQuickFormToCareerEntry(entry, boostAggregation?.players[playerId], boostAggregation, state.players[playerId]);
-    }
+    applyAggregatedGameToCareer(state, game, career, aggregation, boostAggregation);
   }
 
   return mvpIndex;
@@ -1130,12 +1205,12 @@ function hasPlayerRatingActivity(state, game, playerId) {
   );
 }
 
-function buildPlayerAchievementIndex(state, games, career, now = new Date()) {
+function buildPlayerAchievementIndex(state, games, career, now, ratingHistory) {
   const achievementIndex = {};
   const finalizedGames = games
     .filter((game) => isFinalizedForCareer(state, game, now))
     .sort(compareByDate);
-  const mvpIndex = buildGameMvpIndexForGames(state, finalizedGames, now);
+  const mvpIndex = buildGameMvpIndexForGames(state, finalizedGames, now, ratingHistory);
   const gamesByPlayerId = {};
   const locationsByPlayerId = {};
   const consecutiveByPlayerId = {};
@@ -1245,7 +1320,7 @@ function buildPlayerAchievementIndex(state, games, career, now = new Date()) {
   return achievementIndex;
 }
 
-function buildLatestRatingDeltaIndex(state, games, now = new Date()) {
+function buildLatestRatingDeltaIndex(state, games, now, ratingHistory) {
   const career = new Map();
   const playersById = new Map(Object.values(state.players ?? {}).map((player) => [player.id, player]));
   const latestDeltaByPlayerId = {};
@@ -1257,8 +1332,7 @@ function buildLatestRatingDeltaIndex(state, games, now = new Date()) {
   }
 
   for (const game of games.filter((item) => isFinalizedForCareer(state, item, now)).sort(compareByDate)) {
-    const aggregation = buildGameAggregation(state, game.id);
-    const boostAggregation = buildGameBoostAggregation(state, game.id);
+    const { aggregation, boostAggregation } = ratingHistory.get(game.id);
 
     for (const playerId of game.playerIds) {
       const entry = ensureCareerEntry(career, playerId);
@@ -1284,8 +1358,8 @@ function buildLatestRatingDeltaIndex(state, games, now = new Date()) {
   return latestDeltaByPlayerId;
 }
 
-function getLatestMvpForGames(state, games, now = new Date()) {
-  const mvpIndex = buildGameMvpIndexForGames(state, games, now);
+function getLatestMvpForGames(state, games, now = new Date(), ratingHistory = buildRatingHistory(state, now)) {
+  const mvpIndex = buildGameMvpIndexForGames(state, games, now, ratingHistory);
 
   for (const game of [...games].sort(compareByDate).reverse()) {
     const mvp = mvpIndex.get(game.id);
@@ -1412,14 +1486,13 @@ function buildGameRosterAverageOverall(game, playersById) {
   );
 }
 
-function buildGamesView(state, games, playerCards, now, viewerPlayerId = '') {
-  const mvpIndex = buildGameMvpIndexForGames(state, games, now);
+function buildGamesView(state, games, playerCards, now, viewerPlayerId, ratingHistory) {
+  const mvpIndex = buildGameMvpIndexForGames(state, games, now, ratingHistory);
   const playersById = new Map(playerCards.map((player) => [player.id, player]));
 
   return games
     .map((game) => {
-      const aggregation = buildGameAggregation(state, game.id);
-      const boostAggregation = buildGameBoostAggregation(state, game.id);
+      const { aggregation, boostAggregation } = ratingHistory.get(game.id);
       const mvp = mvpIndex.get(game.id);
       const mvpPlayer = mvp ? playersById.get(mvp.playerId) : null;
       const mvpAchievementCounts = mvp
@@ -1602,10 +1675,11 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     };
   }
 
-  const globalCareer = buildGlobalCareerIndex(state, now);
-  const latestMvp = getLatestMvpForGames(state, allGames, now);
-  const achievementIndex = buildPlayerAchievementIndex(state, allGames, globalCareer, now);
-  const ratingDeltaIndex = buildLatestRatingDeltaIndex(state, allGames, now);
+  const ratingHistory = buildRatingHistory(state, now);
+  const globalCareer = buildGlobalCareerIndex(state, now, ratingHistory);
+  const latestMvp = getLatestMvpForGames(state, allGames, now, ratingHistory);
+  const achievementIndex = buildPlayerAchievementIndex(state, allGames, globalCareer, now, ratingHistory);
+  const ratingDeltaIndex = buildLatestRatingDeltaIndex(state, allGames, now, ratingHistory);
   const buildPlayerCard = (player, playerCareer, isMvp = false) => {
     const careerEntry = playerCareer ?? {
       games: 0,
@@ -1675,8 +1749,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
 
   const currentGame = pickCurrentGame(allGames, now);
   const buildGameDayView = (game) => {
-    const aggregation = buildGameAggregation(state, game.id);
-    const boostAggregation = buildGameBoostAggregation(state, game.id);
+    const { aggregation, boostAggregation } = ratingHistory.get(game.id);
     const status = getGameStatus(game, now);
     const hasStarted = now >= new Date(game.scheduledAt);
     const priorCareer = buildCareerIndexForPlayersAndGames(
@@ -1686,7 +1759,8 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
         candidate.id !== game.id &&
         new Date(candidate.scheduledAt) < new Date(game.scheduledAt)
       ),
-      now
+      now,
+      ratingHistory
     );
     const viewerIsParticipant = viewerPlayerId ? game.playerIds.includes(viewerPlayerId) : false;
     const ratingWindowOpen = isRatingWindowOpen(state, game, now);
@@ -1891,7 +1965,7 @@ export function buildChatSnapshot(state, chatId, viewerPlayerId = null, now = ne
     viewerCanCreateGames: Boolean(viewerPlayer),
     currentGame: currentGameView,
     gameDays,
-    games: buildGamesView(state, allGames, playerCards, now, viewerPlayerId),
+    games: buildGamesView(state, allGames, playerCards, now, viewerPlayerId, ratingHistory),
     players: playerCards,
     availablePlayers
   };
