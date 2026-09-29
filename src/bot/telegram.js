@@ -1461,7 +1461,7 @@ export class TelegramBot {
     if (command === '/open') {
       await this.sendMiniAppEntry(chatId, message.chat.type, '', {
         primaryText: BUTTON_ONLY_TEXT,
-        buttonText: this.t(locale, 'common.buttons.open_football'),
+        buttonText: this.t(locale, 'common.buttons.open_app'),
         locale,
         buttonOnly: true
       });

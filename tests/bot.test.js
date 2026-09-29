@@ -553,7 +553,7 @@ test('/open sends only button text with custom label when keyboard works', async
 
   assert.equal(sent.length, 1);
   assert.equal(sent[0].text, '\u2060');
-  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть футбольчик');
+  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].text, 'Открыть приложение');
   assert.equal(
     sent[0].options.replyMarkup.inline_keyboard[0][0].url,
     'https://t.me/football_test_bot?startapp=app'
