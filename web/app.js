@@ -2110,12 +2110,8 @@ function renderQuickAchievementPicker(game, draft) {
 }
 
 function renderQuickAchievementFields(game, draft) {
-  const selectedAchievements = normalizeQuickAchievements(draft.achievements);
-  const extraAchievementKeys = selectedAchievements
-    .map((achievement) => achievement.achievementKey)
-    .filter((key) => key !== 'goleador');
-  const showGoleador = Boolean(draft.mvpPlayerId || getQuickAchievementTarget(draft, 'goleador') || extraAchievementKeys.length);
-  const showExtra = Boolean(showGoleador && getQuickAchievementTarget(draft, 'goleador'));
+  const achievementKeys = normalizeQuickAchievements(draft.achievements)
+    .map((achievement) => achievement.achievementKey);
 
   return `
     <section class="panel quick-rating-panel quick-rating-panel--simple ${draft.achievementPickerOpen ? 'is-picker-open' : ''}">
@@ -2130,20 +2126,13 @@ function renderQuickAchievementFields(game, draft) {
             `data-quick-mvp-select data-game-id="${escapeHtml(game.id)}"`
           )
         })}
-        ${showGoleador ? renderQuickAchievementField(game, draft, 'goleador') : ''}
-        ${
-          showExtra
-            ? `
-              ${extraAchievementKeys.map((key) => renderQuickAchievementField(game, draft, key)).join('')}
-              <div class="quick-add-achievement-wrap ${draft.achievementPickerOpen ? 'is-open' : ''}">
-                <button type="button" class="quick-add-achievement" data-toggle-quick-achievements="${escapeHtml(game.id)}">
-                  ${escapeHtml(t('common.buttons.add'))}
-                </button>
-                ${renderQuickAchievementPicker(game, draft)}
-              </div>
-            `
-          : ''
-        }
+        ${achievementKeys.map((key) => renderQuickAchievementField(game, draft, key)).join('')}
+        <div class="quick-add-achievement-wrap ${draft.achievementPickerOpen ? 'is-open' : ''}">
+          <button type="button" class="quick-add-achievement" data-toggle-quick-achievements="${escapeHtml(game.id)}">
+            ${escapeHtml(t('common.buttons.add'))}
+          </button>
+          ${renderQuickAchievementPicker(game, draft)}
+        </div>
       </div>
     </section>
   `;
@@ -2379,7 +2368,7 @@ function renderQuickPlayerStatControl(player, game, draft, key, label) {
       : null;
 
   return `
-    <div class="quick-card-stat ${points ? 'is-active' : ''}">
+    <div class="profile-stat-stepper quick-card-stat ${points ? 'is-active' : ''}">
       <button
         type="button"
         data-quick-boost-remove="${escapeHtml(player.id)}"
