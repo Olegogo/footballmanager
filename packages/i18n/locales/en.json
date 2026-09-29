@@ -100,6 +100,8 @@
     "apple": "Apple Maps"
   },
   "onboarding": {
+    "announcement_example_button": "Example announcement",
+    "announcement_example": "📝 <b>Example announcement</b>\n\nCopy the template, replace the date, time, place and @usernames with your own, and send it to the chat. Include at least 5 players, each on a separate line.\n\n<pre>15 October, 19:30\nRiverside Park, pitch 2\n\n1. @player_one\n2. @player_two\n3. @player_three\n4. @player_four\n5. @player_five</pre>\n\nI’ll prepare the game and ask you to confirm the details. If I don’t respond, reply to your announcement with /game.",
     "commands_button": "Commands",
     "about_button": "About",
     "support_button": "Support",
@@ -648,7 +650,7 @@
     "invalid_locale": "Choose Russian or English"
   },
   "bot": {
-    "chat_connected": "⚽ I’m connected to this chat and ready to help with games.\n\nHow to create a game:\n• send an announcement with a date, time, place and tagged @players — I’ll recognize it and ask for confirmation;\n• reply to an existing announcement with /game;\n• or open the app with /open and create a game manually.\n\nWhen the match starts, I’ll remind participants to rate the players. Games, player cards and ratings stay available in one app even when the bot is used in several chats.\n\nDisable Privacy Mode in BotFather so I can see regular announcement messages. If recognition fails, reply to the announcement with /game.",
+    "chat_connected": "⚽ Hi! I’m Matchup — I’ll help organize games and collect player ratings.\n\n<b>Ready to create your first game?</b>\nSend an announcement with a date, time, place and a list of @players — I’ll prepare the game and ask you to confirm the details.\n\nAlready posted an announcement, or did I miss it? Reply to it with /game.\n\nYou can also create a game manually via /open.\n\n🏆 Game history, player cards and ratings — all in one app.",
     "chat_id": "This chat ID: {{chatId}}\nUse it in DEFAULT_CHAT_ID and in the history import script.",
     "config_missing": "Set PUBLIC_BASE_URL first so ⚽ can open from Telegram.",
     "decline_missing_player": "Couldn’t find your player card",

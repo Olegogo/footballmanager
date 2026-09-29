@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { TelegramBot } from '../src/bot/telegram.js';
+import { parseAnnouncementText } from '../src/lib/parser.js';
 
 const RATING_PROMPT_TEXT = [
   '⚽ <b>Игра стартовала</b>',
@@ -622,6 +623,141 @@ test('/start sends onboarding copy with app button', async () => {
   assert.equal(sent[2].options.replyMarkup.inline_keyboard[2][0].callback_data, 'show_commands');
   assert.equal(sent[2].options.replyMarkup.inline_keyboard[3][0].text, 'Поддержка');
   assert.equal(sent[2].options.replyMarkup.inline_keyboard[3][0].url, 'https://t.me/olejooo');
+});
+
+for (const locale of ['ru', 'en']) {
+  for (const status of ['member', 'administrator']) {
+    test(`joining a chat as ${status} sends the ${locale} welcome with both buttons and chat context`, async () => {
+      const { store } = createBotStore([]);
+      const chat = { id: -1001, type: 'supergroup', title: 'Football' };
+      const ensured = [];
+      const sent = [];
+      store.ensureChat = async (value) => ensured.push(value);
+      store.getChatLocale = (chatId) => {
+        assert.equal(chatId, chat.id);
+        return locale;
+      };
+      const bot = new TelegramBot({
+        telegramBotToken: 'token',
+        telegramBotUsername: 'football_test_bot',
+        publicBaseUrl: 'https://app.example'
+      }, store);
+      bot.sendText = async (chatId, text, options = {}) => {
+        sent.push({ chatId, text, options });
+        return { message_id: 100 };
+      };
+
+      await bot.handleChatMember({
+        chat,
+        from: { id: 123, language_code: locale === 'ru' ? 'en' : 'ru' },
+        old_chat_member: { status: 'left' },
+        new_chat_member: { status }
+      });
+
+      assert.deepEqual(ensured, [{ ...chat, username: '' }]);
+      assert.equal(sent.length, 1);
+      assert.equal(sent[0].chatId, chat.id);
+      assert.equal(sent[0].options.parseMode, 'HTML');
+      assert.match(sent[0].text, locale === 'ru' ? /Привет/ : /Hi|Hello/);
+      assert.match(sent[0].text, /\/game/);
+      assert.match(sent[0].text, /\/open/);
+      assert.doesNotMatch(sent[0].text, /BotFather|Privacy Mode/);
+      const buttons = sent[0].options.replyMarkup.inline_keyboard.flat();
+      assert.equal(buttons.length, 2);
+      assert.deepEqual(buttons[0], {
+        text: locale === 'ru' ? 'Открыть приложение' : 'Open app',
+        url: 'https://t.me/football_test_bot?startapp=chat_-1001'
+      });
+      assert.deepEqual(buttons[1], {
+        text: bot.t(locale, 'onboarding.announcement_example_button'),
+        callback_data: 'show_announcement_example'
+      });
+      assert.notEqual(buttons[1].text, 'onboarding.announcement_example_button');
+    });
+  }
+
+  test(`announcement example uses the ${locale} chat locale and contains a parseable template without creating a game`, async () => {
+    const { store } = createBotStore([]);
+    const chat = { id: -1001, type: 'supergroup' };
+    const actions = [];
+    const userLocale = locale === 'ru' ? 'en' : 'ru';
+    store.getChatLocale = (chatId) => {
+      assert.equal(chatId, chat.id);
+      return locale;
+    };
+    store.getPlayerByTelegramUserId = () => ({ id: 'player_123', locale: userLocale });
+    store.saveAnnouncementDraft = async () => assert.fail('Showing an example must not create a draft');
+    store.recordGameFromAnnouncement = async () => assert.fail('Showing an example must not create a game');
+    const bot = new TelegramBot({ telegramBotToken: 'token' }, store);
+    bot.answerCallbackQuery = async (id) => actions.push({ type: 'answer', id });
+    bot.sendText = async (chatId, text, options = {}) => {
+      actions.push({ type: 'message', chatId, text, options });
+      return { message_id: 101 };
+    };
+
+    await bot.handleCallbackQuery({
+      id: 'example_callback',
+      data: 'show_announcement_example',
+      from: { id: 123, language_code: userLocale },
+      message: { chat, message_id: 100 }
+    });
+
+    assert.equal(actions.length, 2);
+    assert.deepEqual(actions[0], { type: 'answer', id: 'example_callback' });
+    const message = actions[1];
+    assert.equal(message.type, 'message');
+    assert.equal(message.chatId, chat.id);
+    assert.equal(message.options.parseMode, 'HTML');
+    assert.match(message.text, locale === 'ru' ? /[А-Яа-яЁё]/ : /[A-Za-z]/);
+    if (locale === 'en') {
+      assert.doesNotMatch(message.text, /[А-Яа-яЁё]/);
+    }
+    const template = message.text.match(/<pre>([\s\S]+?)<\/pre>/)?.[1];
+    assert.ok(template, 'The example must include a copyable announcement block');
+    const announcement = parseAnnouncementText(template, '2026-09-29T10:00:00Z', {
+      requirePaymentBlock: false
+    });
+    assert.ok(announcement, 'Copying the example block must produce a recognizable announcement');
+    assert.match(announcement.date, /^\d{4}-\d{2}-\d{2}$/);
+    assert.match(announcement.time, /^\d{2}:\d{2}$/);
+    assert.ok(announcement.location);
+    assert.ok(announcement.playerUsernames.length >= 5);
+    assert.deepEqual(store.state.games, {});
+  });
+}
+
+test('chat welcome remains readable with a chat link when Telegram rejects both keyboards', async () => {
+  const { store } = createBotStore([]);
+  const sent = [];
+  store.ensureChat = async () => {};
+  store.getChatLocale = () => 'ru';
+  const bot = new TelegramBot({
+    telegramBotToken: 'token',
+    telegramBotUsername: 'football_test_bot',
+    publicBaseUrl: 'https://app.example'
+  }, store);
+  bot.sendText = async (chatId, text, options = {}) => {
+    sent.push({ chatId, text, options });
+    if (options.replyMarkup) {
+      throw new Error('Telegram rejected the keyboard');
+    }
+    return { message_id: 102 };
+  };
+
+  await bot.handleChatMember({
+    chat: { id: -1001, type: 'supergroup' },
+    old_chat_member: { status: 'left' },
+    new_chat_member: { status: 'member' }
+  });
+
+  assert.equal(sent.length, 3);
+  assert.equal(sent[0].options.replyMarkup.inline_keyboard.flat().length, 2);
+  assert.equal(sent[1].options.replyMarkup.inline_keyboard.flat().length, 2);
+  assert.equal(sent[2].chatId, -1001);
+  assert.equal(sent[2].options.parseMode, 'HTML');
+  assert.equal(sent[2].options.replyMarkup, undefined);
+  assert.ok(sent[2].text.startsWith(sent[0].text));
+  assert.match(sent[2].text, /https:\/\/t\.me\/football_test_bot\?startapp=chat_-1001/);
 });
 
 test('/help sends support contact', async () => {

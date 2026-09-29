@@ -1779,15 +1779,39 @@ export class TelegramBot {
         username: chat.username ?? ''
       });
       const locale = this.store.getChatLocale?.(chat.id) || 'ru';
-      await this.sendText(
-        chat.id,
-        this.t(locale, 'bot.chat_connected')
-      );
+      await this.sendMiniAppEntry(chat.id, chat.type, chat.id, {
+        primaryText: this.t(locale, 'bot.chat_connected'),
+        buttonText: this.t(locale, 'common.buttons.open_app'),
+        parseMode: 'HTML',
+        locale,
+        additionalKeyboardRows: [[{
+          text: this.t(locale, 'onboarding.announcement_example_button'),
+          callback_data: 'show_announcement_example'
+        }]]
+      });
     }
   }
 
   async handleCallbackQuery(callbackQuery) {
     const data = String(callbackQuery?.data ?? '');
+
+    if (data === 'show_announcement_example') {
+      const chat = callbackQuery.message?.chat;
+      await this.answerCallbackQuery(callbackQuery.id);
+
+      if (!chat) {
+        return;
+      }
+
+      const locale = this.getMessageLocale({
+        chat,
+        from: callbackQuery.from
+      });
+      await this.sendText(chat.id, this.t(locale, 'onboarding.announcement_example'), {
+        parseMode: 'HTML'
+      });
+      return;
+    }
 
     if (data === 'show_commands') {
       const chat = callbackQuery.message?.chat;
